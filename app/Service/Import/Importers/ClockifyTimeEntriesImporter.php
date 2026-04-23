@@ -6,7 +6,7 @@ namespace App\Service\Import\Importers;
 
 use App\Enums\Role;
 use App\Jobs\RecalculateSpentTimeForProject;
-use App\Jobs\RecalculateSpentTimeForTask;
+use App\Models\Task;
 use App\Models\TimeEntry;
 use Carbon\Exceptions\InvalidFormatException;
 use Exception;
@@ -191,7 +191,7 @@ class ClockifyTimeEntriesImporter extends DefaultImporter
                 RecalculateSpentTimeForProject::dispatch($usedProject);
             }
             foreach ($this->taskImportHelper->getCachedModels() as $usedTask) {
-                RecalculateSpentTimeForTask::dispatch($usedTask);
+                Task::dispatchRecalculateSpentTimeForTaskAndParent($usedTask);
             }
         } catch (ImportException $exception) {
             throw $exception;

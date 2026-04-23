@@ -22,7 +22,6 @@ use App\Http\Requests\V1\TimeEntry\TimeEntryUpdateRequest;
 use App\Http\Resources\V1\TimeEntry\TimeEntryCollection;
 use App\Http\Resources\V1\TimeEntry\TimeEntryResource;
 use App\Jobs\RecalculateSpentTimeForProject;
-use App\Jobs\RecalculateSpentTimeForTask;
 use App\Models\Member;
 use App\Models\Organization;
 use App\Models\Project;
@@ -611,7 +610,7 @@ class TimeEntryController extends Controller
             RecalculateSpentTimeForProject::dispatch($project);
         }
         if ($task !== null) {
-            RecalculateSpentTimeForTask::dispatch($task);
+            Task::dispatchRecalculateSpentTimeForTaskAndParent($task);
         }
 
         return new TimeEntryResource($timeEntry);
@@ -668,13 +667,13 @@ class TimeEntryController extends Controller
             RecalculateSpentTimeForProject::dispatch($oldProject);
         }
         if ($oldTask !== null) {
-            RecalculateSpentTimeForTask::dispatch($oldTask);
+            Task::dispatchRecalculateSpentTimeForTaskAndParent($oldTask);
         }
         if ($project !== null && ($oldProject === null || $project->isNot($oldProject))) {
             RecalculateSpentTimeForProject::dispatch($project);
         }
         if ($task !== null && ($oldTask === null || $task->isNot($oldTask))) {
-            RecalculateSpentTimeForTask::dispatch($task);
+            Task::dispatchRecalculateSpentTimeForTaskAndParent($task);
         }
 
         return new TimeEntryResource($timeEntry);
@@ -759,7 +758,7 @@ class TimeEntryController extends Controller
             $timeEntry->setComputedAttributeValue('billable_rate');
             $timeEntry->save();
             if ($oldTask !== null) {
-                RecalculateSpentTimeForTask::dispatch($oldTask);
+                Task::dispatchRecalculateSpentTimeForTaskAndParent($oldTask);
             }
             if ($oldProject !== null) {
                 RecalculateSpentTimeForProject::dispatch($oldProject);
@@ -768,7 +767,7 @@ class TimeEntryController extends Controller
                 RecalculateSpentTimeForProject::dispatch($project);
             }
             if ($task !== null && ($oldTask === null || $task->isNot($oldTask))) {
-                RecalculateSpentTimeForTask::dispatch($task);
+                Task::dispatchRecalculateSpentTimeForTaskAndParent($task);
             }
 
             $success->push($id);
@@ -804,7 +803,7 @@ class TimeEntryController extends Controller
             RecalculateSpentTimeForProject::dispatch($project);
         }
         if ($task !== null) {
-            RecalculateSpentTimeForTask::dispatch($task);
+            Task::dispatchRecalculateSpentTimeForTaskAndParent($task);
         }
 
         return response()
@@ -862,7 +861,7 @@ class TimeEntryController extends Controller
                 RecalculateSpentTimeForProject::dispatch($project);
             }
             if ($task !== null) {
-                RecalculateSpentTimeForTask::dispatch($task);
+                Task::dispatchRecalculateSpentTimeForTaskAndParent($task);
             }
             $success->push($id);
         }
