@@ -16,6 +16,7 @@ dist
 Homestead.json
 Homestead.yaml
 auth.json
+composer-setup.php
 npm-debug.log
 yarn-error.log
 /.fleet
