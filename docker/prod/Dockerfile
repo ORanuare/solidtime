@@ -7,6 +7,22 @@ ARG DOCKER_FILES_BASE_PATH="docker/prod/"
 
 FROM composer:${COMPOSER_VERSION} AS vendor
 
+# PHP deps for Vite only (Filament CSS/Tailwind read from vendor/). Runtime install happens in the final stage.
+FROM composer:${COMPOSER_VERSION} AS composer_vendor
+
+WORKDIR /app
+
+COPY composer.json composer.lock ./
+
+RUN composer install \
+    --no-dev \
+    --no-interaction \
+    --no-ansi \
+    --no-scripts \
+    --ignore-platform-reqs \
+    --prefer-dist \
+    && composer clear-cache
+
 FROM node:20-bookworm-slim AS frontend
 
 RUN apt-get update \
@@ -20,6 +36,8 @@ COPY package.json package-lock.json ./
 RUN npm ci
 
 COPY . .
+
+COPY --from=composer_vendor /app/vendor ./vendor
 
 ENV NODE_OPTIONS=--max-old-space-size=4096 \
     VITE_SKIP_CHECKER=1 \
