@@ -114,6 +114,7 @@ class TaskController extends Controller
             $task->estimated_time = $request->getEstimatedTime();
         }
         $task->organization()->associate($organization);
+        $task->parent_task_id = $request->input('parent_task_id');
         $task->save();
 
         return new TaskResource($task);
@@ -146,6 +147,9 @@ class TaskController extends Controller
         if ($request->has('is_done')) {
             $task->done_at = $request->getIsDone() ? Carbon::now() : null;
         }
+        if ($request->has('parent_task_id')) {
+            $task->parent_task_id = $request->input('parent_task_id');
+        }
         $task->save();
 
         return new TaskResource($task);
@@ -171,13 +175,26 @@ class TaskController extends Controller
             $this->checkScopedPermissionForProject($organization, $task->project, 'tasks:delete');
         }
 
-        if ($task->timeEntries()->exists()) {
-            throw new EntityStillInUseApiException('task', 'time_entry');
-        }
-
-        $task->delete();
+        $this->deleteTaskWithCascade($task);
 
         return response()
             ->json(null, 204);
+    }
+
+    /**
+     * Deletes a task and its sub-tasks. Each task is checked for time entries before deletion.
+     *
+     * @throws EntityStillInUseApiException
+     */
+    private function deleteTaskWithCascade(Task $task): void
+    {
+        $task->loadMissing('children');
+        foreach ($task->children as $child) {
+            $this->deleteTaskWithCascade($child);
+        }
+        if ($task->timeEntries()->exists()) {
+            throw new EntityStillInUseApiException('task', 'time_entry');
+        }
+        $task->delete();
     }
 }

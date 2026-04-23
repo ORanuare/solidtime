@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Http\Resources\V1\Task;
 
 use App\Http\Resources\V1\BaseResource;
-use App\Models\Tag;
 use App\Models\Task;
 use Illuminate\Http\Request;
 
@@ -28,6 +27,8 @@ class TaskResource extends BaseResource
             'name' => $this->resource->name,
             /** @var bool $is_done Whether the task is done */
             'is_done' => $this->resource->is_done,
+            /** @var string|null $parent_task_id ID of the parent task when this is a sub-task */
+            'parent_task_id' => $this->resource->parent_task_id,
             /** @var string $project_id ID of the project */
             'project_id' => $this->resource->project_id,
             /** @var int|null $estimated_time Estimated time in seconds */

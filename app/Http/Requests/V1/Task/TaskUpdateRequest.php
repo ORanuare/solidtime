@@ -9,6 +9,8 @@ use App\Models\Organization;
 use App\Models\Task;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Validation\Rule;
+use Korridor\LaravelModelValidationRules\Rules\ExistsEloquent;
 use Korridor\LaravelModelValidationRules\Rules\UniqueEloquent;
 
 /**
@@ -32,11 +34,38 @@ class TaskUpdateRequest extends BaseFormRequest
                 'max:255',
                 UniqueEloquent::make(Task::class, 'name', function (Builder $builder): Builder {
                     /** @var Builder<Task> $builder */
-                    return $builder->where('project_id', '=', $this->task->project_id);
+                    $builder = $builder->where('project_id', '=', $this->task->project_id);
+                    $parentId = $this->has('parent_task_id')
+                        ? $this->input('parent_task_id')
+                        : $this->task->parent_task_id;
+                    if ($parentId === null || $parentId === '') {
+                        return $builder->whereNull('parent_task_id');
+                    }
+
+                    return $builder->where('parent_task_id', '=', $parentId);
                 })->ignore($this->task?->getKey())->withCustomTranslation('validation.task_name_already_exists'),
             ],
             'is_done' => [
                 'boolean',
+            ],
+            'parent_task_id' => [
+                'sometimes',
+                'nullable',
+                'uuid',
+                Rule::prohibitedIf(fn () => $this->task->children()->exists() && filled($this->input('parent_task_id'))),
+                Rule::when(
+                    fn () => filled($this->input('parent_task_id')),
+                    [
+                        Rule::notIn([$this->task->getKey()]),
+                        ExistsEloquent::make(Task::class, null, function (Builder $builder): Builder {
+                            /** @var Builder<Task> $builder */
+                            return $builder
+                                ->whereBelongsTo($this->organization, 'organization')
+                                ->where('project_id', '=', $this->task->project_id)
+                                ->whereNull('parent_task_id');
+                        }),
+                    ]
+                ),
             ],
             // Estimated time in seconds
             'estimated_time' => [
