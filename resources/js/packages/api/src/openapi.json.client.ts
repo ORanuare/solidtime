@@ -611,7 +611,7 @@ const TaskResource = z
             .number()
             .int()
             .describe(
-                'Seconds on this task plus, for parent tasks, on direct sub-tasks (completed entries only)'
+                'Seconds on this task plus, for parent tasks, on all nested sub-tasks (completed entries only)'
             ),
         created_at: z.string(),
         updated_at: z.string(),
