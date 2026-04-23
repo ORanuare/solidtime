@@ -77,11 +77,12 @@ class DashboardService
     /**
      * @return Collection<int, string>
      */
-    private function daysOfThisWeek(CarbonTimeZone $timeZone, Weekday $startOfWeek): Collection
+    private function daysOfWeek(CarbonTimeZone $timeZone, Weekday $startOfWeek, int $weekOffset = 0): Collection
     {
         $result = new Collection;
-        $date = Carbon::now($timeZone);
-        $start = $date->startOfWeek($startOfWeek->carbonWeekDay());
+        $start = Carbon::now($timeZone)
+            ->startOfWeek($startOfWeek->carbonWeekDay())
+            ->addWeeks($weekOffset);
         for ($i = 0; $i < 7; $i++) {
             $result->push($start->format('Y-m-d'));
             $start->addDay();
@@ -120,11 +121,15 @@ class DashboardService
      * @param  Builder<TimeEntry>  $builder
      * @return Builder<TimeEntry>
      */
-    private function constrainDateByCurrentWeek(Builder $builder, CarbonTimeZone $timeZone, Weekday $startOfWeek): Builder
+    private function constrainDateByWeek(Builder $builder, CarbonTimeZone $timeZone, Weekday $startOfWeek, int $weekOffset = 0): Builder
     {
+        $weekStart = Carbon::now($timeZone)
+            ->startOfWeek($startOfWeek->carbonWeekDay())
+            ->addWeeks($weekOffset);
+
         return $builder->whereBetween('start', [
-            Carbon::now($timeZone)->startOfWeek($startOfWeek->carbonWeekDay())->utc(),
-            Carbon::now($timeZone)->endOfWeek($startOfWeek->toEndOfWeek()->carbonWeekDay())->utc(),
+            $weekStart->copy()->utc(),
+            $weekStart->copy()->endOfWeek($startOfWeek->toEndOfWeek()->carbonWeekDay())->utc(),
         ]);
     }
 
@@ -178,7 +183,7 @@ class DashboardService
      *
      * @return array<int, array{date: string, duration: int}>
      */
-    public function getWeeklyHistory(User $user, Organization $organization): array
+    public function getWeeklyHistory(User $user, Organization $organization, int $weekOffset = 0): array
     {
         $timezone = $this->timezoneService->getTimezoneFromUser($user);
         $timezoneShift = $this->timezoneService->getShiftFromUtc($timezone);
@@ -189,7 +194,7 @@ class DashboardService
         } else {
             $dateWithTimeZone = 'start';
         }
-        $possibleDays = $this->daysOfThisWeek($timezone, $user->week_start);
+        $possibleDays = $this->daysOfWeek($timezone, $user->week_start, $weekOffset);
 
         $query = TimeEntry::query()
             ->select(DB::raw('DATE('.$dateWithTimeZone.') as date, round(sum(extract(epoch from (coalesce("end", now()) - start)))) as aggregate'))
@@ -214,10 +219,10 @@ class DashboardService
         return $result;
     }
 
-    public function totalWeeklyTime(User $user, Organization $organization): int
+    public function totalWeeklyTime(User $user, Organization $organization, int $weekOffset = 0): int
     {
         $timezone = $this->timezoneService->getTimezoneFromUser($user);
-        $possibleDays = $this->daysOfThisWeek($timezone, $user->week_start);
+        $possibleDays = $this->daysOfWeek($timezone, $user->week_start, $weekOffset);
 
         $query = TimeEntry::query()
             ->select(DB::raw('round(sum(extract(epoch from (coalesce("end", now()) - start)))) as aggregate'))
@@ -231,10 +236,10 @@ class DashboardService
         return (int) $resultDb->get(0)->aggregate;
     }
 
-    public function totalWeeklyBillableTime(User $user, Organization $organization): int
+    public function totalWeeklyBillableTime(User $user, Organization $organization, int $weekOffset = 0): int
     {
         $timezone = $this->timezoneService->getTimezoneFromUser($user);
-        $possibleDays = $this->daysOfThisWeek($timezone, $user->week_start);
+        $possibleDays = $this->daysOfWeek($timezone, $user->week_start, $weekOffset);
 
         $query = TimeEntry::query()
             ->select(DB::raw('round(sum(extract(epoch from (coalesce("end", now()) - start)))) as aggregate'))
@@ -252,10 +257,10 @@ class DashboardService
     /**
      * @return array{value: int, currency: string}
      */
-    public function totalWeeklyBillableAmount(User $user, Organization $organization): array
+    public function totalWeeklyBillableAmount(User $user, Organization $organization, int $weekOffset = 0): array
     {
         $timezone = $this->timezoneService->getTimezoneFromUser($user);
-        $possibleDays = $this->daysOfThisWeek($timezone, $user->week_start);
+        $possibleDays = $this->daysOfWeek($timezone, $user->week_start, $weekOffset);
 
         $query = TimeEntry::query()
             ->select(DB::raw('
@@ -282,7 +287,7 @@ class DashboardService
     /**
      * @return array<int, array{value: int, name: string, color: string}>
      */
-    public function weeklyProjectOverview(User $user, Organization $organization): array
+    public function weeklyProjectOverview(User $user, Organization $organization, int $weekOffset = 0): array
     {
         $timezone = $this->timezoneService->getTimezoneFromUser($user);
 
@@ -292,7 +297,7 @@ class DashboardService
             ->where('organization_id', '=', $organization->getKey())
             ->groupBy('project_id');
 
-        $query = $this->constrainDateByCurrentWeek($query, $timezone, $user->week_start);
+        $query = $this->constrainDateByWeek($query, $timezone, $user->week_start, $weekOffset);
         /** @var Collection<int, object{project_id: string, aggregate: int}> $entries */
         $entries = $query->get();
 

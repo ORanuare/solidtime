@@ -10,6 +10,7 @@ import { formatCents } from '@/packages/ui/src/utils/money';
 import { getOrganizationCurrencyString } from '@/utils/money';
 import { type GroupingOption, useReportingStore } from '@/utils/useReporting';
 import { getCurrentMembershipId, getCurrentOrganizationId, getCurrentRole } from '@/utils/useUser';
+import { useDashboardWeekOffset } from '@/utils/useDashboardWeekOffset';
 import {
     api,
     type AggregatedTimeEntries,
@@ -43,16 +44,25 @@ watch(
 
 const organizationId = computed(() => getCurrentOrganizationId());
 
+const { weekOffset } = useDashboardWeekOffset();
+
 const weekStartUtc = computed(() => {
     return getLocalizedDayJs(getDayJsInstance()().format())
         .startOf('week')
+        .add(weekOffset.value, 'week')
         .startOf('day')
         .utc()
         .format();
 });
 
 const weekEndUtc = computed(() => {
-    return getLocalizedDayJs(getDayJsInstance()().format()).endOf('day').utc().format();
+    return getLocalizedDayJs(getDayJsInstance()().format())
+        .startOf('week')
+        .add(weekOffset.value, 'week')
+        .endOf('week')
+        .endOf('day')
+        .utc()
+        .format();
 });
 
 const queryParams = computed<AggregatedTimeEntriesQueryParams>(() => {
@@ -69,6 +79,7 @@ const { data: reportingResponse, isLoading } = useQuery({
     queryKey: [
         'dashboardThisWeekReporting',
         organizationId,
+        weekOffset,
         weekStartUtc,
         weekEndUtc,
         group,
@@ -204,7 +215,13 @@ const showBillableRate = computed(() => {
                 class="chart flex flex-col items-center justify-center py-12"
                 :class="showBillableRate ? 'col-span-3' : 'col-span-2'">
                 <p class="text-lg text-text-primary font-medium">No time entries found</p>
-                <p>Try to track some time entries this week</p>
+                <p>
+                    {{
+                        weekOffset === 0
+                            ? 'Try to track some time entries this week'
+                            : 'No time was tracked in this week.'
+                    }}
+                </p>
             </div>
         </div>
     </div>

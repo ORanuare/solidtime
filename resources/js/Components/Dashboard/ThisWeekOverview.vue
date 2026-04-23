@@ -16,14 +16,17 @@ import CardTitle from '@/packages/ui/src/CardTitle.vue';
 import LinearGradient from 'zrender/lib/graphic/LinearGradient';
 import ProjectsChartCard from '@/Components/Dashboard/ProjectsChartCard.vue';
 import ThisWeekReportingTable from '@/Components/Dashboard/ThisWeekReportingTable.vue';
-import { formatReportingDuration } from '@/packages/ui/src/utils/time';
+import { Button } from '@/packages/ui/src/Buttons';
+import { formatReportingDuration, getDayJsInstance, getLocalizedDayJs } from '@/packages/ui/src/utils/time';
 import { formatCents } from '@/packages/ui/src/utils/money';
 import { getWeekStart } from '@/packages/ui/src/utils/settings';
 import { useCssVariable } from '@/packages/ui/src';
 import { getOrganizationCurrencyString } from '@/utils/money';
+import { useDashboardWeekOffset } from '@/utils/useDashboardWeekOffset';
 import { useQuery } from '@tanstack/vue-query';
 import { getCurrentOrganizationId } from '@/utils/useUser';
 import { api, type Organization } from '@/packages/api/src';
+import { ChevronLeft, ChevronRight } from 'lucide-vue-next';
 
 use([CanvasRenderer, BarChart, TitleComponent, GridComponent, TooltipComponent, LegendComponent]);
 
@@ -61,14 +64,29 @@ const organizationId = computed(() => getCurrentOrganizationId());
 
 const organization = inject<ComputedRef<Organization>>('organization');
 
+const { weekOffset, weekOffsetQueries, shiftWeekBy, goToThisWeek } = useDashboardWeekOffset();
+
+const weekSectionTitle = computed(() => {
+    if (weekOffset.value === 0) {
+        return 'This week';
+    }
+    const d = getDayJsInstance()();
+    const start = getLocalizedDayJs(d.format('YYYY-MM-DD'))
+        .startOf('week')
+        .add(weekOffset.value, 'week');
+    const end = start.endOf('week');
+    return `${start.format('MMM D')} - ${end.format('MMM D')}`;
+});
+
 // Set up the queries
 const { data: weeklyProjectOverview } = useQuery({
-    queryKey: ['weeklyProjectOverview', organizationId],
+    queryKey: ['weeklyProjectOverview', organizationId, weekOffset],
     queryFn: () => {
         return api.weeklyProjectOverview({
             params: {
                 organization: organizationId.value!,
             },
+            queries: weekOffsetQueries.value,
         });
     },
     enabled: computed(() => !!organizationId.value),
@@ -76,12 +94,13 @@ const { data: weeklyProjectOverview } = useQuery({
 });
 
 const { data: totalWeeklyTime } = useQuery({
-    queryKey: ['totalWeeklyTime', organizationId],
+    queryKey: ['totalWeeklyTime', organizationId, weekOffset],
     queryFn: () => {
         return api.totalWeeklyTime({
             params: {
                 organization: organizationId.value!,
             },
+            queries: weekOffsetQueries.value,
         });
     },
     enabled: computed(() => !!organizationId.value),
@@ -89,12 +108,13 @@ const { data: totalWeeklyTime } = useQuery({
 });
 
 const { data: totalWeeklyBillableTime } = useQuery({
-    queryKey: ['totalWeeklyBillableTime', organizationId],
+    queryKey: ['totalWeeklyBillableTime', organizationId, weekOffset],
     queryFn: () => {
         return api.totalWeeklyBillableTime({
             params: {
                 organization: organizationId.value!,
             },
+            queries: weekOffsetQueries.value,
         });
     },
     enabled: computed(() => !!organizationId.value),
@@ -102,12 +122,13 @@ const { data: totalWeeklyBillableTime } = useQuery({
 });
 
 const { data: totalWeeklyBillableAmount } = useQuery({
-    queryKey: ['totalWeeklyBillableAmount', organizationId],
+    queryKey: ['totalWeeklyBillableAmount', organizationId, weekOffset],
     queryFn: () => {
         return api.totalWeeklyBillableAmount({
             params: {
                 organization: organizationId.value!,
             },
+            queries: weekOffsetQueries.value,
         });
     },
     enabled: computed(() => !!organizationId.value),
@@ -115,12 +136,13 @@ const { data: totalWeeklyBillableAmount } = useQuery({
 });
 
 const { data: weeklyHistory } = useQuery({
-    queryKey: ['weeklyHistory', organizationId],
+    queryKey: ['weeklyHistory', organizationId, weekOffset],
     queryFn: () => {
         return api.weeklyHistory({
             params: {
                 organization: organizationId.value!,
             },
+            queries: weekOffsetQueries.value,
         });
     },
     enabled: computed(() => !!organizationId.value),
@@ -240,7 +262,39 @@ const option = computed(() => {
     <div
         class="grid space-y-5 sm:space-y-0 sm:gap-x-6 xl:gap-x-6 grid-cols-1 lg:grid-cols-3 xl:grid-cols-4">
         <div class="col-span-2 xl:col-span-3">
-            <CardTitle title="This Week" class="pb-8" :icon="ClockIcon"></CardTitle>
+            <CardTitle class="pb-8" :title="weekSectionTitle" :icon="ClockIcon">
+                <template #actions>
+                    <div class="flex items-center gap-1">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            class="h-8 w-8 p-0"
+                            data-testid="dashboard-week-prev"
+                            aria-label="Previous week"
+                            @click="shiftWeekBy(-1)">
+                            <ChevronLeft class="h-4 w-4" />
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            class="h-8 w-8 p-0"
+                            data-testid="dashboard-week-next"
+                            aria-label="Next week"
+                            :disabled="weekOffset >= 0"
+                            @click="shiftWeekBy(1)">
+                            <ChevronRight class="h-4 w-4" />
+                        </Button>
+                        <Button
+                            v-if="weekOffset < 0"
+                            variant="ghost"
+                            size="sm"
+                            data-testid="dashboard-week-this-week"
+                            @click="goToThisWeek()">
+                            This week
+                        </Button>
+                    </div>
+                </template>
+            </CardTitle>
             <v-chart v-if="weeklyHistory" :autoresize="true" class="chart" :option="option" />
 
             <div class="mt-6">

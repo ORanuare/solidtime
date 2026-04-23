@@ -39,7 +39,7 @@ test('test that dashboard loads with all expected sections', async ({ page }) =>
     await expect(page.getByText('Team Activity', { exact: true })).toBeVisible();
 
     // Weekly overview section
-    await expect(page.getByText('This Week', { exact: true })).toBeVisible();
+    await expect(page.getByText('This week', { exact: true })).toBeVisible();
 });
 
 test('test that dashboard shows time entry data after creating entries', async ({ page, ctx }) => {
@@ -48,8 +48,8 @@ test('test that dashboard shows time entry data after creating entries', async (
     await goToDashboard(page);
     await expect(page.getByTestId('dashboard_view')).toBeVisible();
 
-    // The "Last 7 Days" or "This Week" section should reflect tracked time
-    await expect(page.getByText('This Week', { exact: true })).toBeVisible();
+    // The "Last 7 Days" or "This week" section should reflect tracked time
+    await expect(page.getByText('This week', { exact: true })).toBeVisible();
 });
 
 test('test that timer on dashboard can start and stop', async ({ page }) => {
@@ -94,6 +94,26 @@ test('test that stopping timer refreshes dashboard data', async ({ page }) => {
         startOrStopTimerWithButton(page),
     ]);
     await assertThatTimerIsStopped(page);
+});
+
+test('weekly overview can move to previous week and back', async ({ page }) => {
+    await goToDashboard(page);
+    await expect(page.getByTestId('dashboard_view')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('This week', { exact: true })).toBeVisible();
+
+    const historyRequest = page.waitForResponse(
+        (response) =>
+            response.url().includes('/charts/weekly-history') &&
+            response.request().method() === 'GET' &&
+            response.url().includes('week_offset=-1') &&
+            response.status() === 200
+    );
+    await page.getByTestId('dashboard-week-prev').click();
+    await historyRequest;
+
+    await expect(page.getByTestId('dashboard-week-this-week')).toBeVisible();
+    await page.getByTestId('dashboard-week-this-week').click();
+    await expect(page.getByText('This week', { exact: true })).toBeVisible();
 });
 
 // =============================================
@@ -154,8 +174,8 @@ test.describe('Employee Dashboard Restrictions', () => {
             timeout: 10000,
         });
 
-        // This Week table should be visible
-        await expect(employee.page.getByText('This Week', { exact: true })).toBeVisible();
+        // This week table should be visible
+        await expect(employee.page.getByText('This week', { exact: true })).toBeVisible();
 
         // Duration column should be visible, but Cost column should NOT
         await expect(employee.page.getByText('Duration', { exact: true })).toBeVisible();

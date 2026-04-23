@@ -139,6 +139,25 @@ class DashboardServiceTest extends TestCase
         ], $result);
     }
 
+    public function test_weekly_history_previous_week_uses_different_date_window(): void
+    {
+        // Monday Jan 1 2024, week starts Sunday: current week begins 2023-12-31; previous week begins 2023-12-24
+        $this->travelTo(Carbon::create(2024, 1, 1, 12, 0, 0, 'Europe/Vienna'));
+        $organization = Organization::factory()->create();
+        $user = User::factory()->create([
+            'timezone' => 'Europe/Vienna',
+            'week_start' => Weekday::Sunday,
+        ]);
+        Member::factory()->forUser($user)->forOrganization($organization)->create();
+
+        $thisWeek = $this->dashboardService->getWeeklyHistory($user, $organization, 0);
+        $prevWeek = $this->dashboardService->getWeeklyHistory($user, $organization, -1);
+
+        $this->assertSame('2023-12-31', $thisWeek[0]['date']);
+        $this->assertCount(7, $prevWeek);
+        $this->assertSame('2023-12-24', $prevWeek[0]['date']);
+    }
+
     public function test_total_weekly_time_returns_correct_value(): void
     {
         // Arrange

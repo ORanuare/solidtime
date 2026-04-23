@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1;
 
 use App\Enums\Role;
+use App\Http\Requests\V1\Chart\WeekOffsetQueryRequest;
 use App\Models\Organization;
 use App\Service\DashboardService;
 use App\Service\PermissionStore;
@@ -22,12 +23,12 @@ class ChartController extends Controller
      *
      * @response array<int, array{value: int, name: string, color: string}>
      */
-    public function weeklyProjectOverview(Organization $organization, DashboardService $dashboardService): JsonResponse
+    public function weeklyProjectOverview(Organization $organization, WeekOffsetQueryRequest $request, DashboardService $dashboardService): JsonResponse
     {
         $this->checkPermission($organization, 'charts:view:own');
         $user = $this->user();
 
-        $weeklyProjectOverview = $dashboardService->weeklyProjectOverview($user, $organization);
+        $weeklyProjectOverview = $dashboardService->weeklyProjectOverview($user, $organization, $request->weekOffset());
 
         return response()->json($weeklyProjectOverview);
     }
@@ -116,12 +117,12 @@ class ChartController extends Controller
      *
      * @response int
      */
-    public function totalWeeklyTime(Organization $organization, DashboardService $dashboardService): JsonResponse
+    public function totalWeeklyTime(Organization $organization, WeekOffsetQueryRequest $request, DashboardService $dashboardService): JsonResponse
     {
         $this->checkPermission($organization, 'charts:view:own');
         $user = $this->user();
 
-        $totalWeeklyTime = $dashboardService->totalWeeklyTime($user, $organization);
+        $totalWeeklyTime = $dashboardService->totalWeeklyTime($user, $organization, $request->weekOffset());
 
         return response()->json($totalWeeklyTime);
     }
@@ -135,12 +136,12 @@ class ChartController extends Controller
      *
      * @response int
      */
-    public function totalWeeklyBillableTime(Organization $organization, DashboardService $dashboardService): JsonResponse
+    public function totalWeeklyBillableTime(Organization $organization, WeekOffsetQueryRequest $request, DashboardService $dashboardService): JsonResponse
     {
         $this->checkPermission($organization, 'charts:view:own');
         $user = $this->user();
 
-        $totalWeeklyBillableTime = $dashboardService->totalWeeklyBillableTime($user, $organization);
+        $totalWeeklyBillableTime = $dashboardService->totalWeeklyBillableTime($user, $organization, $request->weekOffset());
 
         return response()->json($totalWeeklyBillableTime);
     }
@@ -154,7 +155,7 @@ class ChartController extends Controller
      *
      * @response array{value: int, currency: string}
      */
-    public function totalWeeklyBillableAmount(Organization $organization, DashboardService $dashboardService): JsonResponse
+    public function totalWeeklyBillableAmount(Organization $organization, WeekOffsetQueryRequest $request, DashboardService $dashboardService): JsonResponse
     {
         $this->checkPermission($organization, 'charts:view:own');
         $user = $this->user();
@@ -164,7 +165,7 @@ class ChartController extends Controller
             throw new AuthorizationException('You do not have permission to view billable rates.');
         }
 
-        $totalWeeklyBillableAmount = $dashboardService->totalWeeklyBillableAmount($user, $organization);
+        $totalWeeklyBillableAmount = $dashboardService->totalWeeklyBillableAmount($user, $organization, $request->weekOffset());
 
         return response()->json($totalWeeklyBillableAmount);
     }
@@ -178,12 +179,12 @@ class ChartController extends Controller
      *
      * @response array<int, array{date: string, duration: int}>
      */
-    public function weeklyHistory(Organization $organization, DashboardService $dashboardService): JsonResponse
+    public function weeklyHistory(Organization $organization, WeekOffsetQueryRequest $request, DashboardService $dashboardService): JsonResponse
     {
         $this->checkPermission($organization, 'charts:view:own');
         $user = $this->user();
 
-        $weeklyHistory = $dashboardService->getWeeklyHistory($user, $organization);
+        $weeklyHistory = $dashboardService->getWeeklyHistory($user, $organization, $request->weekOffset());
 
         return response()->json($weeklyHistory);
     }

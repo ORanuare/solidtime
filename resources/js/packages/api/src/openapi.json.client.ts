@@ -1029,6 +1029,11 @@ const endpoints = makeApi([
                 type: 'Path',
                 schema: z.string(),
             },
+            {
+                name: 'week_offset',
+                type: 'Query',
+                schema: z.number().int().min(-1000).max(0).optional(),
+            },
         ],
         response: z.object({ value: z.number().int(), currency: z.string() }).passthrough(),
         errors: [
@@ -1059,6 +1064,11 @@ const endpoints = makeApi([
                 name: 'organization',
                 type: 'Path',
                 schema: z.string(),
+            },
+            {
+                name: 'week_offset',
+                type: 'Query',
+                schema: z.number().int().min(-1000).max(0).optional(),
             },
         ],
         response: z.number().int(),
@@ -1091,6 +1101,11 @@ const endpoints = makeApi([
                 type: 'Path',
                 schema: z.string(),
             },
+            {
+                name: 'week_offset',
+                type: 'Query',
+                schema: z.number().int().min(-1000).max(0).optional(),
+            },
         ],
         response: z.number().int(),
         errors: [
@@ -1122,6 +1137,11 @@ const endpoints = makeApi([
                 type: 'Path',
                 schema: z.string(),
             },
+            {
+                name: 'week_offset',
+                type: 'Query',
+                schema: z.number().int().min(-1000).max(0).optional(),
+            },
         ],
         response: z.array(z.object({ date: z.string(), duration: z.number().int() }).passthrough()),
         errors: [
@@ -1152,6 +1172,11 @@ const endpoints = makeApi([
                 name: 'organization',
                 type: 'Path',
                 schema: z.string(),
+            },
+            {
+                name: 'week_offset',
+                type: 'Query',
+                schema: z.number().int().min(-1000).max(0).optional(),
             },
         ],
         response: z.array(

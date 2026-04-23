@@ -114,32 +114,52 @@ function prefetchDashboard(queryClient: QueryClient) {
     });
 
     queryClient.prefetchQuery({
-        queryKey: ['weeklyProjectOverview', organizationId],
-        queryFn: () => api.weeklyProjectOverview({ params: { organization: organizationId } }),
+        queryKey: ['weeklyProjectOverview', organizationId, 0],
+        queryFn: () =>
+            api.weeklyProjectOverview({
+                params: { organization: organizationId },
+                queries: { week_offset: 0 },
+            }),
         staleTime: 30000,
     });
 
     queryClient.prefetchQuery({
-        queryKey: ['totalWeeklyTime', organizationId],
-        queryFn: () => api.totalWeeklyTime({ params: { organization: organizationId } }),
+        queryKey: ['totalWeeklyTime', organizationId, 0],
+        queryFn: () =>
+            api.totalWeeklyTime({
+                params: { organization: organizationId },
+                queries: { week_offset: 0 },
+            }),
         staleTime: 30000,
     });
 
     queryClient.prefetchQuery({
-        queryKey: ['totalWeeklyBillableTime', organizationId],
-        queryFn: () => api.totalWeeklyBillableTime({ params: { organization: organizationId } }),
+        queryKey: ['totalWeeklyBillableTime', organizationId, 0],
+        queryFn: () =>
+            api.totalWeeklyBillableTime({
+                params: { organization: organizationId },
+                queries: { week_offset: 0 },
+            }),
         staleTime: 30000,
     });
 
     queryClient.prefetchQuery({
-        queryKey: ['totalWeeklyBillableAmount', organizationId],
-        queryFn: () => api.totalWeeklyBillableAmount({ params: { organization: organizationId } }),
+        queryKey: ['totalWeeklyBillableAmount', organizationId, 0],
+        queryFn: () =>
+            api.totalWeeklyBillableAmount({
+                params: { organization: organizationId },
+                queries: { week_offset: 0 },
+            }),
         staleTime: 30000,
     });
 
     queryClient.prefetchQuery({
-        queryKey: ['weeklyHistory', organizationId],
-        queryFn: () => api.weeklyHistory({ params: { organization: organizationId } }),
+        queryKey: ['weeklyHistory', organizationId, 0],
+        queryFn: () =>
+            api.weeklyHistory({
+                params: { organization: organizationId },
+                queries: { week_offset: 0 },
+            }),
         staleTime: 30000,
     });
 

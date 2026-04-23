@@ -190,6 +190,32 @@ class ChartEndpointTest extends EndpointTestAbstract
         $response->assertOk();
     }
 
+    public function test_total_weekly_time_endpoint_rejects_future_week_offset(): void
+    {
+        $user = $this->createUserWithPermission(['charts:view:own']);
+        Passport::actingAs($user->user);
+
+        $response = $this->getJson(route('api.v1.charts.total-weekly-time', [
+            'organization' => $user->organization,
+        ]).'?week_offset=1');
+
+        $response->assertUnprocessable();
+    }
+
+    public function test_total_weekly_time_endpoint_accepts_previous_week_offset(): void
+    {
+        $user = $this->createUserWithPermission(['charts:view:own']);
+        Passport::actingAs($user->user);
+
+        $url = route('api.v1.charts.total-weekly-time', [
+            'organization' => $user->organization,
+        ]).'?'.http_build_query(['week_offset' => -1]);
+
+        $response = $this->getJson($url);
+
+        $response->assertOk();
+    }
+
     public function test_total_weekly_billable_time_endpoint_fails_if_user_has_no_permission_to_view_chart(): void
     {
         // Arrange
