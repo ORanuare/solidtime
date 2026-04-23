@@ -138,4 +138,18 @@ class TaskModelTest extends ModelTestAbstract
         $this->assertSame(200, $parent->getComputedAttributeValue('spent_time'));
         $this->assertSame(200, $child->getComputedAttributeValue('spent_time'));
     }
+
+    public function test_spent_time_includes_nested_sub_task_time_entries(): void
+    {
+        $root = Task::factory()->create();
+        $child = Task::factory()->forParent($root)->create();
+        $grandchild = Task::factory()->forParent($child)->create();
+        TimeEntry::factory()->startWithDuration(now(), 90)->forTask($grandchild)->create();
+
+        $root->refresh();
+        $child->refresh();
+        $this->assertSame(90, $root->getComputedAttributeValue('spent_time'));
+        $this->assertSame(90, $child->getComputedAttributeValue('spent_time'));
+        $this->assertSame(90, $grandchild->getComputedAttributeValue('spent_time'));
+    }
 }

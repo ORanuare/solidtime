@@ -91,4 +91,18 @@ class RecalculateSpentTimeForTaskTest extends TestCaseWithDatabase
         $parent->refresh();
         self::assertEquals(150, $parent->spent_time);
     }
+
+    public function test_recalculates_ancestor_spent_time_including_grandchild_entries(): void
+    {
+        $root = Task::factory()->create(['spent_time' => 0]);
+        $child = Task::factory()->forParent($root)->create(['spent_time' => 0]);
+        $grandchild = Task::factory()->forParent($child)->create(['spent_time' => 0]);
+        TimeEntry::factory()->startWithDuration(now(), 42)->forTask($grandchild)->create();
+
+        $root->refresh();
+        (new RecalculateSpentTimeForTask($root))->handle();
+
+        $root->refresh();
+        self::assertEquals(42, $root->spent_time);
+    }
 }

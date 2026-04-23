@@ -1048,7 +1048,7 @@ class TaskEndpointTest extends ApiEndpointTestAbstract
         ]);
     }
 
-    public function test_store_endpoint_fails_if_parent_task_is_not_root(): void
+    public function test_store_endpoint_creates_nested_sub_task_under_non_root_parent(): void
     {
         $data = $this->createUserWithPermission([
             'tasks:create:all',
@@ -1064,8 +1064,13 @@ class TaskEndpointTest extends ApiEndpointTestAbstract
             'parent_task_id' => $subTask->getKey(),
         ]);
 
-        $response->assertStatus(422);
-        $response->assertJsonValidationErrors(['parent_task_id']);
+        $response->assertStatus(201);
+        $response->assertJsonPath('data.parent_task_id', $subTask->getKey());
+        $this->assertDatabaseHas(Task::class, [
+            'name' => 'Nested',
+            'project_id' => $project->getKey(),
+            'parent_task_id' => $subTask->getKey(),
+        ]);
     }
 
     public function test_store_endpoint_allows_same_task_name_under_different_parents(): void
@@ -1160,7 +1165,7 @@ class TaskEndpointTest extends ApiEndpointTestAbstract
         ]);
     }
 
-    public function test_update_endpoint_fails_when_parent_task_has_children_and_new_parent_is_set(): void
+    public function test_update_endpoint_reparents_task_that_has_children(): void
     {
         $data = $this->createUserWithPermission([
             'tasks:update:all',
@@ -1174,6 +1179,29 @@ class TaskEndpointTest extends ApiEndpointTestAbstract
         $response = $this->putJson(route('api.v1.tasks.update', [$data->organization->getKey(), $parentWithKids->getKey()]), [
             'name' => $parentWithKids->name,
             'parent_task_id' => $otherRoot->getKey(),
+        ]);
+
+        $response->assertStatus(200);
+        $this->assertDatabaseHas(Task::class, [
+            'id' => $parentWithKids->getKey(),
+            'parent_task_id' => $otherRoot->getKey(),
+        ]);
+    }
+
+    public function test_update_endpoint_fails_when_parent_task_id_would_create_cycle(): void
+    {
+        $data = $this->createUserWithPermission([
+            'tasks:update:all',
+        ]);
+        $project = Project::factory()->forOrganization($data->organization)->create();
+        $root = Task::factory()->forOrganization($data->organization)->forProject($project)->create();
+        $middle = Task::factory()->forOrganization($data->organization)->forParent($root)->create();
+        $leaf = Task::factory()->forOrganization($data->organization)->forParent($middle)->create();
+        Passport::actingAs($data->user);
+
+        $response = $this->putJson(route('api.v1.tasks.update', [$data->organization->getKey(), $root->getKey()]), [
+            'name' => $root->name,
+            'parent_task_id' => $leaf->getKey(),
         ]);
 
         $response->assertStatus(422);
@@ -1237,5 +1265,33 @@ class TaskEndpointTest extends ApiEndpointTestAbstract
         $this->assertNotNull($childRow);
         $this->assertSame(3600, $parentRow['spent_time']);
         $this->assertSame(3600, $childRow['spent_time']);
+    }
+
+    public function test_index_endpoint_root_spent_time_includes_grandchild_time_entries(): void
+    {
+        $data = $this->createUserWithPermission([
+            'tasks:view',
+            'tasks:view:all',
+        ]);
+        $project = Project::factory()->forOrganization($data->organization)->create();
+        $root = Task::factory()->forOrganization($data->organization)->forProject($project)->create();
+        $child = Task::factory()->forOrganization($data->organization)->forParent($root)->create();
+        $grandchild = Task::factory()->forOrganization($data->organization)->forParent($child)->create();
+        TimeEntry::factory()->startWithDuration(now(), 1800)->forMember($data->member)->forTask($grandchild)->forOrganization($data->organization)->create();
+        Passport::actingAs($data->user);
+
+        $response = $this->getJson(route('api.v1.tasks.index', [$data->organization->getKey(), 'done' => 'all']));
+
+        $response->assertStatus(200);
+        $tasks = collect($response->json('data'));
+        $rootRow = $tasks->firstWhere('id', $root->getKey());
+        $childRow = $tasks->firstWhere('id', $child->getKey());
+        $grandchildRow = $tasks->firstWhere('id', $grandchild->getKey());
+        $this->assertNotNull($rootRow);
+        $this->assertNotNull($childRow);
+        $this->assertNotNull($grandchildRow);
+        $this->assertSame(1800, $rootRow['spent_time']);
+        $this->assertSame(1800, $childRow['spent_time']);
+        $this->assertSame(1800, $grandchildRow['spent_time']);
     }
 }
