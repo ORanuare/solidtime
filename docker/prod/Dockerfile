@@ -204,7 +204,7 @@ RUN mkdir -p \
 #    --no-dev \
 #    && composer clear-cache
 
-RUN cat .env
+# RUN cat .env
 #RUN php artisan env
 
 EXPOSE 8000
