@@ -12,6 +12,7 @@ async function getConfig() {
     ];
     const modulePaths = await collectModuleAssetsPaths('extensions');
     const additionalPlugins = await collectModulePlugins('extensions');
+    const useChecker = process.env.VITE_SKIP_CHECKER !== '1';
 
     return defineConfig({
         build: {
@@ -30,12 +31,15 @@ async function getConfig() {
                     },
                 },
             }),
-            checker({
-                // e.g. use TypeScript check
-                typescript: true,
-                vueTsc: true,
-                lintCommand: 'eslint "./**/*.{ts,vue}"',
-            }),
+            ...(useChecker
+                ? [
+                      checker({
+                          typescript: true,
+                          vueTsc: true,
+                          lintCommand: 'eslint "./**/*.{ts,vue}"',
+                      }),
+                  ]
+                : []),
             ...additionalPlugins,
         ],
         server: {

@@ -7,6 +7,20 @@ ARG DOCKER_FILES_BASE_PATH="docker/prod/"
 
 FROM composer:${COMPOSER_VERSION} AS vendor
 
+FROM node:20-bookworm-slim AS frontend
+
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+
+RUN npm ci
+
+COPY . .
+
+ENV VITE_SKIP_CHECKER=1
+
+RUN npm run build
+
 FROM dunglas/frankenphp:${FRANKENPHP_VERSION}-builder-php${PHP_VERSION} AS upstream
 
 COPY --from=caddy:builder /usr/bin/xcaddy /usr/bin/xcaddy
@@ -208,7 +222,17 @@ RUN composer install \
     --prefer-dist \
     && composer clear-cache
 
+# Octane + FrankenPHP entry (file is gitignored locally; Caddy requires it in public/).
+RUN cp vendor/laravel/octane/src/Commands/stubs/frankenphp-worker.php public/frankenphp-worker.php
+
+RUN php artisan passport:keys --force --no-interaction
+
+COPY --link --chown=${WWWUSER}:${WWWUSER} --from=frontend /app/public/build public/build
+
 RUN rm -f .env
+
+# Railway and other hosts show stdout/stderr; default "single" logs only touch storage/logs.
+ENV LOG_CHANNEL=stderr
 
 EXPOSE 8000
 
