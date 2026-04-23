@@ -607,7 +607,12 @@ const TaskResource = z
         parent_task_id: z.union([z.string(), z.null()]),
         project_id: z.string(),
         estimated_time: z.union([z.number(), z.null()]),
-        spent_time: z.number().int(),
+        spent_time: z
+            .number()
+            .int()
+            .describe(
+                'Seconds on this task plus, for parent tasks, on direct sub-tasks (completed entries only)'
+            ),
         created_at: z.string(),
         updated_at: z.string(),
     })
