@@ -40,10 +40,19 @@ async function getConfig() {
         ],
         server: {
             host: true,
-            hmr: {
-                host: process.env.VITE_HOST_NAME,
-                clientPort: 80,
-            },
+            // Traefik/Docker: set VITE_HOST_NAME (e.g. vite.solidtime.test). Local: omit for default HMR.
+            ...(process.env.VITE_HOST_NAME
+                ? {
+                      hmr: {
+                          host: process.env.VITE_HOST_NAME,
+                          clientPort: 80,
+                      },
+                  }
+                : {
+                      hmr: {
+                          host: 'localhost',
+                      },
+                  }),
         },
     });
 }
