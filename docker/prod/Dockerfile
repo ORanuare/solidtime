@@ -197,15 +197,18 @@ RUN mkdir -p \
     storage/logs \
     bootstrap/cache && chmod -R a+rw storage
 
-#RUN composer install \
-#    --classmap-authoritative \
-#    --no-interaction \
-#    --no-ansi \
-#    --no-dev \
-#    && composer clear-cache
+# Composer post-install scripts run artisan; a temporary .env satisfies bootstrap during build.
+RUN cp .env.example .env
 
-# RUN cat .env
-#RUN php artisan env
+RUN composer install \
+    --no-dev \
+    --optimize-autoloader \
+    --no-interaction \
+    --no-ansi \
+    --prefer-dist \
+    && composer clear-cache
+
+RUN rm -f .env
 
 EXPOSE 8000
 
