@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Jobs\RecalculateSpentTimeForTask;
 use App\Models\Concerns\CustomAuditable;
 use App\Models\Concerns\HasUuids;
 use Database\Factories\TaskFactory;
@@ -27,7 +28,7 @@ use OwenIt\Auditing\Contracts\Auditable as AuditableContract;
  * @property string|null $parent_task_id
  * @property Carbon|null $done_at
  * @property int|null $estimated_time
- * @property int $spent_time
+ * @property int $spent_time Seconds logged on this task plus, for parent tasks, on direct sub-tasks
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read Project $project
@@ -81,16 +82,53 @@ class Task extends Model implements AuditableContract
 
     public function getSpentTimeComputed(): ?int
     {
+        return $this->getOwnSpentTimeSeconds() + $this->getChildrenSpentTimeSeconds();
+    }
+
+    private function getOwnSpentTimeSeconds(): int
+    {
         if ($this->hasAttribute('spent_time_computed')) {
             return $this->attributes['spent_time_computed'] === null ? 0 : (int) $this->attributes['spent_time_computed'];
-        } else {
-            /** @var object{ spent_time: string } $result */
-            $result = $this->timeEntries()
-                ->whereNotNull('end')
-                ->selectRaw('sum(extract(epoch from ("end" - start))) as spent_time')
-                ->first();
+        }
 
-            return (int) $result->spent_time;
+        /** @var object{ spent_time: string } $result */
+        $result = $this->timeEntries()
+            ->whereNotNull('end')
+            ->selectRaw('sum(extract(epoch from ("end" - start))) as spent_time')
+            ->first();
+
+        return (int) $result->spent_time;
+    }
+
+    private function getChildrenSpentTimeSeconds(): int
+    {
+        if ($this->hasAttribute('children_spent_time_computed')) {
+            $raw = $this->attributes['children_spent_time_computed'];
+
+            return $raw === null ? 0 : (int) $raw;
+        }
+
+        /** @var numeric-string|float|int|null $sum */
+        $sum = DB::table('time_entries')
+            ->join('tasks as child_tasks', 'child_tasks.id', '=', 'time_entries.task_id')
+            ->where('child_tasks.parent_task_id', '=', $this->getKey())
+            ->whereNotNull('time_entries.end')
+            ->sum(DB::raw('extract(epoch from (time_entries."end" - time_entries.start))'));
+
+        return (int) $sum;
+    }
+
+    public static function dispatchRecalculateSpentTimeForTaskAndParent(?self $task): void
+    {
+        if ($task === null) {
+            return;
+        }
+        RecalculateSpentTimeForTask::dispatch($task);
+        if ($task->parent_task_id !== null) {
+            $parent = self::query()->find($task->parent_task_id);
+            if ($parent !== null) {
+                RecalculateSpentTimeForTask::dispatch($parent);
+            }
         }
     }
 
@@ -105,6 +143,16 @@ class Task extends Model implements AuditableContract
     {
         if (in_array('spent_time', $attributes, true)) {
             $builder->withAggregate('timeEntries as spent_time_computed', DB::raw('extract(epoch from ("end" - start))'), 'sum');
+            $builder->selectSub(
+                function ($query): void {
+                    $query->from('time_entries')
+                        ->join('tasks as child_tasks', 'child_tasks.id', '=', 'time_entries.task_id')
+                        ->whereColumn('child_tasks.parent_task_id', 'tasks.id')
+                        ->whereNotNull('time_entries.end')
+                        ->selectRaw('coalesce(sum(extract(epoch from (time_entries."end" - time_entries.start))), 0)');
+                },
+                'children_spent_time_computed'
+            );
         }
 
         return $builder;

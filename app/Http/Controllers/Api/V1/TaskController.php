@@ -83,6 +83,7 @@ class TaskController extends Controller
         }
 
         $tasks = $query
+            ->computedAttributesGenerate(['spent_time'])
             ->orderBy('created_at', 'desc')
             ->paginate(config('app.pagination_per_page_default'));
 
