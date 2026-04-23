@@ -9,6 +9,10 @@ FROM composer:${COMPOSER_VERSION} AS vendor
 
 FROM node:20-bookworm-slim AS frontend
 
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 COPY package.json package-lock.json ./
@@ -17,7 +21,9 @@ RUN npm ci
 
 COPY . .
 
-ENV VITE_SKIP_CHECKER=1
+ENV NODE_OPTIONS=--max-old-space-size=4096 \
+    VITE_SKIP_CHECKER=1 \
+    VITE_BUILD_NO_SOURCEMAP=1
 
 RUN npm run build
 

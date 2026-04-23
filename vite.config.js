@@ -16,7 +16,8 @@ async function getConfig() {
 
     return defineConfig({
         build: {
-            sourcemap: true, // Source map generation must be turned on
+            // Off in CI/Docker (VITE_BUILD_NO_SOURCEMAP=1) to cut RAM during vite build on small builders.
+            sourcemap: process.env.VITE_BUILD_NO_SOURCEMAP !== '1',
         },
         plugins: [
             laravel({
