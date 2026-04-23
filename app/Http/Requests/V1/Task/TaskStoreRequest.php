@@ -60,8 +60,7 @@ class TaskStoreRequest extends BaseFormRequest
                             /** @var Builder<Task> $builder */
                             return $builder
                                 ->whereBelongsTo($this->organization, 'organization')
-                                ->where('project_id', '=', $this->input('project_id'))
-                                ->whereNull('parent_task_id');
+                                ->where('project_id', '=', $this->input('project_id'));
                         }),
                     ]
                 ),

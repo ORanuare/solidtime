@@ -33,7 +33,7 @@ class TaskResource extends BaseResource
             'project_id' => $this->resource->project_id,
             /** @var int|null $estimated_time Estimated time in seconds */
             'estimated_time' => $this->resource->estimated_time,
-            /** @var int $spent_time Spent time in seconds: this task’s entries plus, for parents, direct sub-tasks’ entries (excl. running timers) */
+            /** @var int $spent_time Spent time in seconds: this task’s entries plus, for parents, all nested sub-tasks’ entries (excl. running timers) */
             'spent_time' => (int) $this->resource->getComputedAttributeValue('spent_time'),
             /** @var string $created_at When the tag was created */
             'created_at' => $this->formatDateTime($this->resource->created_at),

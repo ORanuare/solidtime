@@ -28,7 +28,7 @@ use OwenIt\Auditing\Contracts\Auditable as AuditableContract;
  * @property string|null $parent_task_id
  * @property Carbon|null $done_at
  * @property int|null $estimated_time
- * @property int $spent_time Seconds logged on this task plus, for parent tasks, on direct sub-tasks
+ * @property int $spent_time Seconds logged on this task plus, for parent tasks, on all nested sub-tasks
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read Project $project
@@ -108,14 +108,52 @@ class Task extends Model implements AuditableContract
             return $raw === null ? 0 : (int) $raw;
         }
 
-        /** @var numeric-string|float|int|null $sum */
-        $sum = DB::table('time_entries')
-            ->join('tasks as child_tasks', 'child_tasks.id', '=', 'time_entries.task_id')
-            ->where('child_tasks.parent_task_id', '=', $this->getKey())
-            ->whereNotNull('time_entries.end')
-            ->sum(DB::raw('extract(epoch from (time_entries."end" - time_entries.start))'));
+        /** @var object{ s: string } $row */
+        $row = DB::selectOne(
+            <<<'SQL'
+                SELECT COALESCE(SUM(EXTRACT(EPOCH FROM (te."end" - te.start))), 0) AS s
+                FROM time_entries te
+                WHERE te.end IS NOT NULL
+                  AND te.task_id IN (
+                      WITH RECURSIVE descendants AS (
+                          SELECT child.id
+                          FROM tasks child
+                          WHERE child.parent_task_id = ?
+                          UNION ALL
+                          SELECT t.id
+                          FROM tasks t
+                          INNER JOIN descendants d ON t.parent_task_id = d.id
+                      )
+                      SELECT id FROM descendants
+                  )
+                SQL,
+            [$this->getKey()]
+        );
 
-        return (int) $sum;
+        return (int) $row->s;
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function descendantIdsFor(string $taskId): array
+    {
+        $ids = [];
+        $frontier = [$taskId];
+        while ($frontier !== []) {
+            /** @var list<string> $batch */
+            $batch = self::query()
+                ->whereIn('parent_task_id', $frontier)
+                ->pluck('id')
+                ->all();
+            $frontier = [];
+            foreach ($batch as $id) {
+                $ids[] = $id;
+                $frontier[] = $id;
+            }
+        }
+
+        return $ids;
     }
 
     public static function dispatchRecalculateSpentTimeForTaskAndParent(?self $task): void
@@ -123,12 +161,11 @@ class Task extends Model implements AuditableContract
         if ($task === null) {
             return;
         }
-        RecalculateSpentTimeForTask::dispatch($task);
-        if ($task->parent_task_id !== null) {
-            $parent = self::query()->find($task->parent_task_id);
-            if ($parent !== null) {
-                RecalculateSpentTimeForTask::dispatch($parent);
-            }
+        $current = $task;
+        while ($current !== null) {
+            RecalculateSpentTimeForTask::dispatch($current);
+            $parentId = $current->parent_task_id;
+            $current = $parentId !== null ? self::query()->find($parentId) : null;
         }
     }
 
@@ -145,11 +182,25 @@ class Task extends Model implements AuditableContract
             $builder->withAggregate('timeEntries as spent_time_computed', DB::raw('extract(epoch from ("end" - start))'), 'sum');
             $builder->selectSub(
                 function ($query): void {
-                    $query->from('time_entries')
-                        ->join('tasks as child_tasks', 'child_tasks.id', '=', 'time_entries.task_id')
-                        ->whereColumn('child_tasks.parent_task_id', 'tasks.id')
-                        ->whereNotNull('time_entries.end')
-                        ->selectRaw('coalesce(sum(extract(epoch from (time_entries."end" - time_entries.start))), 0)');
+                    $query->from('time_entries as te')
+                        ->whereNotNull('te.end')
+                        ->whereRaw(
+                            <<<'SQL'
+                                te.task_id IN (
+                                    WITH RECURSIVE descendants AS (
+                                        SELECT child.id
+                                        FROM tasks child
+                                        WHERE child.parent_task_id = tasks.id
+                                        UNION ALL
+                                        SELECT t.id
+                                        FROM tasks t
+                                        INNER JOIN descendants d ON t.parent_task_id = d.id
+                                    )
+                                    SELECT id FROM descendants
+                                )
+                                SQL
+                        )
+                        ->selectRaw('coalesce(sum(extract(epoch from (te."end" - te.start))), 0)');
                 },
                 'children_spent_time_computed'
             );

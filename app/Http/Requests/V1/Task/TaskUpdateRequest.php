@@ -52,17 +52,18 @@ class TaskUpdateRequest extends BaseFormRequest
                 'sometimes',
                 'nullable',
                 'uuid',
-                Rule::prohibitedIf(fn () => $this->task->children()->exists() && filled($this->input('parent_task_id'))),
                 Rule::when(
                     fn () => filled($this->input('parent_task_id')),
                     [
-                        Rule::notIn([$this->task->getKey()]),
+                        Rule::notIn(array_merge(
+                            [$this->task->getKey()],
+                            Task::descendantIdsFor($this->task->getKey())
+                        )),
                         ExistsEloquent::make(Task::class, null, function (Builder $builder): Builder {
                             /** @var Builder<Task> $builder */
                             return $builder
                                 ->whereBelongsTo($this->organization, 'organization')
-                                ->where('project_id', '=', $this->task->project_id)
-                                ->whereNull('parent_task_id');
+                                ->where('project_id', '=', $this->task->project_id);
                         }),
                     ]
                 ),
