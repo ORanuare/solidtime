@@ -2,12 +2,13 @@
 import SecondaryButton from '@/packages/ui/src/Buttons/SecondaryButton.vue';
 import { PlusCircleIcon } from '@heroicons/vue/24/solid';
 import { PlusIcon } from '@heroicons/vue/16/solid';
-import { ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import TaskTableRow from '@/Components/Common/Task/TaskTableRow.vue';
 import TaskTableHeading from '@/Components/Common/Task/TaskTableHeading.vue';
 import TaskCreateModal from '@/Components/Common/Task/TaskCreateModal.vue';
 import { canCreateTasks } from '@/utils/permissions';
 import type { Task } from '@/packages/api/src';
+import { orderTasksWithSubTasks } from '@/utils/taskHierarchy';
 
 const props = defineProps<{
     projectId: string;
@@ -15,10 +16,46 @@ const props = defineProps<{
 }>();
 
 const createTask = ref(false);
+const createTaskParentId = ref<string | null>(null);
+
+const orderedRows = computed(() => orderTasksWithSubTasks(props.tasks));
+
+const parentIdsHavingChildren = computed(() => {
+    const set = new Set<string>();
+    for (const t of props.tasks) {
+        if (t.parent_task_id) {
+            set.add(t.parent_task_id);
+        }
+    }
+    return set;
+});
+
+function taskHasChildren(task: Task): boolean {
+    return parentIdsHavingChildren.value.has(task.id);
+}
+
+function openCreateRoot() {
+    createTaskParentId.value = null;
+    createTask.value = true;
+}
+
+function openCreateSubTask(parentId: string) {
+    createTaskParentId.value = parentId;
+    createTask.value = true;
+}
+
+watch(createTask, (show) => {
+    if (!show) {
+        createTaskParentId.value = null;
+    }
+});
 </script>
 
 <template>
-    <TaskCreateModal v-model:show="createTask" :project-id="props.projectId"></TaskCreateModal>
+    <TaskCreateModal
+        v-model:show="createTask"
+        :project-id="props.projectId"
+        :parent-task-id="createTaskParentId"></TaskCreateModal>
     <div class="flow-root">
         <div class="inline-block min-w-full align-middle">
             <div
@@ -38,12 +75,16 @@ const createTask = ref(false);
                     <SecondaryButton
                         v-if="canCreateTasks()"
                         :icon="PlusIcon"
-                        @click="createTask = true"
+                        @click="openCreateRoot"
                         >Create your First Task
                     </SecondaryButton>
                 </div>
-                <template v-for="task in tasks" :key="task.id">
-                    <TaskTableRow :task="task"></TaskTableRow>
+                <template v-for="{ task, depth } in orderedRows" :key="task.id">
+                    <TaskTableRow
+                        :task="task"
+                        :depth="depth"
+                        :has-children="taskHasChildren(task)"
+                        @add-sub-task="openCreateSubTask"></TaskTableRow>
                 </template>
             </div>
         </div>

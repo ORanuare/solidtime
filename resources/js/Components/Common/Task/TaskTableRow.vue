@@ -4,9 +4,9 @@ import { CheckCircleIcon } from '@heroicons/vue/20/solid';
 import { useTasksStore } from '@/utils/useTasks';
 import TaskMoreOptionsDropdown from '@/Components/Common/Task/TaskMoreOptionsDropdown.vue';
 import TableRow from '@/Components/TableRow.vue';
-import { canDeleteTasks } from '@/utils/permissions';
+import { canCreateTasks, canDeleteTasks, canUpdateTasks } from '@/utils/permissions';
 import TaskEditModal from '@/Components/Common/Task/TaskEditModal.vue';
-import { ref, inject, type ComputedRef } from 'vue';
+import { computed, ref, inject, type ComputedRef } from 'vue';
 import { isAllowedToPerformPremiumAction } from '@/utils/billing';
 import EstimatedTimeProgress from '@/packages/ui/src/EstimatedTimeProgress.vue';
 import UpgradeBadge from '@/Components/Common/UpgradeBadge.vue';
@@ -15,6 +15,12 @@ import type { Organization } from '@/packages/api/src';
 
 const props = defineProps<{
     task: Task;
+    depth: 0 | 1;
+    hasChildren: boolean;
+}>();
+
+const emit = defineEmits<{
+    addSubTask: [parentId: string];
 }>();
 
 const organization = inject<ComputedRef<Organization>>('organization');
@@ -31,13 +37,23 @@ function markTaskAsDone() {
 }
 
 const showTaskEditModal = ref(false);
+
+const showTaskActions = computed(
+    () =>
+        canDeleteTasks() ||
+        canUpdateTasks() ||
+        (canCreateTasks() && !props.task.parent_task_id)
+);
 </script>
 
 <template>
     <TableRow>
         <div
-            class="whitespace-nowrap min-w-0 flex items-center space-x-5 3xl:pl-12 py-4 pr-3 text-sm font-medium text-text-primary pl-4 sm:pl-6 lg:pl-8 3xl:pl-12">
-            <span class="overflow-ellipsis overflow-hidden">
+            class="whitespace-nowrap min-w-0 flex items-center space-x-5 3xl:pl-12 py-4 pr-3 text-sm font-medium text-text-primary pl-4 sm:pl-6 lg:pl-8 3xl:pl-12"
+            :class="depth === 1 ? 'border-l-2 border-default-background-separator ml-3 sm:ml-4' : ''">
+            <span
+                class="overflow-ellipsis overflow-hidden"
+                :class="depth === 1 ? 'pl-2 text-text-secondary' : ''">
                 {{ task.name }}
             </span>
         </div>
@@ -75,13 +91,17 @@ const showTaskEditModal = ref(false);
         <div
             class="relative whitespace-nowrap flex items-center pl-3 text-right text-sm font-medium sm:pr-0 pr-4 sm:pr-6 lg:pr-8 3xl:pr-12">
             <TaskMoreOptionsDropdown
-                v-if="canDeleteTasks()"
+                v-if="showTaskActions"
                 :task="task"
                 @done="markTaskAsDone"
                 @edit="showTaskEditModal = true"
-                @delete="deleteTask"></TaskMoreOptionsDropdown>
+                @delete="deleteTask"
+                @add-sub-task="emit('addSubTask', task.id)"></TaskMoreOptionsDropdown>
         </div>
-        <TaskEditModal v-model:show="showTaskEditModal" :task="task"></TaskEditModal>
+        <TaskEditModal
+            v-model:show="showTaskEditModal"
+            :task="task"
+            :has-children="hasChildren"></TaskEditModal>
     </TableRow>
 </template>
 

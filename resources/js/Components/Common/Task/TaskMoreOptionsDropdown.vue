@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { TrashIcon, PencilSquareIcon, CheckCircleIcon } from '@heroicons/vue/20/solid';
+import { TrashIcon, PencilSquareIcon, CheckCircleIcon, PlusIcon } from '@heroicons/vue/20/solid';
 import type { Task } from '@/packages/api/src';
-import { canDeleteTasks, canUpdateTasks } from '@/utils/permissions';
+import { canCreateTasks, canDeleteTasks, canUpdateTasks } from '@/utils/permissions';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -13,6 +13,7 @@ const emit = defineEmits<{
     delete: [];
     edit: [];
     done: [];
+    addSubTask: [];
 }>();
 const props = defineProps<{
     task: Task;
@@ -57,6 +58,14 @@ const props = defineProps<{
                 <CheckCircleIcon class="w-5 text-icon-active" />
                 <span v-if="props.task.is_done">Mark as active</span>
                 <span v-else>Mark as done</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+                v-if="canCreateTasks() && !props.task.parent_task_id"
+                :aria-label="'Add sub-task under ' + props.task.name"
+                class="flex items-center space-x-3 cursor-pointer"
+                @click="emit('addSubTask')">
+                <PlusIcon class="w-5 text-icon-active" />
+                <span>Add sub-task</span>
             </DropdownMenuItem>
             <DropdownMenuItem
                 v-if="canDeleteTasks()"

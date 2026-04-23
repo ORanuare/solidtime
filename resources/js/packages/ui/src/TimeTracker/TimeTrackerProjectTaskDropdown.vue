@@ -15,6 +15,7 @@ import { PlusIcon, PlusCircleIcon, MinusIcon, XMarkIcon } from '@heroicons/vue/1
 import ProjectCreateModal from '@/packages/ui/src/Project/ProjectCreateModal.vue';
 import { twMerge } from 'tailwind-merge';
 import { Button } from '@/packages/ui/src/Buttons';
+import { orderTasksWithSubTasks, type TaskWithDepth } from '@/utils/taskHierarchy';
 
 const task = defineModel<string | null>('task', {
     default: null,
@@ -41,7 +42,7 @@ watch(open, (isOpen) => {
     }
 });
 
-type ProjectWithTasks = Project & { expanded: boolean; tasks: Task[] };
+type ProjectWithTasks = Project & { expanded: boolean; tasks: TaskWithDepth[] };
 
 type ClientWithProjectsWithTasks = Client & { projects: ProjectWithTasks[] };
 
@@ -84,7 +85,7 @@ const filteredProjects = computed<ProjectWithTasks[]>(() => {
 function addProjectToFilterObject(
     tempFilteredClients: ClientsWithProjectsWithTasks,
     project: Project,
-    filteredTasks: Task[],
+    filteredTasks: TaskWithDepth[],
     expanded = false
 ) {
     // check if client already exists in filter array
@@ -197,24 +198,26 @@ function updateFilteredResults() {
             return task.project_id === filterProject.id;
         });
 
-        const filteredTasks = projectTasks.filter((filterTask) => {
-            return (
-                filterTask.name
-                    .toLowerCase()
-                    .includes(searchValue.value?.toLowerCase()?.trim() || '') &&
-                (!filterTask.is_done || filterTask.id === task.value)
-            );
-        });
+        const filteredTaskRows = orderTasksWithSubTasks(
+            projectTasks.filter((filterTask) => {
+                return (
+                    filterTask.name
+                        .toLowerCase()
+                        .includes(searchValue.value?.toLowerCase()?.trim() || '') &&
+                    (!filterTask.is_done || filterTask.id === task.value)
+                );
+            })
+        );
 
         if (
             (projectNameIncludesSearchTerm || clientNameIncludesSearchTerm) &&
             (!filterProject.is_archived || project.value === filterProject.id)
         ) {
             // search term matches project name
-            addProjectToFilterObject(tempFilteredClients, filterProject, filteredTasks, false);
-        } else if (filteredTasks.length > 0 && !filterProject.is_archived) {
+            addProjectToFilterObject(tempFilteredClients, filterProject, filteredTaskRows, false);
+        } else if (filteredTaskRows.length > 0 && !filterProject.is_archived) {
             // search term matches task name
-            addProjectToFilterObject(tempFilteredClients, filterProject, filteredTasks, true);
+            addProjectToFilterObject(tempFilteredClients, filterProject, filteredTaskRows, true);
         }
     }
 
@@ -279,12 +282,12 @@ function setProjectAndClientBasedOnHighlightedItem() {
     const highlightedTask = filteredProjects.value
         .map((project) => project.tasks)
         .flat()
-        .find((task) => task.id === highlightedItemId.value);
+        .find((entry) => entry.task.id === highlightedItemId.value);
     if (highlightedProject) {
         selectProject(highlightedProject.id);
     }
     if (highlightedTask) {
-        selectTask(highlightedTask.id);
+        selectTask(highlightedTask.task.id);
     }
 }
 
@@ -309,11 +312,11 @@ function moveHighlightUp() {
     if (currentHighlightedIndex === -1) {
         // the ID is a task ID
         const currentProjectWithTasks = filteredProjects.value.find((projectWithTasks) =>
-            projectWithTasks.tasks.some((task) => task.id === highlightedItemId.value)
+            projectWithTasks.tasks.some((entry) => entry.task.id === highlightedItemId.value)
         );
         if (currentProjectWithTasks) {
             const taskIndex = currentProjectWithTasks.tasks.findIndex(
-                (task) => task.id === highlightedItemId.value
+                (entry) => entry.task.id === highlightedItemId.value
             );
             if (taskIndex === -1) {
                 return;
@@ -323,7 +326,7 @@ function moveHighlightUp() {
                 highlightedItemId.value = currentProjectWithTasks.id;
                 return;
             }
-            highlightedItemId.value = currentProjectWithTasks.tasks[taskIndex - 1]!.id;
+            highlightedItemId.value = currentProjectWithTasks.tasks[taskIndex - 1]!.task.id;
         }
     }
     if (currentHighlightedIndex === 0) {
@@ -332,7 +335,8 @@ function moveHighlightUp() {
         const lastProject = filteredProjects.value[filteredProjects.value.length - 1]!;
         if (lastProject.tasks.length > 0 && lastProject.expanded) {
             // highlight last task of last project
-            highlightedItemId.value = lastProject.tasks[lastProject.tasks.length - 1]!.id;
+            highlightedItemId.value =
+                lastProject.tasks[lastProject.tasks.length - 1]!.task.id;
         } else {
             highlightedItemId.value = filteredProjects.value[filteredProjects.value.length - 1]!.id;
         }
@@ -341,7 +345,8 @@ function moveHighlightUp() {
         const previousProject = filteredProjects.value[currentHighlightedIndex - 1]!;
         if (previousProject.tasks.length > 0 && previousProject.expanded) {
             // highlight last task of previous project
-            highlightedItemId.value = previousProject.tasks[previousProject.tasks.length - 1]!.id;
+            highlightedItemId.value =
+                previousProject.tasks[previousProject.tasks.length - 1]!.task.id;
         } else {
             highlightedItemId.value = filteredProjects.value[currentHighlightedIndex - 1]!.id;
         }
@@ -358,11 +363,11 @@ function moveHighlightDown() {
     if (currentHighlightedIndex === -1) {
         // the ID is a task ID
         const currentProjectWithTasks = filteredProjects.value.find((projectWithTasks) =>
-            projectWithTasks.tasks.some((task) => task.id === highlightedItemId.value)
+            projectWithTasks.tasks.some((entry) => entry.task.id === highlightedItemId.value)
         );
         if (currentProjectWithTasks) {
             const taskIndex = currentProjectWithTasks.tasks.findIndex(
-                (task) => task.id === highlightedItemId.value
+                (entry) => entry.task.id === highlightedItemId.value
             );
             if (taskIndex === -1) {
                 return;
@@ -378,7 +383,7 @@ function moveHighlightDown() {
                 }
                 return;
             }
-            highlightedItemId.value = currentProjectWithTasks.tasks[taskIndex + 1]!.id;
+            highlightedItemId.value = currentProjectWithTasks.tasks[taskIndex + 1]!.task.id;
         }
     }
     if (currentHighlightedIndex === filteredProjects.value.length - 1) {
@@ -387,7 +392,7 @@ function moveHighlightDown() {
         const lastProject = filteredProjects.value[filteredProjects.value.length - 1]!;
         if (lastProject.tasks.length > 0 && lastProject.expanded) {
             // highlight last task of last project
-            highlightedItemId.value = lastProject.tasks[0]!.id;
+            highlightedItemId.value = lastProject.tasks[0]!.task.id;
         } else {
             highlightedItemId.value = filteredProjects.value[0]!.id;
         }
@@ -396,7 +401,7 @@ function moveHighlightDown() {
         const currentProjectWithTasks = filteredProjects.value[currentHighlightedIndex]!;
         if (currentProjectWithTasks.tasks.length > 0 && currentProjectWithTasks.expanded) {
             // highlight last task of previous project
-            highlightedItemId.value = currentProjectWithTasks.tasks[0]!.id;
+            highlightedItemId.value = currentProjectWithTasks.tasks[0]!.task.id;
         } else {
             highlightedItemId.value = filteredProjects.value[currentHighlightedIndex + 1]!.id;
         }
@@ -625,17 +630,23 @@ const showCreateProject = ref(false);
                             </div>
                             <div v-if="projectWithTasks.expanded" class="bg-quaternary">
                                 <div
-                                    v-for="task in projectWithTasks.tasks"
-                                    :key="task.id"
-                                    :data-task-id="task.id"
+                                    v-for="entry in projectWithTasks.tasks"
+                                    :key="entry.task.id"
+                                    :data-task-id="entry.task.id"
                                     :class="{
-                                        'bg-card-background-active': task.id === highlightedItemId,
+                                        'bg-card-background-active':
+                                            entry.task.id === highlightedItemId,
+                                        'pl-9': entry.depth === 1,
+                                        'pl-5': entry.depth === 0,
                                     }"
-                                    class="flex items-center space-x-2 w-full px-5 py-1.5 text-start text-xs font-semibold leading-5 text-text-primary focus:outline-none focus:bg-card-background-active transition duration-150 ease-in-out"
-                                    @click="selectTask(task.id)"
-                                    @mouseenter="setHighlightItemId(task.id)">
-                                    <MinusIcon class="w-3 h-3 text-text-quaternary"></MinusIcon>
-                                    <span>{{ task.name }}</span>
+                                    class="flex items-center space-x-2 w-full py-1.5 pr-5 text-start text-xs font-semibold leading-5 text-text-primary focus:outline-none focus:bg-card-background-active transition duration-150 ease-in-out"
+                                    @click="selectTask(entry.task.id)"
+                                    @mouseenter="setHighlightItemId(entry.task.id)">
+                                    <MinusIcon class="w-3 h-3 shrink-0 text-text-quaternary"></MinusIcon>
+                                    <span
+                                        :class="entry.depth === 1 ? 'text-text-secondary' : ''"
+                                        >{{ entry.task.name }}</span
+                                    >
                                 </div>
                             </div>
                         </template>

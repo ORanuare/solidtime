@@ -604,6 +604,7 @@ const TaskResource = z
         id: z.string(),
         name: z.string(),
         is_done: z.boolean(),
+        parent_task_id: z.union([z.string(), z.null()]),
         project_id: z.string(),
         estimated_time: z.union([z.number(), z.null()]),
         spent_time: z.number().int(),
@@ -615,6 +616,7 @@ const TaskStoreRequest = z
     .object({
         name: z.string().min(1).max(255),
         project_id: z.string(),
+        parent_task_id: z.union([z.string(), z.null()]).optional(),
         estimated_time: z.union([z.number(), z.null()]).optional(),
     })
     .passthrough();
@@ -622,6 +624,7 @@ const TaskUpdateRequest = z
     .object({
         name: z.string().min(1).max(255),
         is_done: z.boolean().optional(),
+        parent_task_id: z.union([z.string(), z.null()]).optional(),
         estimated_time: z.union([z.number(), z.null()]).optional(),
     })
     .passthrough();

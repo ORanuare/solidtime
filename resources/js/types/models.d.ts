@@ -51,6 +51,7 @@ export interface Project {
 export interface Task {
     id: string;
     name: string;
+    parent_task_id: string | null;
     project_id: string;
     organization_id: string;
     created_at: string | null;
