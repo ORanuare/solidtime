@@ -15,8 +15,7 @@ import type { Organization } from '@/packages/api/src';
 
 const props = defineProps<{
     task: Task;
-    depth: 0 | 1;
-    hasChildren: boolean;
+    depth: number;
 }>();
 
 const emit = defineEmits<{
@@ -39,10 +38,7 @@ function markTaskAsDone() {
 const showTaskEditModal = ref(false);
 
 const showTaskActions = computed(
-    () =>
-        canDeleteTasks() ||
-        canUpdateTasks() ||
-        (canCreateTasks() && !props.task.parent_task_id)
+    () => canDeleteTasks() || canUpdateTasks() || canCreateTasks()
 );
 </script>
 
@@ -50,10 +46,15 @@ const showTaskActions = computed(
     <TableRow>
         <div
             class="whitespace-nowrap min-w-0 flex items-center space-x-5 3xl:pl-12 py-4 pr-3 text-sm font-medium text-text-primary pl-4 sm:pl-6 lg:pl-8 3xl:pl-12"
-            :class="depth === 1 ? 'border-l-2 border-default-background-separator ml-3 sm:ml-4' : ''">
+            :class="depth > 0 ? 'border-l-2 border-default-background-separator' : ''"
+            :style="
+                depth > 0
+                    ? { marginLeft: `${Math.min(depth, 8) * 12 + 12}px` }
+                    : undefined
+            ">
             <span
                 class="overflow-ellipsis overflow-hidden"
-                :class="depth === 1 ? 'pl-2 text-text-secondary' : ''">
+                :class="depth > 0 ? 'pl-2 text-text-secondary' : ''">
                 {{ task.name }}
             </span>
         </div>
@@ -98,10 +99,7 @@ const showTaskActions = computed(
                 @delete="deleteTask"
                 @add-sub-task="emit('addSubTask', task.id)"></TaskMoreOptionsDropdown>
         </div>
-        <TaskEditModal
-            v-model:show="showTaskEditModal"
-            :task="task"
-            :has-children="hasChildren"></TaskEditModal>
+        <TaskEditModal v-model:show="showTaskEditModal" :task="task"></TaskEditModal>
     </TableRow>
 </template>
 

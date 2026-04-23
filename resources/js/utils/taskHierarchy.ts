@@ -1,14 +1,14 @@
 import type { Task } from '@/packages/api/src';
 
-export type TaskWithDepth = { task: Task; depth: 0 | 1 };
+export type TaskWithDepth = { task: Task; depth: number };
 
 function taskCreatedAtMs(t: Task): number {
     return t.created_at ? new Date(t.created_at).getTime() : 0;
 }
 
 /**
- * Orders tasks for display: root tasks (or orphans) by created_at desc, each followed by its sub-tasks.
- * If a sub-task's parent is not in `tasks`, the sub-task is shown as a root.
+ * Orders tasks for display: root tasks (or orphans) by created_at desc, then each subtree in DFS pre-order.
+ * If a task's parent is not in `tasks`, the task is shown as a root.
  */
 export function orderTasksWithSubTasks(tasks: Task[]): TaskWithDepth[] {
     const idSet = new Set(tasks.map((t) => t.id));
@@ -35,13 +35,18 @@ export function orderTasksWithSubTasks(tasks: Task[]): TaskWithDepth[] {
     roots.sort(cmpDesc);
 
     const out: TaskWithDepth[] = [];
-    for (const root of roots) {
-        out.push({ task: root, depth: 0 });
-        const children = byParent.get(root.id) ?? [];
+
+    function visit(task: Task, depth: number): void {
+        out.push({ task, depth });
+        const children = byParent.get(task.id) ?? [];
         children.sort(cmpDesc);
         for (const c of children) {
-            out.push({ task: c, depth: 1 });
+            visit(c, depth + 1);
         }
+    }
+
+    for (const root of roots) {
+        visit(root, 0);
     }
 
     return out;

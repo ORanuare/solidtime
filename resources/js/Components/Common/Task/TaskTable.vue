@@ -20,20 +20,6 @@ const createTaskParentId = ref<string | null>(null);
 
 const orderedRows = computed(() => orderTasksWithSubTasks(props.tasks));
 
-const parentIdsHavingChildren = computed(() => {
-    const set = new Set<string>();
-    for (const t of props.tasks) {
-        if (t.parent_task_id) {
-            set.add(t.parent_task_id);
-        }
-    }
-    return set;
-});
-
-function taskHasChildren(task: Task): boolean {
-    return parentIdsHavingChildren.value.has(task.id);
-}
-
 function openCreateRoot() {
     createTaskParentId.value = null;
     createTask.value = true;
@@ -83,7 +69,6 @@ watch(createTask, (show) => {
                     <TaskTableRow
                         :task="task"
                         :depth="depth"
-                        :has-children="taskHasChildren(task)"
                         @add-sub-task="openCreateSubTask"></TaskTableRow>
                 </template>
             </div>

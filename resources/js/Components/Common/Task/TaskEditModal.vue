@@ -19,7 +19,6 @@ const saving = ref(false);
 
 const props = defineProps<{
     task: Task;
-    hasChildren: boolean;
 }>();
 
 type TaskEditBody = Pick<UpdateTaskBody, 'name' | 'estimated_time' | 'parent_task_id'>;
@@ -30,14 +29,37 @@ const taskBody = ref<TaskEditBody>({
     parent_task_id: props.task.parent_task_id ?? null,
 });
 
-const rootTasksInProject = computed(() =>
-    tasks.value.filter(
-        (t) =>
-            t.project_id === props.task.project_id &&
-            !t.parent_task_id &&
-            t.id !== props.task.id
-    )
-);
+function collectDescendantIds(rootId: string, projectTasks: Task[]): Set<string> {
+    const childrenByParent = new Map<string, string[]>();
+    for (const t of projectTasks) {
+        if (t.parent_task_id) {
+            const list = childrenByParent.get(t.parent_task_id) ?? [];
+            list.push(t.id);
+            childrenByParent.set(t.parent_task_id, list);
+        }
+    }
+    const out = new Set<string>();
+    const frontier = [rootId];
+    while (frontier.length > 0) {
+        const id = frontier.pop()!;
+        const kids = childrenByParent.get(id) ?? [];
+        for (const k of kids) {
+            out.add(k);
+            frontier.push(k);
+        }
+    }
+    return out;
+}
+
+const parentTaskOptions = computed(() => {
+    const inProject = tasks.value.filter((t) => t.project_id === props.task.project_id);
+    const blocked = collectDescendantIds(props.task.id, inProject);
+    blocked.add(props.task.id);
+    return inProject
+        .filter((t) => !blocked.has(t.id))
+        .slice()
+        .sort((a, b) => a.name.localeCompare(b.name));
+});
 
 const parentTaskSelect = computed({
     get: () => taskBody.value.parent_task_id ?? '',
@@ -60,10 +82,8 @@ async function submit() {
     const body: UpdateTaskBody = {
         name: taskBody.value.name,
         estimated_time: taskBody.value.estimated_time,
+        parent_task_id: taskBody.value.parent_task_id,
     };
-    if (!props.hasChildren) {
-        body.parent_task_id = taskBody.value.parent_task_id;
-    }
     await updateTask(props.task.id, body);
     show.value = false;
 }
@@ -96,14 +116,14 @@ useFocus(taskNameInput, { initialValue: true });
                         autocomplete="taskName"
                         @keydown.enter="submit()" />
                 </Field>
-                <Field v-if="!hasChildren">
+                <Field>
                     <FieldLabel for="parentTask">Parent task</FieldLabel>
                     <select
                         id="parentTask"
                         v-model="parentTaskSelect"
                         class="block w-full rounded-md border border-default bg-card-background text-text-primary text-sm py-2 px-3 shadow-sm focus:ring-2 focus:ring-ring focus:border-transparent">
                         <option value="">None (top-level)</option>
-                        <option v-for="r in rootTasksInProject" :key="r.id" :value="r.id">
+                        <option v-for="r in parentTaskOptions" :key="r.id" :value="r.id">
                             {{ r.name }}
                         </option>
                     </select>

@@ -636,15 +636,16 @@ const showCreateProject = ref(false);
                                     :class="{
                                         'bg-card-background-active':
                                             entry.task.id === highlightedItemId,
-                                        'pl-9': entry.depth === 1,
-                                        'pl-5': entry.depth === 0,
+                                    }"
+                                    :style="{
+                                        paddingLeft: `${1.25 + Math.min(entry.depth, 10) * 0.5}rem`,
                                     }"
                                     class="flex items-center space-x-2 w-full py-1.5 pr-5 text-start text-xs font-semibold leading-5 text-text-primary focus:outline-none focus:bg-card-background-active transition duration-150 ease-in-out"
                                     @click="selectTask(entry.task.id)"
                                     @mouseenter="setHighlightItemId(entry.task.id)">
                                     <MinusIcon class="w-3 h-3 shrink-0 text-text-quaternary"></MinusIcon>
                                     <span
-                                        :class="entry.depth === 1 ? 'text-text-secondary' : ''"
+                                        :class="entry.depth > 0 ? 'text-text-secondary' : ''"
                                         >{{ entry.task.name }}</span
                                     >
                                 </div>

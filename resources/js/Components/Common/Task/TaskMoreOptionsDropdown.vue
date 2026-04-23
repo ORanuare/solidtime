@@ -60,7 +60,7 @@ const props = defineProps<{
                 <span v-else>Mark as done</span>
             </DropdownMenuItem>
             <DropdownMenuItem
-                v-if="canCreateTasks() && !props.task.parent_task_id"
+                v-if="canCreateTasks()"
                 :aria-label="'Add sub-task under ' + props.task.name"
                 class="flex items-center space-x-3 cursor-pointer"
                 @click="emit('addSubTask')">
