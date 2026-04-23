@@ -29,7 +29,7 @@ class RecalculateSpentTimeForTaskTest extends TestCaseWithDatabase
         $recalculateSpentTimeForTask->handle();
 
         // Assert
-        self::assertCount(2, DB::getQueryLog());
+        self::assertCount(3, DB::getQueryLog());
         $task->refresh();
         self::assertEquals(21, $task->spent_time);
     }
@@ -51,8 +51,44 @@ class RecalculateSpentTimeForTaskTest extends TestCaseWithDatabase
         $recalculateSpentTimeForTask->handle();
 
         // Assert
-        self::assertCount(1, DB::getQueryLog());
+        self::assertCount(2, DB::getQueryLog());
         $task->refresh();
         self::assertEquals(21, $task->spent_time);
+    }
+
+    public function test_recalculates_parent_spent_time_including_child_task_entries(): void
+    {
+        $parent = Task::factory()->create([
+            'spent_time' => 0,
+        ]);
+        $child = Task::factory()->forParent($parent)->create([
+            'spent_time' => 0,
+        ]);
+        TimeEntry::factory()->startWithDuration(now(), 100)->forTask($child)->create();
+
+        $parent->refresh();
+        $recalculateSpentTimeForTask = new RecalculateSpentTimeForTask($parent);
+        $recalculateSpentTimeForTask->handle();
+
+        $parent->refresh();
+        self::assertEquals(100, $parent->spent_time);
+    }
+
+    public function test_recalculates_parent_spent_time_own_entries_plus_children(): void
+    {
+        $parent = Task::factory()->create([
+            'spent_time' => 0,
+        ]);
+        $child = Task::factory()->forParent($parent)->create([
+            'spent_time' => 0,
+        ]);
+        TimeEntry::factory()->startWithDuration(now(), 100)->forTask($parent)->create();
+        TimeEntry::factory()->startWithDuration(now(), 50)->forTask($child)->create();
+
+        $parent->refresh();
+        (new RecalculateSpentTimeForTask($parent))->handle();
+
+        $parent->refresh();
+        self::assertEquals(150, $parent->spent_time);
     }
 }

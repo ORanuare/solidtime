@@ -1214,4 +1214,28 @@ class TaskEndpointTest extends ApiEndpointTestAbstract
         $this->assertDatabaseHas(Task::class, ['id' => $parent->getKey()]);
         $this->assertDatabaseHas(Task::class, ['id' => $child->getKey()]);
     }
+
+    public function test_index_endpoint_parent_spent_time_includes_sub_task_time_entries(): void
+    {
+        $data = $this->createUserWithPermission([
+            'tasks:view',
+            'tasks:view:all',
+        ]);
+        $project = Project::factory()->forOrganization($data->organization)->create();
+        $parent = Task::factory()->forOrganization($data->organization)->forProject($project)->create();
+        $child = Task::factory()->forOrganization($data->organization)->forParent($parent)->create();
+        TimeEntry::factory()->startWithDuration(now(), 3600)->forMember($data->member)->forTask($child)->forOrganization($data->organization)->create();
+        Passport::actingAs($data->user);
+
+        $response = $this->getJson(route('api.v1.tasks.index', [$data->organization->getKey(), 'done' => 'all']));
+
+        $response->assertStatus(200);
+        $tasks = collect($response->json('data'));
+        $parentRow = $tasks->firstWhere('id', $parent->getKey());
+        $childRow = $tasks->firstWhere('id', $child->getKey());
+        $this->assertNotNull($parentRow);
+        $this->assertNotNull($childRow);
+        $this->assertSame(3600, $parentRow['spent_time']);
+        $this->assertSame(3600, $childRow['spent_time']);
+    }
 }
