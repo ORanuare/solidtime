@@ -50,4 +50,13 @@ class TaskFactory extends Factory
             'organization_id' => $organization->getKey(),
         ]);
     }
+
+    public function forParent(Task $parent): self
+    {
+        return $this->state(fn (array $attributes) => [
+            'project_id' => $parent->project_id,
+            'organization_id' => $parent->organization_id,
+            'parent_task_id' => $parent->getKey(),
+        ]);
+    }
 }

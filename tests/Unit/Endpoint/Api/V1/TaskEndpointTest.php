@@ -497,7 +497,7 @@ class TaskEndpointTest extends ApiEndpointTestAbstract
         $project = Project::factory()->forOrganization($data->organization)->create();
         $name = 'Task 1';
         $task = Task::factory()->forProject($project)->forOrganization($data->organization)->create([
-            'name' => $name,
+            'name' => 'Original',
         ]);
         $otherTask = Task::factory()->forProject($project)->forOrganization($data->organization)->create([
             'name' => $name,
@@ -1020,5 +1020,198 @@ class TaskEndpointTest extends ApiEndpointTestAbstract
         $this->assertDatabaseHas(Task::class, [
             'id' => $task->getKey(),
         ]);
+    }
+
+    public function test_store_endpoint_creates_sub_task_with_parent_task_id(): void
+    {
+        $data = $this->createUserWithPermission([
+            'tasks:create:all',
+        ]);
+        $project = Project::factory()->forOrganization($data->organization)->create();
+        $parent = Task::factory()->forOrganization($data->organization)->forProject($project)->create([
+            'name' => 'Parent task',
+        ]);
+        Passport::actingAs($data->user);
+
+        $response = $this->postJson(route('api.v1.tasks.store', [$data->organization->getKey()]), [
+            'name' => 'Sub task',
+            'project_id' => $project->getKey(),
+            'parent_task_id' => $parent->getKey(),
+        ]);
+
+        $response->assertStatus(201);
+        $response->assertJsonPath('data.parent_task_id', $parent->getKey());
+        $this->assertDatabaseHas(Task::class, [
+            'name' => 'Sub task',
+            'project_id' => $project->getKey(),
+            'parent_task_id' => $parent->getKey(),
+        ]);
+    }
+
+    public function test_store_endpoint_fails_if_parent_task_is_not_root(): void
+    {
+        $data = $this->createUserWithPermission([
+            'tasks:create:all',
+        ]);
+        $project = Project::factory()->forOrganization($data->organization)->create();
+        $root = Task::factory()->forOrganization($data->organization)->forProject($project)->create();
+        $subTask = Task::factory()->forOrganization($data->organization)->forParent($root)->create();
+        Passport::actingAs($data->user);
+
+        $response = $this->postJson(route('api.v1.tasks.store', [$data->organization->getKey()]), [
+            'name' => 'Nested',
+            'project_id' => $project->getKey(),
+            'parent_task_id' => $subTask->getKey(),
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors(['parent_task_id']);
+    }
+
+    public function test_store_endpoint_allows_same_task_name_under_different_parents(): void
+    {
+        $data = $this->createUserWithPermission([
+            'tasks:create:all',
+        ]);
+        $project = Project::factory()->forOrganization($data->organization)->create();
+        $parentA = Task::factory()->forOrganization($data->organization)->forProject($project)->create([
+            'name' => 'Parent A',
+        ]);
+        $parentB = Task::factory()->forOrganization($data->organization)->forProject($project)->create([
+            'name' => 'Parent B',
+        ]);
+        Task::factory()->forOrganization($data->organization)->forParent($parentA)->create([
+            'name' => 'Shared name',
+        ]);
+        Passport::actingAs($data->user);
+
+        $response = $this->postJson(route('api.v1.tasks.store', [$data->organization->getKey()]), [
+            'name' => 'Shared name',
+            'project_id' => $project->getKey(),
+            'parent_task_id' => $parentB->getKey(),
+        ]);
+
+        $response->assertStatus(201);
+    }
+
+    public function test_store_endpoint_fails_if_sub_task_name_duplicates_sibling(): void
+    {
+        $data = $this->createUserWithPermission([
+            'tasks:create:all',
+        ]);
+        $project = Project::factory()->forOrganization($data->organization)->create();
+        $parent = Task::factory()->forOrganization($data->organization)->forProject($project)->create();
+        Task::factory()->forOrganization($data->organization)->forParent($parent)->create([
+            'name' => 'Duplicate',
+        ]);
+        Passport::actingAs($data->user);
+
+        $response = $this->postJson(route('api.v1.tasks.store', [$data->organization->getKey()]), [
+            'name' => 'Duplicate',
+            'project_id' => $project->getKey(),
+            'parent_task_id' => $parent->getKey(),
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors(['name']);
+    }
+
+    public function test_store_endpoint_allows_same_name_as_root_when_creating_sub_task(): void
+    {
+        $data = $this->createUserWithPermission([
+            'tasks:create:all',
+        ]);
+        $project = Project::factory()->forOrganization($data->organization)->create();
+        $parent = Task::factory()->forOrganization($data->organization)->forProject($project)->create([
+            'name' => 'Marketing',
+        ]);
+        Passport::actingAs($data->user);
+
+        $response = $this->postJson(route('api.v1.tasks.store', [$data->organization->getKey()]), [
+            'name' => 'Marketing',
+            'project_id' => $project->getKey(),
+            'parent_task_id' => $parent->getKey(),
+        ]);
+
+        $response->assertStatus(201);
+    }
+
+    public function test_update_endpoint_can_promote_sub_task_to_root(): void
+    {
+        $data = $this->createUserWithPermission([
+            'tasks:update:all',
+        ]);
+        $project = Project::factory()->forOrganization($data->organization)->create();
+        $parent = Task::factory()->forOrganization($data->organization)->forProject($project)->create();
+        $sub = Task::factory()->forOrganization($data->organization)->forParent($parent)->create([
+            'name' => 'Sub',
+        ]);
+        Passport::actingAs($data->user);
+
+        $response = $this->putJson(route('api.v1.tasks.update', [$data->organization->getKey(), $sub->getKey()]), [
+            'name' => 'Sub',
+            'parent_task_id' => null,
+        ]);
+
+        $response->assertStatus(200);
+        $this->assertDatabaseHas(Task::class, [
+            'id' => $sub->getKey(),
+            'parent_task_id' => null,
+        ]);
+    }
+
+    public function test_update_endpoint_fails_when_parent_task_has_children_and_new_parent_is_set(): void
+    {
+        $data = $this->createUserWithPermission([
+            'tasks:update:all',
+        ]);
+        $project = Project::factory()->forOrganization($data->organization)->create();
+        $parentWithKids = Task::factory()->forOrganization($data->organization)->forProject($project)->create();
+        Task::factory()->forOrganization($data->organization)->forParent($parentWithKids)->create();
+        $otherRoot = Task::factory()->forOrganization($data->organization)->forProject($project)->create();
+        Passport::actingAs($data->user);
+
+        $response = $this->putJson(route('api.v1.tasks.update', [$data->organization->getKey(), $parentWithKids->getKey()]), [
+            'name' => $parentWithKids->name,
+            'parent_task_id' => $otherRoot->getKey(),
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors(['parent_task_id']);
+    }
+
+    public function test_delete_endpoint_deletes_sub_tasks_when_deleting_parent(): void
+    {
+        $data = $this->createUserWithPermission([
+            'tasks:delete:all',
+        ]);
+        $project = Project::factory()->forOrganization($data->organization)->create();
+        $parent = Task::factory()->forOrganization($data->organization)->forProject($project)->create();
+        $child = Task::factory()->forOrganization($data->organization)->forParent($parent)->create();
+        Passport::actingAs($data->user);
+
+        $response = $this->deleteJson(route('api.v1.tasks.destroy', [$data->organization->getKey(), $parent->getKey()]));
+
+        $response->assertStatus(204);
+        $this->assertDatabaseMissing(Task::class, ['id' => $parent->getKey()]);
+        $this->assertDatabaseMissing(Task::class, ['id' => $child->getKey()]);
+    }
+
+    public function test_delete_endpoint_fails_when_sub_task_has_time_entries(): void
+    {
+        $data = $this->createUserWithPermission([
+            'tasks:delete:all',
+        ]);
+        $project = Project::factory()->forOrganization($data->organization)->create();
+        $parent = Task::factory()->forOrganization($data->organization)->forProject($project)->create();
+        $child = Task::factory()->forOrganization($data->organization)->forParent($parent)->create();
+        TimeEntry::factory()->forMember($data->member)->forTask($child)->forOrganization($data->organization)->create();
+        Passport::actingAs($data->user);
+
+        $response = $this->deleteJson(route('api.v1.tasks.destroy', [$data->organization->getKey(), $parent->getKey()]));
+
+        $response->assertStatus(400);
+        $this->assertDatabaseHas(Task::class, ['id' => $parent->getKey()]);
+        $this->assertDatabaseHas(Task::class, ['id' => $child->getKey()]);
     }
 }
