@@ -18,7 +18,7 @@ class UpdateOrganization implements UpdatesTeamNames
     /**
      * Validate and update the given team's name.
      *
-     * @param  array<string, string>  $input
+     * @param  array<string, mixed>  $input
      *
      * @throws AuthorizationException
      * @throws ValidationException
@@ -38,11 +38,20 @@ class UpdateOrganization implements UpdatesTeamNames
                 'string',
                 new CurrencyRule,
             ],
+            'photo' => [
+                'nullable',
+                'mimes:jpg,jpeg,png',
+                'max:1024',
+            ],
         ])->validateWithBag('updateTeamName');
 
         $organization->forceFill([
             'name' => $input['name'],
             'currency' => $input['currency'],
         ])->save();
+
+        if (isset($input['photo'])) {
+            $organization->updateProfilePhoto($input['photo'], 'organization-photos');
+        }
     }
 }

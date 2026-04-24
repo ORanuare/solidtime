@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Http\Controllers\Web\DashboardController;
 use App\Http\Controllers\Web\HomeController;
+use App\Http\Controllers\Web\OrganizationProfilePhotoController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Laravel\Jetstream\Jetstream;
@@ -89,5 +90,8 @@ Route::middleware([
     Route::get('/import', function () {
         return Inertia::render('Import');
     })->name('import');
+
+    Route::delete('teams/{team}/profile-photo', [OrganizationProfilePhotoController::class, 'destroy'])
+        ->name('teams.profile-photo.destroy');
 
 });

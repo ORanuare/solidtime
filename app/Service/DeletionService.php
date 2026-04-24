@@ -117,6 +117,9 @@ class DeletionService
             }
         }
 
+        // Note: Since the deletion of the profile photo is not reversible via a database rollback this needs to be done last
+        $organization->deleteProfilePhoto();
+
         // Delete organization
         $organization->delete();
 

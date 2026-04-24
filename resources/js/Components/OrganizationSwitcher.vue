@@ -36,6 +36,8 @@ const page = usePage<{
 const switchToTeam = (organization: Organization) => {
     switchOrganization(organization.id);
 };
+
+const teamInitial = (name: string) => name.slice(0, 1).toUpperCase();
 </script>
 
 <template>
@@ -45,9 +47,15 @@ const switchToTeam = (organization: Organization) => {
             as-child>
             <button data-testid="organization_switcher">
                 <div class="flex flex-1 space-x-2 items-center w-[calc(100%-30px)]">
+                    <img
+                        v-if="page.props.auth.user.current_team.profile_photo_path"
+                        class="rounded flex-shrink-0 w-5 h-5 object-cover"
+                        :src="page.props.auth.user.current_team.profile_photo_url"
+                        :alt="page.props.auth.user.current_team.name" />
                     <div
+                        v-else
                         class="rounded bg-blue-900 font-medium text-xs flex-shrink-0 text-white w-5 h-5 flex items-center justify-center">
-                        {{ page.props.auth.user.current_team.name.slice(0, 1).toUpperCase() }}
+                        {{ teamInitial(page.props.auth.user.current_team.name) }}
                     </div>
                     <span class="text-xs flex-1 truncate font-medium">
                         {{ page.props.auth.user.current_team.name }}
@@ -97,13 +105,24 @@ const switchToTeam = (organization: Organization) => {
                             <DropdownMenuItem
                                 as-child
                                 class="inline-flex gap-2.5 items-center w-full">
-                                <button type="submit">
+                                <button type="submit" class="flex items-center gap-2 w-full min-w-0">
                                     <CheckCircleIcon
                                         v-if="team.id == page.props.auth.user.current_team_id"
-                                        class="h-5 w-5 text-green-400" />
-                                    <ArrowRightIcon v-else class="h-5 w-5 text-icon-default" />
+                                        class="h-5 w-5 shrink-0 text-green-400" />
+                                    <ArrowRightIcon v-else class="h-5 w-5 shrink-0 text-icon-default" />
 
-                                    <div class="w-full truncate text-left">
+                                    <img
+                                        v-if="team.profile_photo_path"
+                                        class="rounded shrink-0 w-5 h-5 object-cover"
+                                        :src="team.profile_photo_url"
+                                        :alt="team.name" />
+                                    <div
+                                        v-else
+                                        class="rounded bg-blue-900 font-medium text-[10px] shrink-0 text-white w-5 h-5 flex items-center justify-center">
+                                        {{ teamInitial(team.name) }}
+                                    </div>
+
+                                    <div class="flex-1 truncate text-left">
                                         {{ team.name }}
                                     </div>
                                 </button>

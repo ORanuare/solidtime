@@ -315,8 +315,12 @@ class JetstreamServiceProvider extends ServiceProvider
                     return array_merge($data, [
                         'team' => [
                             'id' => $teamModel->getKey(),
+                            'user_id' => $teamModel->user_id,
                             'name' => $teamModel->name,
+                            'personal_team' => $teamModel->personal_team,
                             'currency' => $teamModel->currency,
+                            'profile_photo_path' => $teamModel->profile_photo_path,
+                            'profile_photo_url' => $teamModel->profile_photo_url,
                             'owner' => [
                                 'id' => $owner->getKey(),
                                 'name' => $owner->name,

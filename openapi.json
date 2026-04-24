@@ -7454,6 +7454,10 @@
                         "type": "string",
                         "description": "Name"
                     },
+                    "profile_photo_url": {
+                        "type": "string",
+                        "description": "Organization profile photo URL"
+                    },
                     "is_personal": {
                         "type": "boolean",
                         "description": "Personal organizations automatically created after registration"
@@ -7509,6 +7513,7 @@
                 "required": [
                     "id",
                     "name",
+                    "profile_photo_url",
                     "is_personal",
                     "billable_rate",
                     "employees_can_see_billable_rates",
@@ -7530,6 +7535,10 @@
                     "name": {
                         "type": "string",
                         "maxLength": 255
+                    },
+                    "currency": {
+                        "type": "string",
+                        "description": "Currency code (ISO 4217)"
                     },
                     "billable_rate": {
                         "type": [

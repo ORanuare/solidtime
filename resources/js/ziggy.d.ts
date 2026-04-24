@@ -134,6 +134,12 @@ declare module 'ziggy-js' {
                 'required': true;
             },
         ];
+        'teams.profile-photo.destroy': [
+            {
+                'name': 'team';
+                'required': true;
+            },
+        ];
         'current-team.update': [];
         'team-members.store': [
             {

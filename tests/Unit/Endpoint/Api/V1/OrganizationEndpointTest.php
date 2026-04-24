@@ -57,6 +57,7 @@ class OrganizationEndpointTest extends ApiEndpointTestAbstract
         // Assert
         $response->assertStatus(200);
         $response->assertJsonPath('data.id', $data->organization->getKey());
+        $response->assertJsonPath('data.profile_photo_url', $data->organization->fresh()->profile_photo_url);
     }
 
     public function test_show_endpoint_shows_billable_rate_for_members_with_role_employee_if_organization_allows_it(): void
@@ -108,6 +109,30 @@ class OrganizationEndpointTest extends ApiEndpointTestAbstract
 
         // Assert
         $response->assertForbidden();
+    }
+
+    public function test_update_endpoint_can_update_the_organization_currency(): void
+    {
+        // Arrange
+        $data = $this->createUserWithPermission([
+            'organizations:update',
+        ]);
+        $this->assertBillableRateServiceIsUnused();
+        Passport::actingAs($data->user);
+        $data->organization->currency = 'EUR';
+        $data->organization->save();
+
+        // Act
+        $response = $this->putJson(route('api.v1.organizations.update', [$data->organization->getKey()]), [
+            'currency' => 'USD',
+        ]);
+
+        // Assert
+        $response->assertStatus(200);
+        $this->assertDatabaseHas(Organization::class, [
+            'id' => $data->organization->getKey(),
+            'currency' => 'USD',
+        ]);
     }
 
     public function test_update_endpoint_can_update_the_organization_name(): void

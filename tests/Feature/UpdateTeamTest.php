@@ -6,6 +6,8 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class UpdateTeamTest extends TestCase
@@ -43,5 +45,48 @@ class UpdateTeamTest extends TestCase
         $organization = $user->currentTeam->fresh();
         $this->assertEquals('Test Organization', $organization->name);
         $this->assertEquals('USD', $organization->currency);
+    }
+
+    public function test_team_profile_photo_can_be_uploaded(): void
+    {
+        Storage::fake('public');
+
+        $user = User::factory()->withPersonalOrganization()->create();
+        $this->actingAs($user);
+
+        $organization = $user->currentTeam;
+        $file = UploadedFile::fake()->image('logo.jpg', 100, 100);
+
+        $response = $this->post('/teams/'.$organization->id, [
+            '_method' => 'PUT',
+            'name' => $organization->name,
+            'currency' => $organization->currency,
+            'photo' => $file,
+        ]);
+
+        $response->assertValid(errorBag: 'updateTeamName');
+        $organization->refresh();
+        $this->assertNotNull($organization->profile_photo_path);
+        Storage::disk('public')->assertExists($organization->profile_photo_path);
+    }
+
+    public function test_team_profile_photo_can_be_removed(): void
+    {
+        Storage::fake('public');
+
+        $user = User::factory()->withPersonalOrganization()->create();
+        $organization = $user->currentTeam;
+        $path = 'organization-photos/test.jpg';
+        Storage::disk('public')->put($path, 'fake-content');
+        $organization->forceFill(['profile_photo_path' => $path])->save();
+
+        $this->actingAs($user);
+
+        $response = $this->delete('/teams/'.$organization->id.'/profile-photo');
+
+        $response->assertStatus(303);
+        $organization->refresh();
+        $this->assertNull($organization->profile_photo_path);
+        Storage::disk('public')->assertMissing($path);
     }
 }

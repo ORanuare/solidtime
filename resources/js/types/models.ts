@@ -33,6 +33,8 @@ export interface Organization {
     name: string;
     personal_team: boolean;
     currency: string;
+    profile_photo_path: string | null;
+    profile_photo_url: string;
     created_at: string | null;
     updated_at: string | null;
     // relations

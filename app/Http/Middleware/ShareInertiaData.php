@@ -75,14 +75,19 @@ class ShareInertiaData
                             'name' => $user->currentTeam->name,
                             'personal_team' => $user->currentTeam->personal_team,
                             'currency' => $user->currentTeam->currency,
+                            'profile_photo_path' => $user->currentTeam->profile_photo_path,
+                            'profile_photo_url' => $user->currentTeam->profile_photo_url,
                         ] : null,
                     ], array_filter([
                         'all_teams' => $user->organizations->map(function (Organization $organization): array {
                             return [
                                 'id' => $organization->id,
+                                'user_id' => $organization->user_id,
                                 'name' => $organization->name,
                                 'personal_team' => $organization->personal_team,
                                 'currency' => $organization->currency,
+                                'profile_photo_path' => $organization->profile_photo_path,
+                                'profile_photo_url' => $organization->profile_photo_url,
                                 'membership' => [
                                     'role' => $organization->membership->role,
                                     'id' => $organization->membership->id,

@@ -24,12 +24,15 @@ use Illuminate\Support\Str;
 use Laravel\Jetstream\Events\TeamCreated;
 use Laravel\Jetstream\Events\TeamDeleted;
 use Laravel\Jetstream\Events\TeamUpdated;
+use Laravel\Jetstream\HasProfilePhoto;
 use Laravel\Jetstream\Team as JetstreamTeam;
 use OwenIt\Auditing\Contracts\Auditable as AuditableContract;
 
 /**
  * @property string $id
  * @property string $name
+ * @property string|null $profile_photo_path
+ * @property-read string $profile_photo_url
  * @property bool $personal_team
  * @property string $currency
  * @property int|null $billable_rate
@@ -59,6 +62,7 @@ class Organization extends JetstreamTeam implements AuditableContract
     /** @use HasFactory<OrganizationFactory> */
     use HasFactory;
 
+    use HasProfilePhoto;
     use HasUuids;
 
     /**
