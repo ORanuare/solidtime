@@ -57,8 +57,11 @@ return [
             'secret' => env('S3_SECRET_ACCESS_KEY'),
             'region' => env('S3_REGION'),
             'bucket' => env('S3_BUCKET'),
+            // Public base URL for Storage::url() (e.g. R2 public bucket URL or custom domain).
             'url' => env('S3_URL'),
-            'temporary_url' => env('S3_URL'),
+            // Presigned URLs (temporaryUrl) must use the S3 API endpoint host. On Cloudflare R2, the
+            // public URL does not accept SigV4 presigned requests the same way as *.r2.cloudflarestorage.com.
+            'temporary_url' => env('S3_TEMPORARY_URL', env('S3_ENDPOINT')),
             'endpoint' => env('S3_ENDPOINT'),
             'use_path_style_endpoint' => env('S3_USE_PATH_STYLE_ENDPOINT', false),
             'throw' => true,
