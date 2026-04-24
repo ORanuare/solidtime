@@ -10,6 +10,7 @@ use App\Events\DatabaseSeederBeforeDelete;
 use App\Models\Audit;
 use App\Models\Client;
 use App\Models\Member;
+use App\Models\Note;
 use App\Models\Organization;
 use App\Models\OrganizationInvitation;
 use App\Models\Project;
@@ -227,6 +228,7 @@ class DatabaseSeeder extends Seeder
         DB::table((new Client)->getTable())->delete();
         DB::table((new Member)->getTable())->delete();
         DB::table((new OrganizationInvitation)->getTable())->delete();
+        DB::table((new Note)->getTable())->delete();
         DB::table((new User)->getTable())->update([
             'current_team_id' => null,
         ]);
