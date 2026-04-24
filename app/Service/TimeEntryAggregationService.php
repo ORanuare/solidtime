@@ -18,11 +18,14 @@ use Carbon\CarbonTimeZone;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class TimeEntryAggregationService
 {
+    public function __construct(
+        private FixedProjectCostAllocationService $fixedProjectCostAllocationService,
+    ) {}
+
     /**
      * @param  Builder<TimeEntry>  $timeEntriesQuery
      * @return array{
@@ -53,15 +56,7 @@ class TimeEntryAggregationService
         $group2Select = null;
         $groupBy = null;
         // If any grouping is by tag, expand rows per tag and ensure a NULL row for entries without tags
-        if (($group1Type === TimeEntryAggregationType::Tag) || ($group2Type === TimeEntryAggregationType::Tag)) {
-            $timeEntriesQuery->crossJoin(DB::raw(
-                "LATERAL (\n".
-                "  SELECT jsonb_array_elements_text(coalesce(tags, '[]'::jsonb)) AS tag\n".
-                "  UNION ALL\n".
-                "  SELECT ''::text AS tag WHERE coalesce(jsonb_array_length(tags), 0) = 0\n".
-                ') AS tag(tag)'
-            ));
-        }
+        $this->fixedProjectCostAllocationService->applyTagCrossJoinForAggregation($timeEntriesQuery, $group1Type, $group2Type);
         if ($group1Type !== null) {
             $group1Select = $this->getGroupByQuery($group1Type, $timezone, $startOfWeek);
             $groupBy = ['group_1'];
@@ -166,8 +161,8 @@ class TimeEntryAggregationService
             // If Tag is selected in any grouping, compute overall totals from base (non-tag-expanded) query to avoid double counting
             $hasTagGrouping = ($group1Type === TimeEntryAggregationType::Tag) || ($group2Type === TimeEntryAggregationType::Tag);
             if ($hasTagGrouping) {
-                // Reset selects and ordering on the cloned base query
                 $baseTotals = $baseTotalsQuery
+                    ->clone()
                     ->selectRaw(
                         ' round(sum(extract(epoch from ('.$endRawSelect.' - '.$startRawSelect.')))) as aggregate,'.
                         ' round(sum(extract(epoch from ('.$endRawSelect.' - '.$startRawSelect.')) * (coalesce(billable_rate, 0)::float/60/60))) as cost'
@@ -190,12 +185,106 @@ class TimeEntryAggregationService
             $group1ResponseCost = (int) $timeEntriesAggregates->get(0)->cost;
         }
 
-        return [
+        $result = [
             'seconds' => $group1ResponseSum,
             'cost' => $showBillableRate ? $group1ResponseCost : null,
             'grouped_type' => $group1Type?->value,
             'grouped_data' => $group1Response,
         ];
+
+        if ($showBillableRate) {
+            $hasTagGrouping = ($group1Type === TimeEntryAggregationType::Tag) || ($group2Type === TimeEntryAggregationType::Tag);
+            $fixedMaps = $this->fixedProjectCostAllocationService->computeFixedAllocationMaps(
+                $baseTotalsQuery->clone(),
+                $group1Type,
+                $group2Type,
+                $timezone,
+                $startOfWeek,
+                $roundingType,
+                $roundingMinutes,
+            );
+            $this->mergeFixedProjectCostsIntoAggregatedResult(
+                $result,
+                $fixedMaps,
+                $group1Type,
+                $group2Type,
+                $hasTagGrouping
+            );
+        }
+
+        return $result;
+    }
+
+    /**
+     * @param  array{
+     *     seconds: int,
+     *     cost: int|null,
+     *     grouped_type: string|null,
+     *     grouped_data: null|array<int, array<string, mixed>>
+     * }  $result
+     * @param  array{
+     *     total_fixed_cents: int,
+     *     leaf: array<string, int>,
+     *     parent_when_tag_subgroup: array<string, int>
+     * }  $maps
+     */
+    private function mergeFixedProjectCostsIntoAggregatedResult(
+        array &$result,
+        array $maps,
+        ?TimeEntryAggregationType $group1Type,
+        ?TimeEntryAggregationType $group2Type,
+        bool $hasTagGrouping,
+    ): void {
+        if ($maps['total_fixed_cents'] === 0 && $maps['leaf'] === [] && $maps['parent_when_tag_subgroup'] === []) {
+            return;
+        }
+
+        $sep = "\x1e";
+        $norm = static fn (?string $k): string => $k ?? '';
+        $leaf = $maps['leaf'];
+        $parentTag = $maps['parent_when_tag_subgroup'];
+
+        if ($result['grouped_data'] === null) {
+            $result['cost'] = (int) ($result['cost'] ?? 0) + $maps['total_fixed_cents'];
+
+            return;
+        }
+
+        foreach ($result['grouped_data'] as &$g1) {
+            $k1 = $norm($g1['key'] ?? null);
+            if ($g1['grouped_data'] === null) {
+                $ck = $k1.$sep;
+                $add = $leaf[$ck] ?? 0;
+                $g1['cost'] = (int) ($g1['cost'] ?? 0) + $add;
+            } else {
+                $subSum = 0;
+                foreach ($g1['grouped_data'] as &$g2) {
+                    $k2 = $norm($g2['key'] ?? null);
+                    $ck = $k1.$sep.$k2;
+                    $add = $leaf[$ck] ?? 0;
+                    $g2['cost'] = (int) ($g2['cost'] ?? 0) + $add;
+                    $subSum += $add;
+                }
+                unset($g2);
+                if ($group2Type === TimeEntryAggregationType::Tag) {
+                    $pfx = $parentTag[$k1] ?? 0;
+                    $g1['cost'] = (int) ($g1['cost'] ?? 0) + $pfx;
+                } else {
+                    $g1['cost'] = (int) ($g1['cost'] ?? 0) + $subSum;
+                }
+            }
+        }
+        unset($g1);
+
+        if ($hasTagGrouping) {
+            $result['cost'] = (int) ($result['cost'] ?? 0) + $maps['total_fixed_cents'];
+        } else {
+            $sum = 0;
+            foreach ($result['grouped_data'] as $g1) {
+                $sum += (int) ($g1['cost'] ?? 0);
+            }
+            $result['cost'] = $sum;
+        }
     }
 
     /**

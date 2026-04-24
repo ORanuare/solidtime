@@ -154,12 +154,13 @@ class TimeEntryFilter
         $includeNone = in_array(self::NONE_VALUE, $clientIds, true);
         $clientIds = array_values(array_filter($clientIds, fn (string $id): bool => $id !== self::NONE_VALUE));
 
-        $this->builder->where(function (Builder $builder) use ($clientIds, $includeNone): void {
+        $clientIdColumn = $this->builder->getModel()->getTable().'.client_id';
+        $this->builder->where(function (Builder $builder) use ($clientIds, $includeNone, $clientIdColumn): void {
             if (count($clientIds) > 0) {
-                $builder->whereIn('client_id', $clientIds);
+                $builder->whereIn($clientIdColumn, $clientIds);
             }
             if ($includeNone) {
-                $builder->orWhereNull('client_id');
+                $builder->orWhereNull($clientIdColumn);
             }
         });
 
