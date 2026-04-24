@@ -1,7 +1,14 @@
+export interface ClientContact {
+    label: string;
+    value: string;
+}
+
 export interface Client {
     // columns
     id: string;
     name: string;
+    description: string | null;
+    contacts: ClientContact[];
     organization_id: string;
     created_at: string | null;
     updated_at: string | null;

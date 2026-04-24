@@ -29,14 +29,45 @@ const ClientResource = z
     .object({
         id: z.string(),
         name: z.string(),
+        description: z.union([z.string(), z.null()]),
+        contacts: z.array(z.object({ label: z.string(), value: z.string() }).passthrough()),
         is_archived: z.boolean(),
         created_at: z.string(),
         updated_at: z.string(),
     })
     .passthrough();
-const ClientStoreRequest = z.object({ name: z.string().min(1).max(255) }).passthrough();
+const ClientStoreRequest = z
+    .object({
+        name: z.string().min(1).max(255),
+        description: z.union([z.string(), z.null()]).optional(),
+        contacts: z
+            .union([
+                z.array(
+                    z
+                        .object({ label: z.string().max(100), value: z.string().max(500) })
+                        .passthrough()
+                ),
+                z.null(),
+            ])
+            .optional(),
+    })
+    .passthrough();
 const ClientUpdateRequest = z
-    .object({ name: z.string().min(1).max(255), is_archived: z.boolean().optional() })
+    .object({
+        name: z.string().min(1).max(255),
+        is_archived: z.boolean().optional(),
+        description: z.union([z.string(), z.null()]).optional(),
+        contacts: z
+            .union([
+                z.array(
+                    z
+                        .object({ label: z.string().max(100), value: z.string().max(500) })
+                        .passthrough()
+                ),
+                z.null(),
+            ])
+            .optional(),
+    })
     .passthrough();
 const ImportRequest = z.object({ type: z.string(), data: z.string() }).passthrough();
 const InvitationResource = z
@@ -72,7 +103,7 @@ const NoteResource = z
         title: z.string(),
         body: z.string(),
         visibility: z.string(),
-        is_archived: z.boolean(),
+        is_archived: z.string(),
         user_id: z.string(),
         user_name: z.string(),
         project_id: z.string(),
@@ -1194,7 +1225,7 @@ const endpoints = makeApi([
             {
                 name: 'body',
                 type: 'Body',
-                schema: z.object({ name: z.string().min(1).max(255) }).passthrough(),
+                schema: ClientStoreRequest,
             },
             {
                 name: 'organization',

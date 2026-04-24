@@ -137,6 +137,8 @@ function addProjectToFilterObject(
                 color: 'var(--theme-color-icon-default)',
                 created_at: '',
                 updated_at: '',
+                description: null,
+                contacts: [],
                 value: '',
                 is_archived: false,
                 projects: [
@@ -161,6 +163,8 @@ function updateFilteredResults() {
             color: 'var(--theme-color-icon-default)',
             created_at: '',
             updated_at: '',
+            description: null,
+            contacts: [],
             value: '',
             is_archived: false,
             projects: [

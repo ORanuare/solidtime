@@ -6453,6 +6453,32 @@
                         "type": "string",
                         "description": "Name"
                     },
+                    "description": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "Optional notes"
+                    },
+                    "contacts": {
+                        "type": "array",
+                        "description": "Contact label/value pairs",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "label": {
+                                    "type": "string"
+                                },
+                                "value": {
+                                    "type": "string"
+                                }
+                            },
+                            "required": [
+                                "label",
+                                "value"
+                            ]
+                        }
+                    },
                     "is_archived": {
                         "type": "boolean",
                         "description": "Whether the client is archived"
@@ -6469,6 +6495,8 @@
                 "required": [
                     "id",
                     "name",
+                    "description",
+                    "contacts",
                     "is_archived",
                     "created_at",
                     "updated_at"
@@ -6482,6 +6510,37 @@
                         "type": "string",
                         "minLength": 1,
                         "maxLength": 255
+                    },
+                    "description": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "maxLength": 5000
+                    },
+                    "contacts": {
+                        "type": [
+                            "array",
+                            "null"
+                        ],
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "label": {
+                                    "type": "string",
+                                    "maxLength": 100
+                                },
+                                "value": {
+                                    "type": "string",
+                                    "maxLength": 500
+                                }
+                            },
+                            "required": [
+                                "label",
+                                "value"
+                            ]
+                        },
+                        "maxItems": 20
                     }
                 },
                 "required": [
@@ -6500,6 +6559,37 @@
                     },
                     "is_archived": {
                         "type": "boolean"
+                    },
+                    "description": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "maxLength": 5000
+                    },
+                    "contacts": {
+                        "type": [
+                            "array",
+                            "null"
+                        ],
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "label": {
+                                    "type": "string",
+                                    "maxLength": 100
+                                },
+                                "value": {
+                                    "type": "string",
+                                    "maxLength": 500
+                                }
+                            },
+                            "required": [
+                                "label",
+                                "value"
+                            ]
+                        },
+                        "maxItems": 20
                     }
                 },
                 "required": [
@@ -7208,7 +7298,7 @@
                         "type": "string"
                     },
                     "is_archived": {
-                        "type": "boolean"
+                        "type": "string"
                     },
                     "user_id": {
                         "type": "string"
