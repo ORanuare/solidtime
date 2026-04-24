@@ -39,6 +39,7 @@ import {
     type Command,
     type CommandGroup as CommandGroupType,
 } from '@/utils/commandPaletteCommands';
+import { useTimerFocus } from '@/utils/useTimerFocus';
 import { usePage } from '@inertiajs/vue3';
 import type { Organization, User } from '@/types/models';
 import { switchOrganization } from '@/utils/useOrganization';
@@ -104,6 +105,7 @@ export function useCommandPalette() {
     const currentTimeEntryStore = useCurrentTimeEntryStore();
     const { currentTimeEntry, isActive } = storeToRefs(currentTimeEntryStore);
     const { setActiveState, updateTimer } = currentTimeEntryStore;
+    const { isTimerFocusOpen, open: openTimerFocusMode } = useTimerFocus();
 
     // Data queries (consolidated here - single source of truth)
     const timeEntriesQuery = useTimeEntriesInfiniteQuery();
@@ -279,10 +281,15 @@ export function useCommandPalette() {
                 stopTimer,
                 openCreateTimeEntryModal,
                 continueLastEntry,
+                openTimerFocus: () => {
+                    closePaletteAfterAction();
+                    openTimerFocusMode();
+                },
             },
             {
                 isActive: () => isActive.value,
                 hasTimeEntries: () => hasTimeEntries.value,
+                isTimerFocusOpen: () => isTimerFocusOpen.value,
             }
         )
     );

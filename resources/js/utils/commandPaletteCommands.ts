@@ -18,6 +18,7 @@ import {
     StopIcon,
     PlusIcon,
     ArrowPathIcon,
+    ArrowsPointingOutIcon,
     SunIcon,
     MoonIcon,
     ComputerDesktopIcon,
@@ -244,10 +245,12 @@ export function createTimerCommands(
         stopTimer: () => Promise<void>;
         openCreateTimeEntryModal: () => void;
         continueLastEntry: () => Promise<void>;
+        openTimerFocus?: () => void;
     },
     conditions: {
         isActive: () => boolean;
         hasTimeEntries: () => boolean;
+        isTimerFocusOpen?: () => boolean;
     }
 ): Command[] {
     return [
@@ -290,6 +293,26 @@ export function createTimerCommands(
             condition: () => !conditions.isActive() && conditions.hasTimeEntries(),
             priority: GROUP_PRIORITIES.timer + 4,
         },
+        ...(timerActions.openTimerFocus
+            ? [
+                  {
+                      id: 'timer-focus',
+                      label: 'Open timer focus',
+                      icon: ArrowsPointingOutIcon,
+                      keywords: [
+                          'focus',
+                          'fullscreen',
+                          'distraction',
+                          'timer',
+                          'concentration',
+                      ],
+                      group: 'timer' as const,
+                      action: timerActions.openTimerFocus,
+                      condition: () => !conditions.isTimerFocusOpen?.(),
+                      priority: GROUP_PRIORITIES.timer + 8,
+                  },
+              ]
+            : []),
     ];
 }
 

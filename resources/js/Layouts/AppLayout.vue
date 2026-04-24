@@ -53,14 +53,15 @@ import { twMerge } from 'tailwind-merge';
 import { Button } from '@/packages/ui/src/Buttons';
 import { openFeedback } from '@/utils/feedback';
 import { CommandPaletteProvider } from '@/Components/CommandPalette';
+import TimerFocusOverlay from '@/Components/TimerFocusOverlay.vue';
 import { useCommandPalette } from '@/utils/useCommandPalette';
 
 const { openPalette } = useCommandPalette();
 
-defineProps({
-    title: String,
-    mainClass: String,
-});
+defineProps<{
+    title?: string;
+    mainClass?: string;
+}>();
 
 const showSidebarMenu = ref(false);
 const sidebarVisible = ref(false);
@@ -316,7 +317,7 @@ const page = usePage<{
                 </div>
             </div>
         </div>
-        <div class="flex-1 lg:ml-[230px] 2xl:ml-[250px] min-w-0">
+        <div class="flex-1 min-w-0 lg:ml-[230px] 2xl:ml-[250px]">
             <div
                 class="h-screen overflow-y-auto flex flex-col bg-default-background border-l border-default-background-separator">
                 <div
@@ -371,5 +372,6 @@ const page = usePage<{
     </div>
     <NotificationContainer></NotificationContainer>
     <UserTimezoneMismatchModal></UserTimezoneMismatchModal>
+    <TimerFocusOverlay />
     <CommandPaletteProvider></CommandPaletteProvider>
 </template>

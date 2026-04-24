@@ -38,12 +38,21 @@ import NoteFormModal from '@/Components/Common/Note/NoteFormModal.vue';
 import { useNotificationsStore } from '@/utils/notification';
 import { useTimeEntriesMutations } from '@/utils/useTimeEntriesMutations';
 import { useTimeEntriesInfiniteQuery } from '@/utils/useTimeEntriesInfiniteQuery';
+import { useTimerFocus } from '@/utils/useTimerFocus';
 
 const page = usePage<{
     auth: {
         user: User;
     };
 }>();
+
+withDefaults(
+    defineProps<{
+        variant?: 'default' | 'focus';
+    }>(),
+    { variant: 'default' }
+);
+
 dayjs.extend(duration);
 
 dayjs.extend(utc);
@@ -89,6 +98,12 @@ function updateTimeEntry() {
     if (currentTimeEntry.value.id) {
         useCurrentTimeEntryStore().updateTimer();
     }
+}
+
+const timerFocus = useTimerFocus();
+
+function openTimerFocus(anchor?: HTMLElement) {
+    timerFocus.open(anchor ?? null);
 }
 
 const isRunningInDifferentOrganization = computed(() => {
@@ -185,20 +200,30 @@ const noteContextTaskName = computed(() => {
         :tasks
         :tags
         :clients></TimeEntryCreateModal>
-    <CardTitle title="Time Tracker" :icon="ClockIcon"></CardTitle>
-    <div class="relative pt-1.5">
+    <CardTitle v-if="variant === 'default'" title="Time Tracker" :icon="ClockIcon"></CardTitle>
+    <div
+        :class="[
+            'relative',
+            variant === 'default' ? 'pt-1.5' : 'w-full max-w-3xl mx-auto pt-0',
+        ]">
         <TimeTrackerRunningInDifferentOrganizationOverlay
             v-if="isRunningInDifferentOrganization"
             @switch-organization="
                 switchToTimeEntryOrganization
             "></TimeTrackerRunningInDifferentOrganizationOverlay>
 
-        <div class="flex w-full items-center gap-2">
-            <div class="flex w-full items-center gap-2">
-                <div class="flex-1">
+        <div
+            :class="[
+                'flex w-full gap-2',
+                variant === 'focus' ? 'flex-col sm:flex-row sm:items-start' : 'items-center',
+            ]">
+            <div class="flex w-full min-w-0 items-center gap-2 flex-1">
+                <div class="flex-1 min-w-0">
                     <TimeTrackerControls
                         v-model:current-time-entry="currentTimeEntry"
                         v-model:live-timer="now"
+                        :layout="variant === 'focus' ? 'focus' : 'default'"
+                        :open-timer-focus="variant === 'default' ? openTimerFocus : undefined"
                         :create-project
                         :enable-estimated-time="isAllowedToPerformPremiumAction()"
                         :can-create-project="canCreateProjects()"
@@ -221,10 +246,12 @@ const noteContextTaskName = computed(() => {
                         @create-time-entry="createTimeEntryFromCurrentEntry"
                         @add-note="showNoteFromTimer = true"></TimeTrackerControls>
                 </div>
-                <TimeTrackerMoreOptionsDropdown
-                    :has-active-timer="isActive"
-                    @manual-entry="showManualTimeEntryModal = true"
-                    @discard="discardCurrentTimeEntry"></TimeTrackerMoreOptionsDropdown>
+                <div class="shrink-0">
+                    <TimeTrackerMoreOptionsDropdown
+                        :has-active-timer="isActive"
+                        @manual-entry="showManualTimeEntryModal = true"
+                        @discard="discardCurrentTimeEntry"></TimeTrackerMoreOptionsDropdown>
+                </div>
             </div>
         </div>
     </div>

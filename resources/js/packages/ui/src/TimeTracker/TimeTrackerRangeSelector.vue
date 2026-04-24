@@ -5,11 +5,29 @@ import TimeRangeSelector from '@/packages/ui/src/Input/TimeRangeSelector.vue';
 import dayjs, { Dayjs } from 'dayjs';
 import { formatDuration, getDayJsInstance, parseTimeInput } from '@/packages/ui/src/utils/time';
 import type { TimeEntry } from '@/packages/api/src';
+import { twMerge } from 'tailwind-merge';
 
 const currentTimeEntry = defineModel<TimeEntry>('currentTimeEntry', {
     required: true,
 });
 const now = defineModel<null | Dayjs>('liveTimer');
+
+const props = withDefaults(
+    defineProps<{
+        /** Larger display for timer focus / full-page mode. */
+        timerVariant?: 'default' | 'focus';
+    }>(),
+    { timerVariant: 'default' }
+);
+
+const timeInputClass = computed(() =>
+    twMerge(
+        'h-full text-text-primary rounded-lg border-border-secondary border text-center bg-card-background border-none placeholder-text-tertiary focus:ring-0 transition font-semibold',
+        props.timerVariant === 'focus'
+            ? 'w-[min(320px,calc(100vw-2rem))] min-w-[200px] text-3xl sm:text-4xl tabular-nums tracking-tight py-5 px-5'
+            : 'w-[110px] lg:w-[120px] py-2.5 px-4 text-base'
+    )
+);
 
 const emit = defineEmits<{
     startLiveTimer: [];
@@ -154,7 +172,7 @@ function closeAndFocusInput() {
                     v-model="currentTime"
                     placeholder="00:00:00"
                     data-testid="time_entry_time"
-                    class="w-[110px] lg:w-[120px] h-full text-text-primary py-2.5 rounded-lg border-border-secondary border text-center px-4 text-base font-semibold bg-card-background border-none placeholder-text-tertiary focus:ring-0 transition"
+                    :class="timeInputClass"
                     type="text"
                     @focusin="openModalOnTab"
                     @click="openModalOnClick"
