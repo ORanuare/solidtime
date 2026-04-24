@@ -4,10 +4,13 @@ import PrimaryButton from '@/packages/ui/src/Buttons/PrimaryButton.vue';
 import SecondaryButton from '@/packages/ui/src/Buttons/SecondaryButton.vue';
 import TextInput from '@/packages/ui/src/Input/TextInput.vue';
 import { Field, FieldGroup, FieldLabel } from '@/packages/ui/src/field';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/packages/ui/src/tabs';
 import { useNotesStore } from '@/utils/useNotes';
 import type { Note, Project, Task } from '@/packages/api/src';
 import { computed, ref, watch } from 'vue';
 import { useFocus } from '@vueuse/core';
+import NoteMarkdownEditor from '@/Components/Common/Note/NoteMarkdownEditor.vue';
+import NoteMarkdownView from '@/Components/Common/Note/NoteMarkdownView.vue';
 
 const show = defineModel('show', { default: false });
 
@@ -50,6 +53,9 @@ const pickedTaskId = ref('');
 
 const titleInput = ref<HTMLInputElement | null>(null);
 useFocus(titleInput, { initialValue: true });
+
+const noteContentTab = ref<'write' | 'preview'>('write');
+const bodyIsEmpty = computed(() => !body.value.trim());
 
 function resetForCreate() {
     title.value = '';
@@ -136,6 +142,7 @@ const createSubmitBlocked = computed(() => {
 
 watch(show, (open) => {
     if (open) {
+        noteContentTab.value = 'write';
         if (props.note) {
             title.value = props.note.title;
             body.value = props.note.body;
@@ -158,6 +165,9 @@ watch(attachTo, (v) => {
 });
 
 async function submit() {
+    if (!body.value.trim()) {
+        return;
+    }
     saving.value = true;
     try {
         if (props.note) {
@@ -310,13 +320,31 @@ async function submit() {
                         autocomplete="off" />
                 </Field>
                 <Field>
-                    <FieldLabel for="noteBody">Content (Markdown)</FieldLabel>
-                    <textarea
-                        id="noteBody"
-                        v-model="body"
-                        required
-                        rows="10"
-                        class="block w-full rounded-md border border-default bg-card-background text-text-primary text-sm py-2 px-3 shadow-sm focus:ring-2 focus:ring-ring focus:border-transparent font-mono" />
+                    <FieldLabel for="noteBody" class="mb-2">Content (Markdown)</FieldLabel>
+                    <Tabs v-model="noteContentTab" class="w-full">
+                        <TabsList class="flex w-full max-w-sm gap-0.5 sm:gap-1">
+                            <TabsTrigger
+                                value="write"
+                                class="flex-1 rounded-md border border-tab-border py-1.5 text-xs font-medium text-text-tertiary data-[state=active]:border-input-border data-[state=active]:bg-tab-background data-[state=active]:text-text-primary sm:text-sm">
+                                Write
+                            </TabsTrigger>
+                            <TabsTrigger
+                                value="preview"
+                                class="flex-1 rounded-md border border-tab-border py-1.5 text-xs font-medium text-text-tertiary data-[state=active]:border-input-border data-[state=active]:bg-tab-background data-[state=active]:text-text-primary sm:text-sm">
+                                Preview
+                            </TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="write" class="mt-2 p-0">
+                            <NoteMarkdownEditor v-model="body" data-testid="note-body-editor" />
+                        </TabsContent>
+                        <TabsContent value="preview" class="mt-2">
+                            <div
+                                class="min-h-60 max-h-80 overflow-y-auto rounded-md border border-default bg-card-background p-3">
+                                <NoteMarkdownView v-if="body.trim().length" :source="body" />
+                                <p v-else class="text-sm text-text-tertiary">Nothing to preview yet.</p>
+                            </div>
+                        </TabsContent>
+                    </Tabs>
                 </Field>
                 <Field>
                     <FieldLabel for="noteVisibility">Visibility</FieldLabel>
@@ -334,7 +362,7 @@ async function submit() {
             <SecondaryButton :disabled="saving" @click="show = false">Cancel</SecondaryButton>
             <PrimaryButton
                 class="ms-2"
-                :disabled="saving || createSubmitBlocked"
+                :disabled="saving || createSubmitBlocked || bodyIsEmpty"
                 @click="submit()">
                 {{ note ? 'Save' : 'Create' }}
             </PrimaryButton>
