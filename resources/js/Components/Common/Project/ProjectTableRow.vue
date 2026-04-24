@@ -144,6 +144,12 @@ const projectBillableTotalFormatted = computed(() => {
                     </div>
                     <div v-else class="text-text-tertiary">No client</div>
                 </div>
+                <div
+                    class="whitespace-nowrap px-3 py-4 text-sm text-text-primary font-medium"
+                    :title="project.is_paid ? 'Paid project' : 'Unpaid project'">
+                    <span v-if="project.is_paid">Paid</span>
+                    <span v-else class="text-text-secondary">Unpaid</span>
+                </div>
                 <div class="whitespace-nowrap px-3 py-4 text-sm text-text-primary">
                     <div v-if="project.spent_time">
                         {{

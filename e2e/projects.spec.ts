@@ -186,6 +186,7 @@ test('test that creating a project with default billable rate works', async ({ p
                 response.request().method() === 'POST' &&
                 response.status() === 201 &&
                 (await response.json()).data.is_billable === true &&
+                (await response.json()).data.is_paid === true &&
                 (await response.json()).data.billable_rate === null
         ),
     ]);
@@ -210,6 +211,7 @@ test('test that creating a non-billable project works', async ({ page }) => {
                 response.request().method() === 'POST' &&
                 response.status() === 201 &&
                 (await response.json()).data.is_billable === false &&
+                (await response.json()).data.is_paid === true &&
                 (await response.json()).data.billable_rate === null
         ),
     ]);
@@ -258,6 +260,7 @@ test('test that switching from custom rate to default rate clears billable rate'
                 response.request().method() === 'PUT' &&
                 response.status() === 200 &&
                 (await response.json()).data.is_billable === true &&
+                (await response.json()).data.is_paid === true &&
                 (await response.json()).data.billable_rate === null
         ),
     ]);
@@ -305,6 +308,7 @@ test('test that switching from billable to non-billable preserves rate settings'
                 response.request().method() === 'PUT' &&
                 response.status() === 200 &&
                 (await response.json()).data.is_billable === false &&
+                (await response.json()).data.is_paid === true &&
                 (await response.json()).data.billable_rate === 20000
         ),
     ]);

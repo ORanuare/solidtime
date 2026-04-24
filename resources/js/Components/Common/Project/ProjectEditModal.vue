@@ -2,10 +2,10 @@
 import TextInput from '@/packages/ui/src/Input/TextInput.vue';
 import SecondaryButton from '@/packages/ui/src/Buttons/SecondaryButton.vue';
 import DialogModal from '@/packages/ui/src/DialogModal.vue';
-import { computed, ref } from 'vue';
-import type { CreateClientBody, CreateProjectBody, Project } from '@/packages/api/src';
+import { computed, ref, watch } from 'vue';
+import type { CreateClientBody, Project, UpdateProjectBody } from '@/packages/api/src';
 
-type ProjectUpdateForm = CreateProjectBody & { billing_type: 'hourly' | 'fixed' };
+type ProjectUpdateForm = UpdateProjectBody & { billing_type: 'hourly' | 'fixed' };
 import PrimaryButton from '@/packages/ui/src/Buttons/PrimaryButton.vue';
 import { useProjectsStore } from '@/utils/useProjects';
 import { useClientsStore } from '@/utils/useClients';
@@ -17,7 +17,8 @@ import { Button } from '@/packages/ui/src/Buttons';
 import { ChevronDown } from 'lucide-vue-next';
 import { UserCircleIcon } from '@heroicons/vue/20/solid';
 import EstimatedTimeSection from '@/packages/ui/src/EstimatedTimeSection.vue';
-import { Field, FieldGroup, FieldLabel } from '@/packages/ui/src/field';
+import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/packages/ui/src/field';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/packages/ui/src';
 import ProjectBillableRateModal from '@/packages/ui/src/Project/ProjectBillableRateModal.vue';
 import { getOrganizationCurrencyString } from '@/utils/money';
 import ProjectEditBillableSection from '@/packages/ui/src/Project/ProjectEditBillableSection.vue';
@@ -47,8 +48,25 @@ const project = ref<ProjectUpdateForm>({
     billing_type: props.originalProject.billing_type === 'fixed' ? 'fixed' : 'hourly',
     fixed_price: props.originalProject.fixed_price ?? null,
     is_billable: props.originalProject.is_billable,
+    is_paid: props.originalProject.is_paid,
     estimated_time: props.originalProject.estimated_time,
 });
+
+const isPaidSelect = computed({
+    get() {
+        return project.value.is_paid ? 'paid' : 'unpaid';
+    },
+    set(value: string) {
+        project.value.is_paid = value === 'paid';
+    },
+});
+
+watch(
+    () => props.originalProject.is_paid,
+    (v) => {
+        project.value.is_paid = v;
+    }
+);
 
 async function submit() {
     if (props.originalProject.billable_rate !== project.value.billable_rate) {
@@ -58,7 +76,7 @@ async function submit() {
         }, 0);
         return;
     }
-    await updateProject(props.originalProject.id, project.value as CreateProjectBody);
+    await updateProject(props.originalProject.id, project.value as UpdateProjectBody);
     show.value = false;
 }
 
@@ -74,7 +92,7 @@ const currentClientName = computed(() => {
 });
 
 async function submitBillableRate() {
-    await updateProject(props.originalProject.id, project.value as CreateProjectBody);
+    await updateProject(props.originalProject.id, project.value as UpdateProjectBody);
     show.value = false;
     showBillableRateModal.value = false;
 }
@@ -119,6 +137,21 @@ async function submitBillableRate() {
                             </Button>
                         </template>
                     </ClientDropdown>
+                </Field>
+                <Field>
+                    <FieldLabel for="isPaid">Paid project</FieldLabel>
+                    <Select v-model="isPaidSelect">
+                        <SelectTrigger id="isPaid">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="paid">Paid project</SelectItem>
+                            <SelectItem value="unpaid">Unpaid</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <FieldDescription>
+                        Unpaid is for internal or pro bono work; billing rules are set separately below.
+                    </FieldDescription>
                 </Field>
                 <ProjectEditBillableSection
                     v-model:is-billable="project.is_billable"

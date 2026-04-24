@@ -179,6 +179,7 @@ function updateFilteredResults() {
                     fixed_price: null,
                     is_archived: false,
                     is_billable: false,
+                    is_paid: true,
                     expanded: false,
                     tasks: [],
                     estimated_time: null,

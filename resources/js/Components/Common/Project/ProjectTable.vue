@@ -10,6 +10,7 @@ import ProjectTableRow from '@/Components/Common/Project/ProjectTableRow.vue';
 export type SortColumn =
     | 'name'
     | 'client_name'
+    | 'is_paid'
     | 'spent_time'
     | 'billable_total'
     | 'progress'
@@ -89,6 +90,11 @@ const columns = computed(() => {
                 if (!row.client_id) return undefined;
                 return (clientNameMap.value.get(row.client_id) ?? '').toLowerCase();
             },
+        },
+        {
+            id: 'is_paid',
+            sortDescFirst: true,
+            accessorFn: (row: Project) => (row.is_paid ? 1 : 0),
         },
         {
             id: 'spent_time',
@@ -181,6 +187,7 @@ const gridTemplate = computed(() => {
     const parts = [
         'minmax(300px, 1fr)',
         'minmax(150px, auto)',
+        'minmax(88px, auto)',
         'minmax(140px, auto)',
     ];
     if (props.showPerProjectBillableTotal) {

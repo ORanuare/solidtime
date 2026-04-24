@@ -145,6 +145,7 @@ const shownTasks = computed(() => {
                         Fixed
                     </Badge>
                     <Badge v-if="!project?.is_billable"> Non-Billable </Badge>
+                    <Badge v-if="project && !project.is_paid"> Unpaid </Badge>
                 </div>
             </nav>
             <div>
