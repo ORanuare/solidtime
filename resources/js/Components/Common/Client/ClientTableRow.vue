@@ -34,6 +34,8 @@ const projectCount = computed(() => {
     return projects.value.filter((projects) => projects.client_id === props.client.id).length;
 });
 
+const projectsLabel = computed(() => (projectCount.value === 1 ? 'Project' : 'Projects'));
+
 const contactPreview = computed(() => {
     const list = props.client.contacts;
     if (!list.length) {
@@ -86,7 +88,7 @@ const showEditModal = ref(false);
                 </div>
                 <div
                     class="whitespace-nowrap flex items-center px-3 py-4 text-sm text-text-primary">
-                    <span> {{ projectCount }} Projects </span>
+                    <span> {{ projectCount }} {{ projectsLabel }} </span>
                 </div>
                 <div
                     class="whitespace-nowrap px-3 py-4 text-sm text-text-primary flex space-x-1.5 items-center">
