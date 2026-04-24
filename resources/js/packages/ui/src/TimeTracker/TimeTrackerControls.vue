@@ -52,7 +52,7 @@ const props = withDefaults(
         enableEstimatedTime: boolean;
         canCreateProject: boolean;
         /**
-         * Show “add note” beside tag / billable; parent opens NoteFormModal with current project/task.
+         * Show notes beside tag / billable; parent opens notes list (with create) or workspace note form.
          */
         canAddNote?: boolean;
         /** Stacked layout with prominent duration (full-page timer focus). */
@@ -336,7 +336,7 @@ function onOpenTimerFocusClick(e: MouseEvent) {
                                 <button
                                     type="button"
                                     data-testid="time_tracker_add_note"
-                                    aria-label="Add note for selected project and task"
+                                    aria-label="View and add notes for the selected project and task"
                                     :class="
                                         twMerge(
                                             noteActionIconClass,
@@ -348,7 +348,7 @@ function onOpenTimerFocusClick(e: MouseEvent) {
                                         class="w-5 h-5 lg:h-6 lg:w-6"></ClipboardDocumentListIcon>
                                 </button>
                             </TooltipTrigger>
-                            <TooltipContent> Add note </TooltipContent>
+                            <TooltipContent> Notes </TooltipContent>
                         </Tooltip>
                     </TooltipProvider>
                 </div>
@@ -449,7 +449,7 @@ function onOpenTimerFocusClick(e: MouseEvent) {
                                 <button
                                     type="button"
                                     data-testid="time_tracker_add_note"
-                                    aria-label="Add note for selected project and task"
+                                    aria-label="View and add notes for the selected project and task"
                                     :class="
                                         twMerge(
                                             noteActionIconClass,
@@ -461,7 +461,7 @@ function onOpenTimerFocusClick(e: MouseEvent) {
                                         class="w-5 h-5 lg:h-6 lg:w-6"></ClipboardDocumentListIcon>
                                 </button>
                             </TooltipTrigger>
-                            <TooltipContent> Add note </TooltipContent>
+                            <TooltipContent> Notes </TooltipContent>
                         </Tooltip>
                     </TooltipProvider>
                 </div>

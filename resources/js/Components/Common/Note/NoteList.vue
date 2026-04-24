@@ -31,9 +31,21 @@ const props = withDefaults(
          * places the action in a CardTitle or page header and calls `openCreate()` via ref.
          */
         showTopCreateAction?: boolean;
+        /**
+         * Override project/task passed to create/edit `NoteFormModal` when list filters
+         * differ (e.g. timer lists by task_id but the form should offer project + task).
+         */
+        formProjectId?: string;
+        formTaskId?: string;
+        /** Display names for `NoteFormModal` (e.g. time tracker context). */
+        projectName?: string;
+        taskName?: string;
     }>(),
     { showTopCreateAction: true }
 );
+
+const formProjectIdEffective = computed(() => props.formProjectId ?? props.projectId);
+const formTaskIdEffective = computed(() => props.formTaskId ?? props.taskId);
 
 const listFilters = computed(() => ({
     projectId: props.projectId,
@@ -214,9 +226,12 @@ defineExpose({ openCreate });
             </div>
         </div>
         <NoteFormModal
+            v-if="showForm"
             v-model:show="showForm"
-            :project-id="projectId"
-            :task-id="taskId"
+            :project-id="formProjectIdEffective"
+            :task-id="formTaskIdEffective"
+            :project-name="projectName"
+            :task-name="taskName"
             :note="noteToEdit" />
     </div>
 </template>

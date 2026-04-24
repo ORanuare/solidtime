@@ -7,8 +7,7 @@ import { Field, FieldGroup, FieldLabel } from '@/packages/ui/src/field';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/packages/ui/src/tabs';
 import { useNotesStore } from '@/utils/useNotes';
 import type { Note, Project, Task } from '@/packages/api/src';
-import { computed, ref, watch } from 'vue';
-import { useFocus } from '@vueuse/core';
+import { computed, nextTick, ref, watch } from 'vue';
 import NoteMarkdownEditor from '@/Components/Common/Note/NoteMarkdownEditor.vue';
 import NoteMarkdownView from '@/Components/Common/Note/NoteMarkdownView.vue';
 
@@ -52,7 +51,6 @@ const pickedProjectId = ref('');
 const pickedTaskId = ref('');
 
 const titleInput = ref<HTMLInputElement | null>(null);
-useFocus(titleInput, { initialValue: true });
 
 const noteContentTab = ref<'write' | 'preview'>('write');
 const bodyIsEmpty = computed(() => !body.value.trim());
@@ -140,21 +138,6 @@ const createSubmitBlocked = computed(() => {
     return false;
 });
 
-watch(show, (open) => {
-    if (open) {
-        noteContentTab.value = 'write';
-        if (props.note) {
-            title.value = props.note.title;
-            body.value = props.note.body;
-            visibility.value = props.note.visibility as 'private' | 'shared';
-        } else {
-            resetForCreate();
-            resetPickedAttachment();
-            attachTo.value = defaultAttachTarget();
-        }
-    }
-});
-
 watch(attachTo, (v) => {
     if (v !== 'project') {
         pickedProjectId.value = '';
@@ -163,6 +146,28 @@ watch(attachTo, (v) => {
         pickedTaskId.value = '';
     }
 });
+
+watch(
+    show,
+    (open) => {
+        if (open) {
+            noteContentTab.value = 'write';
+            if (props.note) {
+                title.value = props.note.title;
+                body.value = props.note.body;
+                visibility.value = props.note.visibility as 'private' | 'shared';
+            } else {
+                resetForCreate();
+                resetPickedAttachment();
+                attachTo.value = defaultAttachTarget();
+            }
+            nextTick(() => {
+                titleInput.value?.focus();
+            });
+        }
+    },
+    { immediate: true }
+);
 
 async function submit() {
     if (!body.value.trim()) {

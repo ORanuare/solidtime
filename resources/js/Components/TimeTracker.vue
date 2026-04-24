@@ -33,8 +33,8 @@ import TimeEntryCreateModal from '@/packages/ui/src/TimeEntry/TimeEntryCreateMod
 import { useClientsStore } from '@/utils/useClients';
 import { getOrganizationCurrencyString } from '@/utils/money';
 import { isAllowedToPerformPremiumAction } from '@/utils/billing';
-import { canCreateNotes, canCreateProjects } from '@/utils/permissions';
-import NoteFormModal from '@/Components/Common/Note/NoteFormModal.vue';
+import { canCreateNotes, canCreateProjects, canViewNotes } from '@/utils/permissions';
+import TimerNotesModal from '@/Components/Common/Note/TimerNotesModal.vue';
 import { useNotificationsStore } from '@/utils/notification';
 import { useTimeEntriesMutations } from '@/utils/useTimeEntriesMutations';
 import { useTimeEntriesInfiniteQuery } from '@/utils/useTimeEntriesInfiniteQuery';
@@ -72,7 +72,13 @@ const emit = defineEmits<{
 }>();
 
 const showManualTimeEntryModal = ref(false);
-const showNoteFromTimer = ref(false);
+const showTimerNotesModal = ref(false);
+
+const canAccessTimerNotes = computed(() => canViewNotes() || canCreateNotes());
+
+function openTimerNotes() {
+    showTimerNotesModal.value = true;
+}
 
 const { createTimeEntry: createTimeEntryMutation, deleteTimeEntry } = useTimeEntriesMutations();
 const { data: timeEntriesData } = useTimeEntriesInfiniteQuery();
@@ -180,8 +186,8 @@ const noteContextTaskName = computed(() => {
 </script>
 
 <template>
-    <NoteFormModal
-        v-model:show="showNoteFromTimer"
+    <TimerNotesModal
+        v-model:show="showTimerNotesModal"
         :project-id="currentTimeEntry.project_id || undefined"
         :task-id="currentTimeEntry.task_id || undefined"
         :project-name="noteContextProjectName"
@@ -227,7 +233,7 @@ const noteContextTaskName = computed(() => {
                         :create-project
                         :enable-estimated-time="isAllowedToPerformPremiumAction()"
                         :can-create-project="canCreateProjects()"
-                        :can-add-note="canCreateNotes()"
+                        :can-add-note="canAccessTimerNotes"
                         :organization-billable-rate="organization?.billable_rate ?? null"
                         :create-client
                         :clients
@@ -244,7 +250,7 @@ const noteContextTaskName = computed(() => {
                         @stop-timer="setActiveState(false)"
                         @update-time-entry="updateTimeEntry"
                         @create-time-entry="createTimeEntryFromCurrentEntry"
-                        @add-note="showNoteFromTimer = true"></TimeTrackerControls>
+                        @add-note="openTimerNotes"></TimeTrackerControls>
                 </div>
                 <div class="shrink-0">
                     <TimeTrackerMoreOptionsDropdown
