@@ -53,7 +53,7 @@ class ProjectResource extends BaseResource
             /** @var int|null $estimated_time Estimated time in seconds */
             'estimated_time' => $this->resource->estimated_time,
             /** @var int $spent_time Spent time on this project in seconds (sum of the duration of all associated time entries, excl. still running time entries) */
-            'spent_time' => $this->resource->spent_time,
+            'spent_time' => (int) $this->resource->getComputedAttributeValue('spent_time'),
             /** @var bool $is_public Whether the project is public */
             'is_public' => $this->resource->is_public,
         ];

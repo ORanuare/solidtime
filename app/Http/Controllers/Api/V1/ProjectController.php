@@ -62,6 +62,7 @@ class ProjectController extends Controller
         }
 
         $projects = $projectsQuery
+            ->computedAttributesGenerate(['spent_time'])
             ->orderBy('created_at', 'desc')
             ->paginate(config('app.pagination_per_page_default'));
 
