@@ -53,6 +53,7 @@ class GenericProjectsImporter extends DefaultImporter
                             throw new ImportException('Value of archived_at ("'.$record['archived_at'].'") is invalid');
                         }
                     }
+                    $billingType = isset($record['billing_type']) && $record['billing_type'] !== '' ? (string) $record['billing_type'] : 'hourly';
                     $this->projectImportHelper->getKey([
                         'name' => $record['name'],
                         'client_id' => $clientId,
@@ -60,6 +61,8 @@ class GenericProjectsImporter extends DefaultImporter
                     ], [
                         'color' => isset($record['color']) && $record['color'] !== '' ? $record['color'] : app(ColorService::class)->getRandomColor(),
                         'billable_rate' => isset($record['billable_rate']) && $record['billable_rate'] !== '' ? (int) $record['billable_rate'] : null,
+                        'billing_type' => $billingType,
+                        'fixed_price' => isset($record['fixed_price']) && $record['fixed_price'] !== '' && is_numeric($record['fixed_price']) ? (int) $record['fixed_price'] : null,
                         'is_public' => isset($record['is_public']) && $record['is_public'] === 'true',
                         'is_billable' => isset($record['billable_default']) && $record['billable_default'] === 'true',
                         'estimated_time' => isset($record['estimated_time']) && $record['estimated_time'] !== '' && is_numeric($record['estimated_time']) && ((int) $record['estimated_time'] !== 0) ? (int) $record['estimated_time'] : null,

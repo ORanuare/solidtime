@@ -181,6 +181,8 @@ class SolidtimeImporter extends DefaultImporter
                 ], [
                     'color' => $project['color'],
                     'billable_rate' => $project['billable_rate'] === '' ? null : (int) $project['billable_rate'],
+                    'billing_type' => ($project['billing_type'] ?? '') !== '' ? (string) $project['billing_type'] : 'hourly',
+                    'fixed_price' => ($project['fixed_price'] ?? '') !== '' ? (int) $project['fixed_price'] : null,
                     'is_public' => $project['is_public'] === 'true',
                     'is_billable' => $project['is_billable'] === 'true',
                     'archived_at' => $project['archived_at'] !== '' ? Carbon::createFromFormat('Y-m-d\TH:i:s\Z', $project['archived_at'], 'UTC') : null,

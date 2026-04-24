@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Service;
 
+use App\Enums\ProjectBillingType;
 use App\Enums\Role;
 use App\Enums\Weekday;
 use App\Models\Member;
@@ -273,6 +274,38 @@ class DashboardServiceTest extends TestCase
         // Assert
         $this->assertSame([
             'value' => 5000,
+            'currency' => $currency,
+        ], $result);
+    }
+
+    public function test_total_weekly_billable_amount_includes_fixed_project_when_user_has_all_billable_time_on_that_project(): void
+    {
+        $this->travelTo(Carbon::create(2024, 1, 1, 12, 0, 0, 'Europe/Vienna'));
+        $currency = 'EUR';
+        $organization = Organization::factory()->create([
+            'currency' => $currency,
+        ]);
+        $user = User::factory()->create([
+            'timezone' => 'Europe/Vienna',
+            'week_start' => Weekday::Sunday,
+        ]);
+        $member = Member::factory()->forUser($user)->forOrganization($organization)->create();
+        $project = Project::factory()->forOrganization($organization)->create([
+            'billing_type' => ProjectBillingType::Fixed,
+            'fixed_price' => 10_000,
+            'is_billable' => true,
+        ]);
+        TimeEntry::factory()->forMember($member)->forOrganization($organization)->forProject($project)->create([
+            'billable' => true,
+            'billable_rate' => null,
+            'start' => Carbon::create(2023, 12, 30, 23, 0, 0, 'UTC'),
+            'end' => Carbon::create(2023, 12, 31, 0, 0, 0, 'UTC'),
+        ]);
+
+        $result = $this->dashboardService->totalWeeklyBillableAmount($user, $organization);
+
+        $this->assertSame([
+            'value' => 10_000,
             'currency' => $currency,
         ], $result);
     }

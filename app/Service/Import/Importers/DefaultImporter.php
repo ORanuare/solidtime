@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Service\Import\Importers;
 
+use App\Enums\ProjectBillingType;
 use App\Models\Client;
 use App\Models\Member;
 use App\Models\Organization;
@@ -18,6 +19,7 @@ use App\Service\ColorService;
 use App\Service\Import\ImportDatabaseHelper;
 use App\Service\TimezoneService;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Validation\Rule;
 
 abstract class DefaultImporter implements ImporterContract
 {
@@ -114,6 +116,17 @@ abstract class DefaultImporter implements ImporterContract
                 'integer',
                 'max:2147483647',
             ],
+            'billing_type' => [
+                'nullable',
+                'string',
+                Rule::enum(ProjectBillingType::class),
+            ],
+            'fixed_price' => [
+                'nullable',
+                'integer',
+                'min:0',
+                'max:9223372036854775807',
+            ],
             'client_id' => [
                 'nullable',
                 'string',
@@ -122,6 +135,15 @@ abstract class DefaultImporter implements ImporterContract
         ], beforeSave: function (Project $project): void {
             if ($project->billable_rate === 0) {
                 $project->billable_rate = null;
+            }
+            if ($project->fixed_price === 0) {
+                $project->fixed_price = null;
+            }
+            if ($project->billing_type === ProjectBillingType::Fixed) {
+                $project->billable_rate = null;
+            }
+            if ($project->billing_type === ProjectBillingType::Hourly) {
+                $project->fixed_price = null;
             }
         });
         $this->projectMemberImportHelper = new ImportDatabaseHelper(ProjectMember::class, ['project_id', 'member_id'], true, function (Builder $builder): Builder {

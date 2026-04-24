@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Service;
 
+use App\Enums\ProjectBillingType;
 use App\Enums\Weekday;
 use App\Models\Organization;
 use App\Models\Project;
@@ -262,7 +263,7 @@ class DashboardService
         $timezone = $this->timezoneService->getTimezoneFromUser($user);
         $possibleDays = $this->daysOfWeek($timezone, $user->week_start, $weekOffset);
 
-        $query = TimeEntry::query()
+        $hourlyQuery = TimeEntry::query()
             ->select(DB::raw('
                round(
                     sum(
@@ -274,12 +275,58 @@ class DashboardService
             ->where('user_id', '=', $user->getKey())
             ->where('organization_id', '=', $organization->getKey());
 
-        $query = $this->constrainDateByPossibleDates($query, $possibleDays, $timezone);
-        /** @var Collection<int, object{aggregate: int}> $resultDb */
-        $resultDb = $query->get();
+        $hourlyQuery = $this->constrainDateByPossibleDates($hourlyQuery, $possibleDays, $timezone);
+        /** @var Collection<int, object{aggregate: int}> $hourlyResult */
+        $hourlyResult = $hourlyQuery->get();
+        $hourlyValue = (int) $hourlyResult->get(0)->aggregate;
+
+        $orgWindow = TimeEntry::query()
+            ->where('organization_id', '=', $organization->getKey())
+            ->where('billable', '=', true)
+            ->whereNotNull('project_id');
+        $orgWindow = $this->constrainDateByPossibleDates($orgWindow, $possibleDays, $timezone);
+
+        /** @var Collection<int, object{project_id: string, aggregate: int|string}> $orgByProject */
+        $orgByProject = (clone $orgWindow)
+            ->select(DB::raw('project_id, round(sum(extract(epoch from (coalesce("end", now()) - start)))) as aggregate'))
+            ->groupBy('project_id')
+            ->get();
+
+        /** @var Collection<int, object{project_id: string, aggregate: int|string}> $userByProject */
+        $userByProject = (clone $orgWindow)
+            ->where('user_id', '=', $user->getKey())
+            ->select(DB::raw('project_id, round(sum(extract(epoch from (coalesce("end", now()) - start)))) as aggregate'))
+            ->groupBy('project_id')
+            ->get();
+
+        $orgSecondsMap = $orgByProject->keyBy('project_id');
+        $userSecondsMap = $userByProject->keyBy('project_id');
+
+        $fixedValue = 0;
+        if ($orgByProject->isNotEmpty()) {
+            $fixedProjects = Project::query()
+                ->whereBelongsTo($organization, 'organization')
+                ->where('billing_type', '=', ProjectBillingType::Fixed)
+                ->whereNotNull('fixed_price')
+                ->whereIn('id', $orgByProject->pluck('project_id')->all())
+                ->get(['id', 'fixed_price'])
+                ->keyBy('id');
+
+            foreach ($fixedProjects as $projectId => $proj) {
+                $tP = (int) ($orgSecondsMap->get($projectId)?->aggregate ?? 0);
+                if ($tP <= 0) {
+                    continue;
+                }
+                $sUser = (int) ($userSecondsMap->get($projectId)?->aggregate ?? 0);
+                if ($sUser <= 0) {
+                    continue;
+                }
+                $fixedValue += (int) round((int) $proj->fixed_price * $sUser / $tP);
+            }
+        }
 
         return [
-            'value' => (int) $resultDb->get(0)->aggregate,
+            'value' => $hourlyValue + $fixedValue,
             'currency' => $organization->currency,
         ];
     }
