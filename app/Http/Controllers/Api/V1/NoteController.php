@@ -47,19 +47,29 @@ class NoteController extends Controller
 
         if ($request->filled('task_id')) {
             $taskId = $request->input('task_id');
-            $query->where('notable_type', 'task')
-                ->where('notable_id', $taskId);
+            $query->where(function (Builder $q) use ($taskId): void {
+                $q->where(function (Builder $q2) use ($taskId): void {
+                    $q2->where('notable_type', 'task')
+                        ->where('notable_id', $taskId);
+                })->orWhere(function (Builder $q2): void {
+                    $this->scopeWorkspaceNotables($q2);
+                });
+            });
         } elseif ($request->filled('project_id')) {
             $projectId = $request->input('project_id');
             $query->where(function (Builder $q) use ($projectId): void {
                 $q->where(function (Builder $q2) use ($projectId): void {
-                    $q2->where('notable_type', 'project')
-                        ->where('notable_id', $projectId);
-                })->orWhere(function (Builder $q2) use ($projectId): void {
-                    $q2->where('notable_type', 'task')
-                        ->whereHasMorph('notable', [Task::class], function (Builder $q3) use ($projectId): void {
-                            $q3->where('project_id', $projectId);
-                        });
+                    $q2->where(function (Builder $q3) use ($projectId): void {
+                        $q3->where('notable_type', 'project')
+                            ->where('notable_id', $projectId);
+                    })->orWhere(function (Builder $q3) use ($projectId): void {
+                        $q3->where('notable_type', 'task')
+                            ->whereHasMorph('notable', [Task::class], function (Builder $q4) use ($projectId): void {
+                                $q4->where('project_id', $projectId);
+                            });
+                    });
+                })->orWhere(function (Builder $q2): void {
+                    $this->scopeWorkspaceNotables($q2);
                 });
             });
         }
@@ -177,6 +187,17 @@ class NoteController extends Controller
         $note->delete();
 
         return response()->json(null, 204);
+    }
+
+    /**
+     * Workspace / org-level notes (not attached to a project or task).
+     *
+     * @param  Builder<Note>  $query
+     */
+    private function scopeWorkspaceNotables(Builder $query): void
+    {
+        $query->whereNull('notable_type')
+            ->whereNull('notable_id');
     }
 
     /**

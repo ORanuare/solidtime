@@ -55,6 +55,101 @@ class NoteEndpointTest extends ApiEndpointTestAbstract
         ]);
     }
 
+    public function test_index_with_project_id_includes_workspace_notes(): void
+    {
+        $data = $this->createUserWithPermission([
+            'notes:view',
+            'notes:create',
+            'projects:view:all',
+            'tasks:view:all',
+        ]);
+        $project = Project::factory()->forOrganization($data->organization)->create();
+        $task = Task::factory()->forProject($project)->forOrganization($data->organization)->create();
+
+        $workspaceNote = Note::factory()
+            ->forOrganization($data->organization)
+            ->author($data->user)
+            ->shared()
+            ->create(['title' => 'Workspace scratch']);
+
+        $projectNote = Note::factory()
+            ->forOrganization($data->organization)
+            ->author($data->user)
+            ->shared()
+            ->create(['title' => 'On project']);
+        $projectNote->notable()->associate($project);
+        $projectNote->save();
+
+        $taskNote = Note::factory()
+            ->forOrganization($data->organization)
+            ->author($data->user)
+            ->shared()
+            ->create(['title' => 'On task']);
+        $taskNote->notable()->associate($task);
+        $taskNote->save();
+
+        Passport::actingAs($data->user);
+        $response = $this->getJson(route('api.v1.notes.index', [
+            $data->organization->getKey(),
+            'project_id' => $project->getKey(),
+        ]));
+
+        $response->assertStatus(200);
+        $ids = collect($response->json('data'))->pluck('id')->all();
+        $this->assertEqualsCanonicalizing(
+            [$workspaceNote->getKey(), $projectNote->getKey(), $taskNote->getKey()],
+            $ids
+        );
+    }
+
+    public function test_index_with_task_id_includes_workspace_notes(): void
+    {
+        $data = $this->createUserWithPermission([
+            'notes:view',
+            'notes:create',
+            'projects:view:all',
+            'tasks:view:all',
+        ]);
+        $project = Project::factory()->forOrganization($data->organization)->create();
+        $task = Task::factory()->forProject($project)->forOrganization($data->organization)->create();
+
+        $workspaceNote = Note::factory()
+            ->forOrganization($data->organization)
+            ->author($data->user)
+            ->shared()
+            ->create(['title' => 'Workspace']);
+
+        $taskNote = Note::factory()
+            ->forOrganization($data->organization)
+            ->author($data->user)
+            ->shared()
+            ->create(['title' => 'Task only']);
+        $taskNote->notable()->associate($task);
+        $taskNote->save();
+
+        $otherTask = Task::factory()->forProject($project)->forOrganization($data->organization)->create();
+        $otherTaskNote = Note::factory()
+            ->forOrganization($data->organization)
+            ->author($data->user)
+            ->shared()
+            ->create(['title' => 'Other task']);
+        $otherTaskNote->notable()->associate($otherTask);
+        $otherTaskNote->save();
+
+        Passport::actingAs($data->user);
+        $response = $this->getJson(route('api.v1.notes.index', [
+            $data->organization->getKey(),
+            'task_id' => $task->getKey(),
+        ]));
+
+        $response->assertStatus(200);
+        $ids = collect($response->json('data'))->pluck('id')->all();
+        $this->assertEqualsCanonicalizing(
+            [$workspaceNote->getKey(), $taskNote->getKey()],
+            $ids
+        );
+    }
+
     public function test_store_on_task_requires_project_access(): void
     {
         $data = $this->createUserWithPermission([
