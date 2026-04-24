@@ -20,7 +20,6 @@ import {
     ContextMenuSeparator,
     ContextMenuTrigger,
 } from '@/packages/ui/src';
-
 const { projects } = useProjectsQuery();
 
 const props = defineProps<{
@@ -33,6 +32,19 @@ function deleteClient() {
 
 const projectCount = computed(() => {
     return projects.value.filter((projects) => projects.client_id === props.client.id).length;
+});
+
+const contactPreview = computed(() => {
+    const list = props.client.contacts;
+    if (!list.length) {
+        return { text: '', title: '' };
+    }
+    const first = list[0]!;
+    const text =
+        list.length > 1
+            ? `${first.label}: ${first.value} · +${list.length - 1}`
+            : `${first.label}: ${first.value}`;
+    return { text, title: list.map((c) => `${c.label}: ${c.value}`).join('\n') };
 });
 
 function archiveClient() {
@@ -48,13 +60,29 @@ const showEditModal = ref(false);
 <template>
     <ContextMenu>
         <ContextMenuTrigger as-child>
-            <TableRow>
+            <TableRow :href="route('clients.show', { client: client.id })">
                 <ClientEditModal v-model:show="showEditModal" :client="client"></ClientEditModal>
                 <div
-                    class="whitespace-nowrap flex items-center space-x-5 py-4 pr-3 text-sm font-medium text-text-primary pl-4 sm:pl-6 lg:pl-8 3xl:pl-12">
-                    <span>
+                    class="min-w-0 flex items-center space-x-5 py-4 pr-3 text-sm font-medium text-text-primary pl-4 sm:pl-6 lg:pl-8 3xl:pl-12">
+                    <span class="min-w-0 overflow-hidden text-ellipsis">
                         {{ client.name }}
                     </span>
+                </div>
+                <div
+                    class="min-w-0 px-3 py-4 text-sm text-text-primary"
+                    :title="client.description ?? undefined">
+                    <span v-if="client.description" class="line-clamp-2 break-words">{{
+                        client.description
+                    }}</span>
+                    <span v-else class="text-text-tertiary">—</span>
+                </div>
+                <div
+                    class="min-w-0 px-3 py-4 text-sm text-text-primary"
+                    :title="contactPreview.title || undefined">
+                    <span v-if="contactPreview.text" class="line-clamp-2 break-words">{{
+                        contactPreview.text
+                    }}</span>
+                    <span v-else class="text-text-tertiary">—</span>
                 </div>
                 <div
                     class="whitespace-nowrap flex items-center px-3 py-4 text-sm text-text-primary">
@@ -72,7 +100,8 @@ const showEditModal = ref(false);
                     </template>
                 </div>
                 <div
-                    class="relative whitespace-nowrap flex items-center pl-3 text-right text-sm font-medium sm:pr-0 pr-4 sm:pr-6 lg:pr-8 3xl:pr-12">
+                    class="relative whitespace-nowrap flex items-center pl-3 text-right text-sm font-medium sm:pr-0 pr-4 sm:pr-6 lg:pr-8 3xl:pr-12"
+                    @click.stop>
                     <ClientMoreOptionsDropdown
                         :client="client"
                         @edit="showEditModal = true"

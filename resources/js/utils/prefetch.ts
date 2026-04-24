@@ -349,6 +349,14 @@ function findPrefetcher(url: string): ((queryClient: QueryClient) => void) | und
         };
     }
 
+    const clientMatch = pathname?.match(/^\/clients\/([^/]+)$/);
+    if (clientMatch) {
+        return (queryClient) => {
+            prefetchClients(queryClient);
+            prefetchProjects(queryClient);
+        };
+    }
+
     return undefined;
 }
 

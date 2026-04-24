@@ -46,6 +46,22 @@ function isChevronUp(column: SortColumn): boolean {
         </div>
         <div
             class="px-3 py-1.5 text-left text-text-tertiary cursor-pointer hover:bg-secondary hover:text-text-primary transition-colors select-none flex items-center gap-1"
+            @click="handleSort('description')">
+            Description
+            <ChevronDownIcon v-if="isChevronDown('description')" class="w-4 h-4" />
+            <ChevronUpIcon v-else-if="isChevronUp('description')" class="w-4 h-4" />
+            <span v-else class="w-4 h-4"></span>
+        </div>
+        <div
+            class="px-3 py-1.5 text-left text-text-tertiary cursor-pointer hover:bg-secondary hover:text-text-primary transition-colors select-none flex items-center gap-1"
+            @click="handleSort('contact_preview')">
+            Contact
+            <ChevronDownIcon v-if="isChevronDown('contact_preview')" class="w-4 h-4" />
+            <ChevronUpIcon v-else-if="isChevronUp('contact_preview')" class="w-4 h-4" />
+            <span v-else class="w-4 h-4"></span>
+        </div>
+        <div
+            class="px-3 py-1.5 text-left text-text-tertiary cursor-pointer hover:bg-secondary hover:text-text-primary transition-colors select-none flex items-center gap-1"
             @click="handleSort('projects_count')">
             Projects
             <ChevronDownIcon v-if="isChevronDown('projects_count')" class="w-4 h-4" />

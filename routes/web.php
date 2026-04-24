@@ -68,6 +68,10 @@ Route::middleware([
         return Inertia::render('Clients');
     })->name('clients');
 
+    Route::get('/clients/{client}', function () {
+        return Inertia::render('ClientShow');
+    })->name('clients.show');
+
     Route::get('/members', function () {
         return Inertia::render('Members', [
             'availableRoles' => array_values(Jetstream::$roles),

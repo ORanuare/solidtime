@@ -16,7 +16,7 @@ import {
     type SortingState,
 } from '@tanstack/vue-table';
 
-export type SortColumn = 'name' | 'projects_count' | 'status';
+export type SortColumn = 'name' | 'description' | 'contact_preview' | 'projects_count' | 'status';
 export type SortDirection = 'asc' | 'desc';
 
 const props = defineProps<{
@@ -50,10 +50,26 @@ const sorting = computed<SortingState>(() => [
     },
 ]);
 
+function contactSortKey(client: Client): string {
+    const c = client.contacts[0];
+    if (!c) {
+        return '';
+    }
+    return `${c.label} ${c.value}`.toLowerCase();
+}
+
 const columns = computed(() => [
     {
         id: 'name',
         accessorFn: (row: Client) => row.name.toLowerCase(),
+    },
+    {
+        id: 'description',
+        accessorFn: (row: Client) => (row.description ?? '').toLowerCase(),
+    },
+    {
+        id: 'contact_preview',
+        accessorFn: (row: Client) => contactSortKey(row),
     },
     {
         id: 'projects_count',
@@ -109,13 +125,13 @@ const sortedClients = computed(() => {
             <div
                 data-testid="client_table"
                 class="grid min-w-full"
-                style="grid-template-columns: 1fr 150px 200px 80px">
+                style="grid-template-columns: minmax(0,1.1fr) minmax(0,1fr) minmax(0,0.9fr) 150px 200px 80px">
                 <ClientTableHeading
                     :sort-column="props.sortColumn"
                     :sort-direction="props.sortDirection"
                     :desc-first-columns="descFirstColumns"
                     @sort="handleSort"></ClientTableHeading>
-                <div v-if="sortedClients.length === 0" class="col-span-3 py-24 text-center">
+                <div v-if="sortedClients.length === 0" class="col-span-6 py-24 text-center">
                     <UserCircleIcon class="w-8 text-icon-default inline pb-2"></UserCircleIcon>
                     <h3 class="text-text-primary font-semibold">No clients found</h3>
                     <p v-if="canCreateClients()" class="pb-5">Create your first client now!</p>
