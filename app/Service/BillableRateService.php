@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Service;
 
+use App\Enums\ProjectBillingType;
 use App\Models\Member;
 use App\Models\Organization;
 use App\Models\Project;
@@ -15,6 +16,15 @@ class BillableRateService
 {
     public function updateTimeEntriesBillableRateForProjectMember(ProjectMember $projectMember): void
     {
+        if ($projectMember->project->billing_type === ProjectBillingType::Fixed) {
+            TimeEntry::query()
+                ->where('billable', '=', true)
+                ->where('member_id', '=', $projectMember->member_id)
+                ->where('project_id', '=', $projectMember->project_id)
+                ->update(['billable_rate' => null]);
+
+            return;
+        }
         TimeEntry::query()
             ->where('billable', '=', true)
             ->where('member_id', '=', $projectMember->member_id)
@@ -24,6 +34,15 @@ class BillableRateService
 
     public function updateTimeEntriesBillableRateForProject(Project $project): void
     {
+        if ($project->billing_type === ProjectBillingType::Fixed) {
+            TimeEntry::query()
+                ->where('billable', '=', true)
+                ->where('organization_id', '=', $project->organization_id)
+                ->whereBelongsTo($project, 'project')
+                ->update(['billable_rate' => null]);
+
+            return;
+        }
         TimeEntry::query()
             ->where('billable', '=', true)
             ->where('organization_id', '=', $project->organization_id)
@@ -45,6 +64,9 @@ class BillableRateService
             ->where('billable', '=', true)
             ->where('organization_id', '=', $member->organization_id)
             ->where('member_id', '=', $member->getKey())
+            ->whereDoesntHave('project', function (Builder $builder): void {
+                $builder->where('billing_type', '=', ProjectBillingType::Fixed->value);
+            })
             ->whereDoesntHave('project', function (Builder $builder) use ($member): void {
                 /** @var Builder<Project> $builder */
                 $builder->whereNotNull('billable_rate')
@@ -67,6 +89,9 @@ class BillableRateService
                 $builder->whereNotNull('billable_rate');
             })
             ->whereDoesntHave('project', function (Builder $builder): void {
+                $builder->where('billing_type', '=', ProjectBillingType::Fixed->value);
+            })
+            ->whereDoesntHave('project', function (Builder $builder): void {
                 /** @var Builder<Project> $builder */
                 $builder->whereNotNull('billable_rate')
                     ->orWhereHas('members', function (Builder $builder): void {
@@ -81,6 +106,9 @@ class BillableRateService
     public function getBillableRateForTimeEntryWithGivenRelations(TimeEntry $timeEntry, ?ProjectMember $projectMember, ?Project $project, ?Member $member, ?Organization $organization): ?int
     {
         if (! $timeEntry->billable) {
+            return null;
+        }
+        if ($project !== null && $project->billing_type === ProjectBillingType::Fixed) {
             return null;
         }
         if ($projectMember !== null && $projectMember->billable_rate !== null) {
@@ -105,6 +133,11 @@ class BillableRateService
             return null;
         }
         if ($timeEntry->project_id !== null) {
+            /** @var Project|null $project */
+            $project = Project::find($timeEntry->project_id);
+            if ($project !== null && $project->billing_type === ProjectBillingType::Fixed) {
+                return null;
+            }
             // Project member rate
             /** @var ProjectMember|null $projectMember */
             $projectMember = ProjectMember::query()
@@ -116,8 +149,6 @@ class BillableRateService
             }
 
             // Project rate
-            /** @var Project|null $project */
-            $project = Project::find($timeEntry->project_id);
             if ($project !== null && $project->billable_rate !== null) {
                 return $project->billable_rate;
             }

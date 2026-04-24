@@ -7537,8 +7537,7 @@
                         "maxLength": 255
                     },
                     "currency": {
-                        "type": "string",
-                        "description": "Currency code (ISO 4217)"
+                        "type": "string"
                     },
                     "billable_rate": {
                         "type": [
@@ -7740,12 +7739,23 @@
                         "type": "boolean",
                         "description": "Whether the client is archived"
                     },
+                    "billing_type": {
+                        "type": "string",
+                        "description": "hourly or fixed"
+                    },
                     "billable_rate": {
                         "type": [
                             "integer",
                             "null"
                         ],
                         "description": "Billable rate in cents per hour"
+                    },
+                    "fixed_price": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ],
+                        "description": "Fixed contract total in minor units when billing_type is fixed"
                     },
                     "is_billable": {
                         "type": "boolean",
@@ -7773,7 +7783,9 @@
                     "color",
                     "client_id",
                     "is_archived",
+                    "billing_type",
                     "billable_rate",
+                    "fixed_price",
                     "is_billable",
                     "estimated_time",
                     "spent_time",
@@ -7796,6 +7808,24 @@
                     },
                     "is_billable": {
                         "type": "boolean"
+                    },
+                    "billing_type": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "hourly",
+                            "fixed"
+                        ]
+                    },
+                    "fixed_price": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ],
+                        "minimum": 0,
+                        "maximum": 9.223372036854776e+18
                     },
                     "billable_rate": {
                         "type": [
@@ -7858,6 +7888,24 @@
                             "string",
                             "null"
                         ]
+                    },
+                    "billing_type": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "hourly",
+                            "fixed"
+                        ]
+                    },
+                    "fixed_price": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ],
+                        "minimum": 0,
+                        "maximum": 9.223372036854776e+18
                     },
                     "billable_rate": {
                         "type": [

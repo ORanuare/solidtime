@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\V1\ProjectMember;
 
+use App\Enums\ProjectBillingType;
 use App\Http\Requests\V1\BaseFormRequest;
+use App\Models\Project;
 use App\Models\Member;
 use App\Models\Organization;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Validation\Rule;
 use Korridor\LaravelModelValidationRules\Rules\ExistsEloquent;
 
 /**
@@ -34,6 +37,10 @@ class ProjectMemberStoreRequest extends BaseFormRequest
             'billable_rate' => array_merge(
                 [
                     'nullable',
+                    Rule::prohibitedIf(function (): bool {
+                        $project = $this->route('project');
+                        return $project instanceof Project && $project->billing_type === ProjectBillingType::Fixed;
+                    }),
                 ],
                 $this->moneyRules()
             ),

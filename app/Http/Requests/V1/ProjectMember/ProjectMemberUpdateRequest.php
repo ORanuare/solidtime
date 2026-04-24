@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\V1\ProjectMember;
 
+use App\Enums\ProjectBillingType;
 use App\Http\Requests\V1\BaseFormRequest;
 use App\Models\Organization;
 use Illuminate\Contracts\Validation\ValidationRule;
+use Illuminate\Validation\Rule;
 
 /**
  * @property Organization $organization Organization from model binding
@@ -24,6 +26,14 @@ class ProjectMemberUpdateRequest extends BaseFormRequest
             'billable_rate' => array_merge(
                 [
                     'nullable',
+                    Rule::prohibitedIf(function (): bool {
+                        $projectMember = $this->route('projectMember');
+                        if ($projectMember === null) {
+                            return false;
+                        }
+
+                        return $projectMember->project->billing_type === ProjectBillingType::Fixed;
+                    }),
                 ],
                 $this->moneyRules()
             ),

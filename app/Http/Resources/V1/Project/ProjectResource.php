@@ -40,8 +40,12 @@ class ProjectResource extends BaseResource
             'client_id' => $this->resource->client_id,
             /** @var bool $is_archived Whether the client is archived */
             'is_archived' => $this->resource->is_archived,
+            /** @var string $billing_type hourly or fixed */
+            'billing_type' => $this->resource->billing_type->value,
             /** @var int|null $billable_rate Billable rate in cents per hour */
             'billable_rate' => $this->showBillableRate ? $this->resource->billable_rate : null,
+            /** @var int|null $fixed_price Fixed contract total in minor units when billing_type is fixed */
+            'fixed_price' => $this->showBillableRate ? $this->resource->fixed_price : null,
             /** @var bool $is_billable Project time entries billable default */
             'is_billable' => $this->resource->is_billable,
             /** @var int|null $estimated_time Estimated time in seconds */

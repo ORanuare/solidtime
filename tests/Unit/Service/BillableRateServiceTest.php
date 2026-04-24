@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Service;
 
+use App\Enums\ProjectBillingType;
 use App\Models\Member;
 use App\Models\Organization;
 use App\Models\Project;
@@ -41,6 +42,7 @@ class BillableRateServiceTest extends TestCaseWithDatabase
         $projectMember = ProjectMember::factory()->forMember($user->member)->forProject($project)->create([
             'billable_rate' => 123,
         ]);
+        $projectMember->setRelation('project', $project);
         $timeEntry = TimeEntry::factory()->forMember($user->member)->forProject($project)->billableRate(1)->create();
         $this->enableQueryLog();
 
@@ -72,6 +74,7 @@ class BillableRateServiceTest extends TestCaseWithDatabase
         $projectMember = ProjectMember::factory()->forMember($user->member)->forProject($project)->create([
             'billable_rate' => 123,
         ]);
+        $projectMember->setRelation('project', $project);
         $timeEntry = TimeEntry::factory()->forMember($user->member)->forProject($project)->billableRate(1)->create();
         $this->enableQueryLog();
 
@@ -100,6 +103,7 @@ class BillableRateServiceTest extends TestCaseWithDatabase
         $otherProjectMember = ProjectMember::factory()->forMember($otherMember)->forProject($project)->create([
             'billable_rate' => 321,
         ]);
+        $projectMember->setRelation('project', $project);
         $timeEntry = TimeEntry::factory()->forMember($otherMember)->forProject($project)->billableRate(1)->create();
         $this->enableQueryLog();
 
@@ -837,6 +841,38 @@ class BillableRateServiceTest extends TestCaseWithDatabase
         $this->assertSame(4004, $billableRate);
     }
 
+    public function test_billable_rate_with_given_relations_is_null_for_fixed_project_even_with_project_member_rate(): void
+    {
+        $organization = Organization::factory()->create([
+            'billable_rate' => 1001,
+        ]);
+        $user = User::factory()->create();
+        $member = Member::factory()->forOrganization($organization)->forUser($user)->create([
+            'billable_rate' => 2002,
+        ]);
+        $project = Project::factory()->forOrganization($organization)->create([
+            'billing_type' => ProjectBillingType::Fixed,
+            'fixed_price' => 50_000,
+            'is_billable' => true,
+        ]);
+        $projectMember = ProjectMember::factory()->forMember($member)->forProject($project)->create([
+            'billable_rate' => 4004,
+        ]);
+        $timeEntry = TimeEntry::factory()->forProject($project)->forMember($member)->forOrganization($organization)->create([
+            'billable' => true,
+        ]);
+
+        $billableRate = $this->billableRateService->getBillableRateForTimeEntryWithGivenRelations(
+            $timeEntry,
+            $projectMember,
+            $project,
+            $member,
+            $organization
+        );
+
+        $this->assertNull($billableRate);
+    }
+
     public function test_billable_rate_with_given_relations_uses_project_rate_as_second_priority_using_null_values_before(): void
     {
         // Arrange
@@ -1065,5 +1101,80 @@ class BillableRateServiceTest extends TestCaseWithDatabase
         // Assert
         $this->assertQueryCount(0);
         $this->assertSame(null, $billableRate);
+    }
+
+    public function test_get_billable_rate_for_time_entry_returns_null_for_fixed_price_project(): void
+    {
+        $organization = Organization::factory()->create([
+            'billable_rate' => 9999,
+        ]);
+        $user = User::factory()->create();
+        $member = Member::factory()->forOrganization($organization)->forUser($user)->create([
+            'billable_rate' => 8888,
+        ]);
+        $project = Project::factory()->forOrganization($organization)->create([
+            'billing_type' => ProjectBillingType::Fixed,
+            'fixed_price' => 50_000,
+            'is_billable' => true,
+        ]);
+        ProjectMember::factory()->forMember($member)->forProject($project)->create([
+            'billable_rate' => 7777,
+        ]);
+        $timeEntry = TimeEntry::factory()->forProject($project)->forMember($member)->forOrganization($organization)->create([
+            'billable' => true,
+        ]);
+
+        $this->assertNull($this->billableRateService->getBillableRateForTimeEntry($timeEntry));
+    }
+
+    public function test_update_time_entries_billable_rate_for_organization_skips_entries_on_fixed_projects(): void
+    {
+        $user = $this->createUserWithPermission();
+        $organization = $user->organization;
+        $organization->billable_rate = 110;
+        $organization->save();
+        $fixedProject = Project::factory()->forOrganization($organization)->create([
+            'billing_type' => ProjectBillingType::Fixed,
+            'fixed_price' => 10_000,
+            'is_billable' => true,
+        ]);
+        $timeEntryFixed = TimeEntry::factory()->forMember($user->member)->forProject($fixedProject)->billableRate(1)->create();
+        $hourlyProject = Project::factory()->forOrganization($organization)->create([
+            'billable_rate' => null,
+        ]);
+        $timeEntryHourly = TimeEntry::factory()->forMember($user->member)->forProject($hourlyProject)->billableRate(1)->create();
+
+        $this->billableRateService->updateTimeEntriesBillableRateForOrganization($organization);
+
+        $this->assertDatabaseHas(TimeEntry::class, [
+            'id' => $timeEntryFixed->getKey(),
+            'billable_rate' => 1,
+        ]);
+        $this->assertDatabaseHas(TimeEntry::class, [
+            'id' => $timeEntryHourly->getKey(),
+            'billable_rate' => 110,
+        ]);
+    }
+
+    public function test_update_time_entries_billable_rate_for_project_member_clears_rates_when_project_is_fixed(): void
+    {
+        $user = $this->createUserWithPermission();
+        $project = Project::factory()->forOrganization($user->organization)->create([
+            'billing_type' => ProjectBillingType::Fixed,
+            'fixed_price' => 12_000,
+            'is_billable' => true,
+        ]);
+        $projectMember = ProjectMember::factory()->forMember($user->member)->forProject($project)->create([
+            'billable_rate' => 500,
+        ]);
+        $projectMember->setRelation('project', $project);
+        $timeEntry = TimeEntry::factory()->forMember($user->member)->forProject($project)->billableRate(999)->create();
+
+        $this->billableRateService->updateTimeEntriesBillableRateForProjectMember($projectMember);
+
+        $this->assertDatabaseHas(TimeEntry::class, [
+            'id' => $timeEntry->getKey(),
+            'billable_rate' => null,
+        ]);
     }
 }

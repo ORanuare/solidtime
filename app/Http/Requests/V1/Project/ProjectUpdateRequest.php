@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\V1\Project;
 
+use App\Enums\ProjectBillingType;
 use App\Http\Requests\V1\BaseFormRequest;
 use App\Models\Client;
 use App\Models\Organization;
@@ -12,6 +13,8 @@ use App\Rules\ColorRule;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 use Korridor\LaravelModelValidationRules\Rules\ExistsEloquent;
 use Korridor\LaravelModelValidationRules\Rules\UniqueEloquent;
 
@@ -68,6 +71,16 @@ class ProjectUpdateRequest extends BaseFormRequest
                     return $builder->whereBelongsTo($this->organization, 'organization');
                 })->uuid(),
             ],
+            'billing_type' => [
+                'nullable',
+                Rule::enum(ProjectBillingType::class),
+            ],
+            'fixed_price' => array_merge(
+                [
+                    'nullable',
+                ],
+                $this->moneyRules(true)
+            ),
             'billable_rate' => array_merge([
                 'nullable',
             ],
@@ -83,6 +96,46 @@ class ProjectUpdateRequest extends BaseFormRequest
         ];
     }
 
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            $billingType = $this->getBillingType();
+            if ($billingType === ProjectBillingType::Fixed) {
+                if (! $this->boolean('is_billable')) {
+                    $validator->errors()->add('is_billable', __('validation.required'));
+                }
+                $fixed = $this->input('fixed_price');
+                if ($fixed === null || (int) $fixed <= 0) {
+                    $validator->errors()->add('fixed_price', __('validation.min.numeric', ['attribute' => 'fixed price', 'min' => 1]));
+                }
+            } else {
+                if ($this->input('fixed_price') !== null && $this->input('fixed_price') !== '') {
+                    $validator->errors()->add('fixed_price', __('validation.prohibited'));
+                }
+            }
+        });
+    }
+
+    public function getBillingType(): ProjectBillingType
+    {
+        if (! $this->has('billing_type')) {
+            return $this->project?->billing_type ?? ProjectBillingType::Hourly;
+        }
+        $raw = $this->input('billing_type');
+
+        return ProjectBillingType::tryFrom(is_string($raw) ? $raw : '') ?? ($this->project?->billing_type ?? ProjectBillingType::Hourly);
+    }
+
+    public function getFixedPrice(): ?int
+    {
+        if ($this->getBillingType() === ProjectBillingType::Hourly) {
+            return null;
+        }
+        $input = $this->input('fixed_price');
+
+        return $input !== null && $input !== '' ? (int) $input : null;
+    }
+
     public function getIsArchived(): bool
     {
         assert($this->has('is_archived'));
@@ -92,6 +145,9 @@ class ProjectUpdateRequest extends BaseFormRequest
 
     public function getBillableRate(): ?int
     {
+        if ($this->getBillingType() === ProjectBillingType::Fixed) {
+            return null;
+        }
         $input = $this->input('billable_rate');
 
         return $input !== null && $input !== 0 ? (int) $this->input('billable_rate') : null;

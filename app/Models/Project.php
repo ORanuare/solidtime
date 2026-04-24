@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\ProjectBillingType;
 use App\Models\Concerns\CustomAuditable;
 use App\Models\Concerns\HasUuids;
 use Database\Factories\ProjectFactory;
@@ -26,6 +27,8 @@ use OwenIt\Auditing\Contracts\Auditable as AuditableContract;
  * @property string $organization_id
  * @property string $client_id
  * @property int|null $billable_rate
+ * @property ProjectBillingType $billing_type
+ * @property int|null $fixed_price
  * @property bool $is_public
  * @property bool $is_billable
  * @property-read bool $is_archived
@@ -63,6 +66,8 @@ class Project extends Model implements AuditableContract
         'archived_at' => 'datetime',
         'estimated_time' => 'integer',
         'spent_time' => 'integer',
+        'billing_type' => ProjectBillingType::class,
+        'fixed_price' => 'integer',
     ];
 
     /**
@@ -72,6 +77,7 @@ class Project extends Model implements AuditableContract
      */
     protected $attributes = [
         'is_billable' => false,
+        'billing_type' => 'hourly',
     ];
 
     /**

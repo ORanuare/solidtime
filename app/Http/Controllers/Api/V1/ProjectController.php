@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Enums\ProjectBillingType;
 use App\Enums\Role;
 use App\Exceptions\Api\EntityStillInUseApiException;
 use App\Http\Requests\V1\Project\ProjectIndexRequest;
@@ -102,6 +103,8 @@ class ProjectController extends Controller
         $project->name = $request->input('name');
         $project->color = $request->input('color');
         $project->is_billable = (bool) $request->input('is_billable');
+        $project->billing_type = $request->getBillingType();
+        $project->fixed_price = $request->getFixedPrice();
         $project->billable_rate = $request->getBillableRate();
         $project->client_id = $request->input('client_id');
         $project->is_public = $request->getIsPublic();
@@ -136,8 +139,11 @@ class ProjectController extends Controller
         if ($this->canAccessPremiumFeatures($organization) && $request->has('estimated_time')) {
             $project->estimated_time = $request->getEstimatedTime();
         }
+        $oldBillingType = $project->billing_type;
         $oldBillableRate = $project->billable_rate;
         $clientIdChanged = false;
+        $project->billing_type = $request->getBillingType();
+        $project->fixed_price = $request->getFixedPrice();
         $project->billable_rate = $request->getBillableRate();
         if ($project->client_id !== $request->input('client_id')) {
             $project->client_id = $request->input('client_id');
@@ -145,7 +151,15 @@ class ProjectController extends Controller
         }
         $project->save();
 
-        if ($oldBillableRate !== $request->getBillableRate()) {
+        if ($project->billing_type === ProjectBillingType::Fixed) {
+            if ($oldBillingType !== ProjectBillingType::Fixed) {
+                TimeEntry::query()
+                    ->whereBelongsTo($organization, 'organization')
+                    ->whereBelongsTo($project, 'project')
+                    ->where('billable', '=', true)
+                    ->update(['billable_rate' => null]);
+            }
+        } elseif ($oldBillingType === ProjectBillingType::Fixed || $oldBillableRate !== $project->billable_rate) {
             $billableRateService->updateTimeEntriesBillableRateForProject($project);
         }
         if ($clientIdChanged) {
