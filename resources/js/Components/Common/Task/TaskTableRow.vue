@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import type { Task } from '@/packages/api/src';
-import { CheckCircleIcon } from '@heroicons/vue/20/solid';
+import { CheckCircleIcon, ClipboardDocumentListIcon } from '@heroicons/vue/20/solid';
 import { useTasksStore } from '@/utils/useTasks';
 import TaskMoreOptionsDropdown from '@/Components/Common/Task/TaskMoreOptionsDropdown.vue';
 import TableRow from '@/Components/TableRow.vue';
-import { canCreateTasks, canDeleteTasks, canUpdateTasks } from '@/utils/permissions';
+import { canCreateTasks, canDeleteTasks, canUpdateTasks, canViewNotes } from '@/utils/permissions';
 import TaskEditModal from '@/Components/Common/Task/TaskEditModal.vue';
+import TaskNotesModal from '@/Components/Common/Note/TaskNotesModal.vue';
 import { computed, ref, inject, type ComputedRef } from 'vue';
 import { isAllowedToPerformPremiumAction } from '@/utils/billing';
 import EstimatedTimeProgress from '@/packages/ui/src/EstimatedTimeProgress.vue';
@@ -36,10 +37,13 @@ function markTaskAsDone() {
 }
 
 const showTaskEditModal = ref(false);
+const showTaskNotesModal = ref(false);
 
 const showTaskActions = computed(
-    () => canDeleteTasks() || canUpdateTasks() || canCreateTasks()
+    () => canDeleteTasks() || canUpdateTasks() || canCreateTasks() || canViewNotes()
 );
+
+const notesCount = computed(() => props.task.notes_count ?? 0);
 </script>
 
 <template>
@@ -57,6 +61,23 @@ const showTaskActions = computed(
                 :class="depth > 0 ? 'pl-2 text-text-secondary' : ''">
                 {{ task.name }}
             </span>
+        </div>
+        <div
+            class="whitespace-nowrap px-1 py-4 flex items-center justify-center gap-1"
+            :aria-label="
+                notesCount > 0
+                    ? `${notesCount} ${notesCount === 1 ? 'note' : 'notes'} on this task`
+                    : 'No notes on this task'
+            ">
+            <template v-if="notesCount > 0">
+                <ClipboardDocumentListIcon
+                    class="h-5 w-5 shrink-0 text-icon-default"
+                    aria-hidden="true" />
+                <span class="min-w-[1.25ch] text-center text-sm font-medium tabular-nums text-text-primary">
+                    {{ notesCount }}
+                </span>
+            </template>
+            <span v-else class="text-text-tertiary text-xs select-none" aria-hidden="true">—</span>
         </div>
         <div
             class="whitespace-nowrap px-3 py-4 text-sm text-text-secondary flex space-x-1 items-center font-medium">
@@ -97,9 +118,11 @@ const showTaskActions = computed(
                 @done="markTaskAsDone"
                 @edit="showTaskEditModal = true"
                 @delete="deleteTask"
+                @notes="showTaskNotesModal = true"
                 @add-sub-task="emit('addSubTask', task.id)"></TaskMoreOptionsDropdown>
         </div>
         <TaskEditModal v-model:show="showTaskEditModal" :task="task"></TaskEditModal>
+        <TaskNotesModal v-model:show="showTaskNotesModal" :task="task" />
     </TableRow>
 </template>
 

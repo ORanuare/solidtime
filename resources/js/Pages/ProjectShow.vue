@@ -8,8 +8,9 @@ import { useProjectsQuery } from '@/utils/useProjectsQuery';
 import {
     ChevronRightIcon,
     CheckCircleIcon,
-    UserGroupIcon,
     PencilSquareIcon,
+    ClipboardDocumentIcon,
+    UserGroupIcon,
 } from '@heroicons/vue/20/solid';
 
 import { Link } from '@inertiajs/vue3';
@@ -20,7 +21,14 @@ import Card from '@/Components/Common/Card.vue';
 import ProjectMemberTable from '@/Components/Common/ProjectMember/ProjectMemberTable.vue';
 import ProjectMemberCreateModal from '@/Components/Common/ProjectMember/ProjectMemberCreateModal.vue';
 import { useProjectMembersQuery } from '@/utils/useProjectMembersQuery';
-import { canCreateProjects, canCreateTasks, canViewProjectMembers } from '@/utils/permissions';
+import {
+    canCreateProjects,
+    canCreateTasks,
+    canCreateNotes,
+    canViewNotes,
+    canViewProjectMembers,
+} from '@/utils/permissions';
+import NoteList from '@/Components/Common/Note/NoteList.vue';
 import { TabBar, TabBarItem } from '@/packages/ui/src';
 import { useTasksQuery } from '@/utils/useTasksQuery';
 import ProjectEditModal from '@/Components/Common/Project/ProjectEditModal.vue';
@@ -41,12 +49,12 @@ const createTask = ref(false);
 const createProjectMember = ref(false);
 const projectId = route()?.params?.project as string;
 
-// TanStack Query automatically fetches project members when component mounts
 const { projectMembers } = canViewProjectMembers()
     ? useProjectMembersQuery(projectId)
     : { projectMembers: computed(() => []) };
 
 const showEditProjectModal = ref(false);
+const projectNotesListRef = ref<{ openCreate: () => void } | null>(null);
 
 const billableRateFormatted = computed(() => {
     if (project.value?.billable_rate) {
@@ -134,52 +142,66 @@ const shownTasks = computed(() => {
             </div>
         </MainContainer>
         <MainContainer>
-            <div class="grid lg:grid-cols-2 gap-x-6 pt-6">
-                <div>
-                    <CardTitle title="Tasks" :icon="CheckCircleIcon">
-                        <template #actions>
-                            <div class="w-full items-center flex justify-between">
-                                <div class="pl-6">
-                                    <TabBar v-model="activeTab">
-                                        <TabBarItem value="active">Active </TabBarItem>
-                                        <TabBarItem value="done">Done </TabBarItem>
-                                    </TabBar>
-                                </div>
-                                <SecondaryButton
-                                    v-if="canCreateTasks()"
-                                    :icon="PlusIcon"
-                                    @click="createTask = true"
-                                    >Create Task
-                                </SecondaryButton>
-                                <TaskCreateModal
-                                    v-model:show="createTask"
-                                    :project-id="projectId"></TaskCreateModal>
+            <div class="pt-6">
+                <CardTitle title="Tasks" :icon="CheckCircleIcon">
+                    <template #actions>
+                        <div class="w-full items-center flex justify-between">
+                            <div class="pl-6">
+                                <TabBar v-model="activeTab">
+                                    <TabBarItem value="active">Active </TabBarItem>
+                                    <TabBarItem value="done">Done </TabBarItem>
+                                </TabBar>
                             </div>
-                        </template>
-                    </CardTitle>
-                    <Card>
-                        <TaskTable :tasks="shownTasks" :project-id="projectId"></TaskTable>
-                    </Card>
-                </div>
-                <div v-if="canViewProjectMembers()">
-                    <CardTitle title="Project Members" :icon="UserGroupIcon">
-                        <template #actions>
-                            <SecondaryButton :icon="PlusIcon" @click="createProjectMember = true">
-                                Add Member
+                            <SecondaryButton
+                                v-if="canCreateTasks()"
+                                :icon="PlusIcon"
+                                @click="createTask = true"
+                                >Create Task
                             </SecondaryButton>
-                            <ProjectMemberCreateModal
-                                v-model:show="createProjectMember"
-                                :project-id="projectId"
-                                :existing-members="projectMembers"></ProjectMemberCreateModal>
-                        </template>
-                    </CardTitle>
-                    <Card>
-                        <ProjectMemberTable
-                            :project-members="projectMembers"
-                            :project-id="projectId"></ProjectMemberTable>
-                    </Card>
-                </div>
+                            <TaskCreateModal
+                                v-model:show="createTask"
+                                :project-id="projectId"></TaskCreateModal>
+                        </div>
+                    </template>
+                </CardTitle>
+                <Card>
+                    <TaskTable :tasks="shownTasks" :project-id="projectId"></TaskTable>
+                </Card>
             </div>
+        </MainContainer>
+        <MainContainer v-if="canViewNotes()" class="pt-6" :class="canViewProjectMembers() ? '' : 'pb-8'">
+            <CardTitle title="Notes" :icon="ClipboardDocumentIcon">
+                <template #actions>
+                    <SecondaryButton
+                        v-if="canCreateNotes()"
+                        :icon="PlusIcon"
+                        @click="projectNotesListRef?.openCreate()">
+                        New note
+                    </SecondaryButton>
+                </template>
+            </CardTitle>
+            <Card class="mt-3">
+                <NoteList
+                    ref="projectNotesListRef"
+                    :project-id="projectId"
+                    :show-top-create-action="false" />
+            </Card>
+        </MainContainer>
+        <MainContainer v-if="canViewProjectMembers()" class="pt-6 pb-8">
+            <CardTitle title="Project Members" :icon="UserGroupIcon">
+                <template #actions>
+                    <SecondaryButton :icon="PlusIcon" @click="createProjectMember = true">
+                        Add Member
+                    </SecondaryButton>
+                    <ProjectMemberCreateModal
+                        v-model:show="createProjectMember"
+                        :project-id="projectId"
+                        :existing-members="projectMembers" />
+                </template>
+            </CardTitle>
+            <Card class="mt-3">
+                <ProjectMemberTable :project-members="projectMembers" :project-id="projectId" />
+            </Card>
         </MainContainer>
     </AppLayout>
 </template>

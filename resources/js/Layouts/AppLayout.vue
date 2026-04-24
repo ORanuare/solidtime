@@ -17,6 +17,7 @@ import {
     UserGroupIcon,
     XMarkIcon,
     DocumentTextIcon,
+    ClipboardDocumentIcon,
 } from '@heroicons/vue/20/solid';
 import { PanelLeft } from 'lucide-vue-next';
 import NavigationSidebarItem from '@/Components/NavigationSidebarItem.vue';
@@ -35,6 +36,7 @@ import {
     canViewProjects,
     canViewReport,
     canViewTags,
+    canViewNotes,
 } from '@/utils/permissions';
 import { isBillingActivated, isInvoicingActivated } from '@/utils/billing';
 import type { User } from '@/types/models';
@@ -243,6 +245,12 @@ const page = usePage<{
                                 :icon="TagIcon"
                                 :current="route().current('tags')"
                                 :href="route('tags')"></NavigationSidebarItem>
+                            <NavigationSidebarItem
+                                v-if="canViewNotes()"
+                                title="Notes"
+                                :icon="ClipboardDocumentIcon"
+                                :current="route().current('notes')"
+                                :href="route('notes')"></NavigationSidebarItem>
                             <NavigationSidebarItem
                                 v-if="isInvoicingActivated() && canViewInvoices()"
                                 title="Invoices"

@@ -4,10 +4,11 @@ import TimeTracker from '@/Components/TimeTracker.vue';
 import RecentlyTrackedTasksCard from '@/Components/Dashboard/RecentlyTrackedTasksCard.vue';
 import LastSevenDaysCard from '@/Components/Dashboard/LastSevenDaysCard.vue';
 import TeamActivityCard from '@/Components/Dashboard/TeamActivityCard.vue';
+import RecentNotesCard from '@/Components/Dashboard/RecentNotesCard.vue';
 import ThisWeekOverview from '@/Components/Dashboard/ThisWeekOverview.vue';
 import ActivityGraphCard from '@/Components/Dashboard/ActivityGraphCard.vue';
 import MainContainer from '@/packages/ui/src/MainContainer.vue';
-import { canViewMembers } from '@/utils/permissions';
+import { canViewMembers, canViewNotes } from '@/utils/permissions';
 import { useQueryClient } from '@tanstack/vue-query';
 
 const queryClient = useQueryClient();
@@ -18,6 +19,7 @@ const refreshDashboardData = () => {
     queryClient.invalidateQueries({ queryKey: ['lastSevenDays'] });
     queryClient.invalidateQueries({ queryKey: ['dailyTrackedHours'] });
     queryClient.invalidateQueries({ queryKey: ['latestTeamActivity'] });
+    queryClient.invalidateQueries({ queryKey: ['dashboardRecentNotes'] });
     queryClient.invalidateQueries({ queryKey: ['weeklyProjectOverview'] });
     queryClient.invalidateQueries({ queryKey: ['totalWeeklyTime'] });
     queryClient.invalidateQueries({ queryKey: ['totalWeeklyBillableTime'] });
@@ -39,11 +41,17 @@ const refreshDashboardData = () => {
             <RecentlyTrackedTasksCard></RecentlyTrackedTasksCard>
             <LastSevenDaysCard></LastSevenDaysCard>
             <ActivityGraphCard></ActivityGraphCard>
-            <TeamActivityCard v-if="canViewMembers()" class="flex lg:hidden xl:flex">
-            </TeamActivityCard>
+            <RecentNotesCard
+                v-if="canViewNotes()"
+                class="flex lg:hidden xl:flex"></RecentNotesCard>
         </MainContainer>
-        <MainContainer class="py-5">
+        <MainContainer class="pt-5 pb-2 sm:pb-3">
             <ThisWeekOverview></ThisWeekOverview>
+        </MainContainer>
+        <MainContainer
+            v-if="canViewMembers()"
+            class="pt-0 pb-6 sm:pb-8 border-t border-default-background-separator">
+            <TeamActivityCard></TeamActivityCard>
         </MainContainer>
     </AppLayout>
 </template>

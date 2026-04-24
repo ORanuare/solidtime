@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import Modal from './Modal.vue';
+import DialogDescription from './dialog/DialogDescription.vue';
+import DialogTitle from './dialog/DialogTitle.vue';
 
 const emit = defineEmits(['close']);
 
@@ -26,9 +28,13 @@ const close = () => {
 <template>
     <Modal :show="show" :max-width="maxWidth" :closeable="closeable" @close="close">
         <div class="px-4 lg:px-6 py-4">
-            <div class="text-lg font-medium text-text-primary" role="heading">
+            <DialogTitle class="text-lg font-medium text-text-primary">
                 <slot name="title" />
-            </div>
+            </DialogTitle>
+            <DialogDescription v-if="$slots.description" class="mt-1 text-sm text-text-secondary">
+                <slot name="description" />
+            </DialogDescription>
+            <DialogDescription v-else class="sr-only">Dialog content and actions.</DialogDescription>
 
             <div class="mt-4 text-sm text-text-secondary">
                 <slot name="content" />

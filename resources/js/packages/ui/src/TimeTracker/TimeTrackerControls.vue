@@ -19,6 +19,14 @@ import { useFocus } from '@vueuse/core';
 import { autoUpdate, flip, limitShift, offset, shift, useFloating } from '@floating-ui/vue';
 import TimeTrackerRecentlyTrackedEntry from '@/packages/ui/src/TimeTracker/TimeTrackerRecentlyTrackedEntry.vue';
 import { useSelectEvents } from '@/packages/ui/src/utils/select';
+import { ClipboardDocumentListIcon } from '@heroicons/vue/20/solid';
+import { twMerge } from 'tailwind-merge';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from '@/packages/ui/src/tooltip';
 
 const currentTimeEntry = defineModel<TimeEntry>('currentTimeEntry', {
     required: true,
@@ -27,21 +35,28 @@ const liveTimer = defineModel<Dayjs | null>('liveTimer', { required: true });
 
 const currentTimeEntryDescriptionInput = ref<HTMLInputElement | null>(null);
 
-const props = defineProps<{
-    projects: Project[];
-    tasks: Task[];
-    tags: Tag[];
-    clients: Client[];
-    timeEntries: TimeEntry[];
-    createTag: (name: string) => Promise<Tag | undefined>;
-    createProject: (project: CreateProjectBody) => Promise<Project | undefined>;
-    createClient: (client: CreateClientBody) => Promise<Client | undefined>;
-    isActive: boolean;
-    currency: string;
-    organizationBillableRate: number | null;
-    enableEstimatedTime: boolean;
-    canCreateProject: boolean;
-}>();
+const props = withDefaults(
+    defineProps<{
+        projects: Project[];
+        tasks: Task[];
+        tags: Tag[];
+        clients: Client[];
+        timeEntries: TimeEntry[];
+        createTag: (name: string) => Promise<Tag | undefined>;
+        createProject: (project: CreateProjectBody) => Promise<Project | undefined>;
+        createClient: (client: CreateClientBody) => Promise<Client | undefined>;
+        isActive: boolean;
+        currency: string;
+        organizationBillableRate: number | null;
+        enableEstimatedTime: boolean;
+        canCreateProject: boolean;
+        /**
+         * Show “add note” beside tag / billable; parent opens NoteFormModal with current project/task.
+         */
+        canAddNote?: boolean;
+    }>(),
+    { canAddNote: false }
+);
 
 const emit = defineEmits<{
     startTimer: [];
@@ -50,6 +65,7 @@ const emit = defineEmits<{
     startLiveTimer: [];
     stopLiveTimer: [];
     createTimeEntry: [];
+    addNote: [];
 }>();
 
 function updateProject() {
@@ -197,6 +213,15 @@ const { floatingStyles } = useFloating(currentTimeEntryDescriptionInput, floatin
 });
 const highlightedDropdownEntryId = ref<string | null>(null);
 
+const noteActionIconClass = computed(() => {
+    const t = currentTimeEntry.value;
+    if (t.project_id || t.task_id) {
+        return 'text-input-select-active focus:text-input-select-active-hover hover:text-input-select-active-hover';
+    }
+
+    return 'text-icon-default focus:text-icon-active hover:text-icon-active';
+});
+
 useSelectEvents(
     filteredRecentlyTrackedTimeEntries,
     highlightedDropdownEntryId,
@@ -278,6 +303,27 @@ useSelectEvents(
                     <BillableToggleButton
                         v-model="currentTimeEntry.billable"
                         @changed="$emit('updateTimeEntry')"></BillableToggleButton>
+                    <TooltipProvider v-if="canAddNote">
+                        <Tooltip disable-closing-trigger>
+                            <TooltipTrigger as-child>
+                                <button
+                                    type="button"
+                                    data-testid="time_tracker_add_note"
+                                    aria-label="Add note for selected project and task"
+                                    :class="
+                                        twMerge(
+                                            noteActionIconClass,
+                                            'flex-shrink-0 ring-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring transition focus:bg-card-background-separator hover:bg-card-background-separator rounded-full w-10 h-10 flex items-center justify-center'
+                                        )
+                                    "
+                                    @click="$emit('addNote')">
+                                    <ClipboardDocumentListIcon
+                                        class="w-5 h-5 lg:h-6 lg:w-6"></ClipboardDocumentListIcon>
+                                </button>
+                            </TooltipTrigger>
+                            <TooltipContent> Add note </TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
                 </div>
                 <div class="border-l border-card-border">
                     <TimeTrackerRangeSelector

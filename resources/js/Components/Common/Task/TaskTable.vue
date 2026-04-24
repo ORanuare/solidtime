@@ -50,11 +50,11 @@ watch(createTask, (show) => {
                 class="grid min-w-full"
                 style="
                     grid-template-columns:
-                        1fr minmax(80px, auto) minmax(120px, auto) minmax(50px, auto)
-                        80px;
+                        1fr minmax(4rem, auto) minmax(80px, auto) minmax(120px, auto)
+                        minmax(50px, auto) 80px;
                 ">
                 <TaskTableHeading></TaskTableHeading>
-                <div v-if="tasks.length === 0" class="col-span-5 py-24 text-center">
+                <div v-if="tasks.length === 0" class="col-span-6 py-24 text-center">
                     <PlusCircleIcon class="w-8 text-icon-default inline pb-2"></PlusCircleIcon>
                     <h3 class="text-text-primary font-semibold">No tasks found</h3>
                     <p v-if="canCreateTasks()" class="pb-5">Create your first task now!</p>

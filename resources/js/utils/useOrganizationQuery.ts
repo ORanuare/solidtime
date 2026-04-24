@@ -11,6 +11,7 @@ export function useOrganizationQuery(organizationId: string) {
                     organization: organizationId,
                 },
             }),
+        enabled: () => organizationId.length > 0,
         staleTime: 1000 * 30,
     });
 

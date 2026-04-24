@@ -1,7 +1,13 @@
 <script setup lang="ts">
-import { TrashIcon, PencilSquareIcon, CheckCircleIcon, PlusIcon } from '@heroicons/vue/20/solid';
+import {
+    TrashIcon,
+    PencilSquareIcon,
+    CheckCircleIcon,
+    PlusIcon,
+    ClipboardDocumentIcon,
+} from '@heroicons/vue/20/solid';
 import type { Task } from '@/packages/api/src';
-import { canCreateTasks, canDeleteTasks, canUpdateTasks } from '@/utils/permissions';
+import { canCreateTasks, canDeleteTasks, canUpdateTasks, canViewNotes } from '@/utils/permissions';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -14,6 +20,7 @@ const emit = defineEmits<{
     edit: [];
     done: [];
     addSubTask: [];
+    notes: [];
 }>();
 const props = defineProps<{
     task: Task;
@@ -41,6 +48,14 @@ const props = defineProps<{
             </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent class="min-w-[150px]" align="end">
+            <DropdownMenuItem
+                v-if="canViewNotes()"
+                :aria-label="'Notes for ' + props.task.name"
+                class="flex items-center space-x-3 cursor-pointer"
+                @click="emit('notes')">
+                <ClipboardDocumentIcon class="w-5 text-icon-active" />
+                <span>Notes</span>
+            </DropdownMenuItem>
             <DropdownMenuItem
                 v-if="canUpdateTasks()"
                 :aria-label="'Edit Task ' + props.task.name"

@@ -1,7 +1,7 @@
 import type { QueryClient } from '@tanstack/vue-query';
 import { api } from '@/packages/api/src';
 import { getCurrentOrganizationId, getCurrentMembershipId } from '@/utils/useUser';
-import { canViewClients, canViewMembers } from '@/utils/permissions';
+import { canViewClients, canViewMembers, canViewNotes } from '@/utils/permissions';
 import {
     getInitialWeekRange,
     getExpandedCalendarDateRange,
@@ -15,6 +15,7 @@ import { fetchAllClients } from '@/utils/useClientsQuery';
 import { fetchAllMembers } from '@/utils/useMembersQuery';
 import { fetchAllReports } from '@/utils/useReportsQuery';
 import { fetchAllProjectMembers } from '@/utils/useProjectMembersQuery';
+import { fetchAllNotes } from '@/utils/useNotesQuery';
 
 /**
  * Route patterns mapped to their prefetch functions.
@@ -56,6 +57,10 @@ const routePrefetchers: Record<string, (queryClient: QueryClient) => void> = {
 
     '/tags': (queryClient) => {
         prefetchTags(queryClient);
+    },
+
+    '/notes': (queryClient) => {
+        prefetchNotes(queryClient);
     },
 
     '/members': (queryClient) => {
@@ -206,6 +211,19 @@ function prefetchTags(queryClient: QueryClient) {
     });
 }
 
+function prefetchNotes(queryClient: QueryClient) {
+    const organizationId = getCurrentOrganizationId();
+    if (!organizationId || !canViewNotes()) {
+        return;
+    }
+
+    queryClient.prefetchQuery({
+        queryKey: ['notes', organizationId, undefined, undefined, undefined, undefined],
+        queryFn: async () => ({ data: await fetchAllNotes(organizationId) }),
+        staleTime: 30000,
+    });
+}
+
 function prefetchClients(queryClient: QueryClient) {
     const organizationId = getCurrentOrganizationId();
     if (!organizationId || !canViewClients()) return;
@@ -311,6 +329,23 @@ function findPrefetcher(url: string): ((queryClient: QueryClient) => void) | und
             prefetchProjects(queryClient);
             prefetchTasks(queryClient);
             prefetchProjectMembers(queryClient, projectId);
+            const organizationId = getCurrentOrganizationId();
+            if (organizationId && canViewNotes()) {
+                queryClient.prefetchQuery({
+                    queryKey: [
+                        'notes',
+                        organizationId,
+                        projectId,
+                        undefined,
+                        undefined,
+                        undefined,
+                    ],
+                    queryFn: async () => ({
+                        data: await fetchAllNotes(organizationId, { projectId }),
+                    }),
+                    staleTime: 30000,
+                });
+            }
         };
     }
 

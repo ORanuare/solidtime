@@ -3,7 +3,7 @@ import { ClockIcon } from '@heroicons/vue/20/solid';
 import CardTitle from '@/packages/ui/src/CardTitle.vue';
 import { usePage } from '@inertiajs/vue3';
 import { type User } from '@/types/models';
-import { computed, onMounted, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import duration from 'dayjs/plugin/duration';
@@ -33,8 +33,8 @@ import TimeEntryCreateModal from '@/packages/ui/src/TimeEntry/TimeEntryCreateMod
 import { useClientsStore } from '@/utils/useClients';
 import { getOrganizationCurrencyString } from '@/utils/money';
 import { isAllowedToPerformPremiumAction } from '@/utils/billing';
-import { canCreateProjects } from '@/utils/permissions';
-import { ref } from 'vue';
+import { canCreateNotes, canCreateProjects } from '@/utils/permissions';
+import NoteFormModal from '@/Components/Common/Note/NoteFormModal.vue';
 import { useNotificationsStore } from '@/utils/notification';
 import { useTimeEntriesMutations } from '@/utils/useTimeEntriesMutations';
 import { useTimeEntriesInfiniteQuery } from '@/utils/useTimeEntriesInfiniteQuery';
@@ -63,6 +63,7 @@ const emit = defineEmits<{
 }>();
 
 const showManualTimeEntryModal = ref(false);
+const showNoteFromTimer = ref(false);
 
 const { createTimeEntry: createTimeEntryMutation, deleteTimeEntry } = useTimeEntriesMutations();
 const { data: timeEntriesData } = useTimeEntriesInfiniteQuery();
@@ -143,9 +144,33 @@ async function discardCurrentTimeEntry() {
 }
 
 const { tags } = useTagsQuery();
+
+const noteContextProjectName = computed(() => {
+    const id = currentTimeEntry.value.project_id;
+    if (!id) {
+        return undefined;
+    }
+
+    return projects.value.find((p) => p.id === id)?.name;
+});
+
+const noteContextTaskName = computed(() => {
+    const id = currentTimeEntry.value.task_id;
+    if (!id) {
+        return undefined;
+    }
+
+    return tasks.value.find((t) => t.id === id)?.name;
+});
 </script>
 
 <template>
+    <NoteFormModal
+        v-model:show="showNoteFromTimer"
+        :project-id="currentTimeEntry.project_id || undefined"
+        :task-id="currentTimeEntry.task_id || undefined"
+        :project-name="noteContextProjectName"
+        :task-name="noteContextTaskName" />
     <TimeEntryCreateModal
         v-model:show="showManualTimeEntryModal"
         :enable-estimated-time="isAllowedToPerformPremiumAction()"
@@ -177,6 +202,7 @@ const { tags } = useTagsQuery();
                         :create-project
                         :enable-estimated-time="isAllowedToPerformPremiumAction()"
                         :can-create-project="canCreateProjects()"
+                        :can-add-note="canCreateNotes()"
                         :organization-billable-rate="organization?.billable_rate ?? null"
                         :create-client
                         :clients
@@ -192,7 +218,8 @@ const { tags } = useTagsQuery();
                         @start-timer="setActiveState(true)"
                         @stop-timer="setActiveState(false)"
                         @update-time-entry="updateTimeEntry"
-                        @create-time-entry="createTimeEntryFromCurrentEntry"></TimeTrackerControls>
+                        @create-time-entry="createTimeEntryFromCurrentEntry"
+                        @add-note="showNoteFromTimer = true"></TimeTrackerControls>
                 </div>
                 <TimeTrackerMoreOptionsDropdown
                     :has-active-timer="isActive"

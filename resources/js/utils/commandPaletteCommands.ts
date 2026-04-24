@@ -8,6 +8,7 @@ import {
     UserCircleIcon,
     UserGroupIcon,
     TagIcon,
+    ClipboardDocumentIcon,
     DocumentTextIcon,
     CreditCardIcon,
     ArrowsRightLeftIcon,
@@ -65,6 +66,7 @@ export function createNavigationCommands(
         canViewClients: () => boolean;
         canViewMembers: () => boolean;
         canViewTags: () => boolean;
+        canViewNotes: () => boolean;
         canViewReport: () => boolean;
         canViewInvoices: () => boolean;
         canManageBilling: () => boolean;
@@ -171,6 +173,16 @@ export function createNavigationCommands(
             action: () => navigate('tags'),
             permission: permissions.canViewTags,
             priority: GROUP_PRIORITIES.navigation + 1,
+        },
+        {
+            id: 'nav-notes',
+            label: 'Go to Notes',
+            icon: ClipboardDocumentIcon,
+            keywords: ['notes', 'markdown', 'memos', 'docs'],
+            group: 'navigation',
+            action: () => navigate('notes'),
+            permission: permissions.canViewNotes,
+            priority: GROUP_PRIORITIES.navigation + 0.5,
         },
         {
             id: 'nav-invoices',

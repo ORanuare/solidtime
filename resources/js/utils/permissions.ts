@@ -109,6 +109,22 @@ export function canDeleteTags() {
     return currentUserHasPermission('tags:delete');
 }
 
+export function canViewNotes() {
+    return currentUserHasPermission('notes:view');
+}
+
+export function canCreateNotes() {
+    return currentUserHasPermission('notes:create');
+}
+
+export function canUpdateNotes() {
+    return currentUserHasPermission('notes:update');
+}
+
+export function canDeleteNotes() {
+    return currentUserHasPermission('notes:delete');
+}
+
 export function canManageBilling() {
     return currentUserHasPermission('billing');
 }
