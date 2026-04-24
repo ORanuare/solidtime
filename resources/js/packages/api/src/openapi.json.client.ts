@@ -72,6 +72,7 @@ const NoteResource = z
         title: z.string(),
         body: z.string(),
         visibility: z.string(),
+        is_archived: z.boolean(),
         user_id: z.string(),
         user_name: z.string(),
         project_id: z.string(),
@@ -97,6 +98,7 @@ const NoteUpdateRequest = z
         title: z.string().min(1).max(500),
         body: z.string(),
         visibility: z.enum(['private', 'shared']),
+        is_archived: z.boolean(),
     })
     .partial()
     .passthrough();
@@ -2015,6 +2017,11 @@ const endpoints = makeApi([
                 name: 'search',
                 type: 'Query',
                 schema: project_id,
+            },
+            {
+                name: 'archived',
+                type: 'Query',
+                schema: z.enum(['true', 'false', 'all']).optional(),
             },
         ],
         response: z

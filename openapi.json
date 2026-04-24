@@ -2321,6 +2321,18 @@
                             ],
                             "maxLength": 500
                         }
+                    },
+                    {
+                        "name": "archived",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "true",
+                                "false",
+                                "all"
+                            ]
+                        }
                     }
                 ],
                 "responses": {
@@ -7195,6 +7207,9 @@
                     "visibility": {
                         "type": "string"
                     },
+                    "is_archived": {
+                        "type": "boolean"
+                    },
                     "user_id": {
                         "type": "string"
                     },
@@ -7250,6 +7265,7 @@
                     "title",
                     "body",
                     "visibility",
+                    "is_archived",
                     "user_id",
                     "user_name",
                     "project_id",
@@ -7319,6 +7335,9 @@
                             "private",
                             "shared"
                         ]
+                    },
+                    "is_archived": {
+                        "type": "boolean"
                     }
                 },
                 "title": "NoteUpdateRequest"
