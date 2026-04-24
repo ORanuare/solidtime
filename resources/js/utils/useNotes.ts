@@ -23,7 +23,7 @@ export const useNotesStore = defineStore('notes', () => {
                 'Note deleted',
                 'Failed to delete note'
             );
-            queryClient.invalidateQueries({ queryKey: ['notes'] });
+            await queryClient.invalidateQueries({ queryKey: ['notes'] });
         }
     }
 
@@ -38,13 +38,15 @@ export const useNotesStore = defineStore('notes', () => {
                 'Note created',
                 'Failed to create note'
             );
-            if (response?.data) {
-                queryClient.invalidateQueries({ queryKey: ['notes'] });
-                return response.data;
+            await queryClient.invalidateQueries({ queryKey: ['notes'] });
+            if (response && typeof response === 'object' && 'data' in response) {
+                return (response as { data: Note }).data;
             }
-        } else {
-            throw new Error('No organization');
+
+            return undefined;
         }
+
+        throw new Error('No organization');
     }
 
     const { mutateAsync: updateNote } = useMutation({
@@ -61,8 +63,8 @@ export const useNotesStore = defineStore('notes', () => {
                 );
             }
         },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['notes'] });
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({ queryKey: ['notes'] });
         },
     });
 
