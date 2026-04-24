@@ -31,10 +31,12 @@ watch(
 );
 
 const visibilityFilter = ref<'private' | 'shared' | ''>('');
+const archivedStatusFilter = ref<'false' | 'true' | 'all'>('false');
 
 const listProps = computed(() => ({
     search: debouncedSearch.value.trim() || undefined,
     visibilityFilter: visibilityFilter.value,
+    archivedFilter: archivedStatusFilter.value,
 }));
 
 const showCreate = ref(false);
@@ -57,8 +59,8 @@ const { tasks } = useTasksQuery();
             </SecondaryButton>
         </MainContainer>
         <MainContainer class="pt-6">
-            <FieldGroup class="mb-6 max-w-2xl">
-                <div class="grid sm:grid-cols-2 gap-4">
+            <FieldGroup class="mb-6 max-w-4xl">
+                <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     <Field>
                         <FieldLabel for="noteSearch">Search</FieldLabel>
                         <TextInput
@@ -78,6 +80,17 @@ const { tasks } = useTasksQuery();
                             <option value="">All</option>
                             <option value="private">Private</option>
                             <option value="shared">Shared</option>
+                        </select>
+                    </Field>
+                    <Field>
+                        <FieldLabel for="noteStatus">Status</FieldLabel>
+                        <select
+                            id="noteStatus"
+                            v-model="archivedStatusFilter"
+                            class="block w-full rounded-md border border-default bg-card-background text-text-primary text-sm py-2 px-3 shadow-sm focus:ring-2 focus:ring-ring focus:border-transparent">
+                            <option value="false">Active</option>
+                            <option value="true">Archived</option>
+                            <option value="all">All</option>
                         </select>
                     </Field>
                 </div>

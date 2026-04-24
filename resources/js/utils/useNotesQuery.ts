@@ -19,6 +19,7 @@ export async function fetchAllNotes(
                 task_id: filters?.taskId || undefined,
                 visibility: filters?.visibility || undefined,
                 search: filters?.search || undefined,
+                ...(filters?.archived !== undefined ? { archived: filters.archived } : {}),
             },
         })
     );
@@ -37,6 +38,7 @@ export function useNotesQuery(filters?: MaybeRefOrGetter<NotesListFilters | unde
                 f?.taskId,
                 f?.visibility,
                 f?.search,
+                f?.archived,
             ] as const;
         }),
         queryFn: async () => {

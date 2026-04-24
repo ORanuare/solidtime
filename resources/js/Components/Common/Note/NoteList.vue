@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import SecondaryButton from '@/packages/ui/src/Buttons/SecondaryButton.vue';
-import { PlusIcon, PencilSquareIcon, TrashIcon } from '@heroicons/vue/20/solid';
+import { PlusIcon, PencilSquareIcon, TrashIcon, ArchiveBoxIcon } from '@heroicons/vue/20/solid';
 import { PlusIcon as PlusIconSm } from '@heroicons/vue/16/solid';
 import { ClipboardDocumentListIcon } from '@heroicons/vue/24/solid';
 import { useNotesQuery } from '@/utils/useNotesQuery';
@@ -24,6 +24,8 @@ const props = withDefaults(
         taskId?: string;
         search?: string;
         visibilityFilter?: 'private' | 'shared' | '';
+        /** Notes list `archived` query; omitted means server default (non-archived only). */
+        archivedFilter?: 'true' | 'false' | 'all';
         /**
          * When true, show the "New note" bar above the list. Set false when the parent
          * places the action in a CardTitle or page header and calls `openCreate()` via ref.
@@ -38,10 +40,11 @@ const listFilters = computed(() => ({
     taskId: props.taskId,
     search: props.search,
     visibility: props.visibilityFilter || undefined,
+    archived: props.archivedFilter,
 }));
 
 const { notes, isLoading } = useNotesQuery(listFilters);
-const { deleteNote } = useNotesStore();
+const { deleteNote, updateNote } = useNotesStore();
 const showForm = ref(false);
 const noteToEdit = ref<Note | null>(null);
 const expandedId = ref<string | null>(null);
@@ -82,6 +85,13 @@ function openEdit(note: Note) {
 
 function toggleExpand(id: string) {
     expandedId.value = expandedId.value === id ? null : id;
+}
+
+async function toggleArchive(note: Note) {
+    await updateNote({
+        noteId: note.id,
+        body: { is_archived: !note.is_archived },
+    });
 }
 
 defineExpose({ openCreate });
@@ -144,9 +154,12 @@ defineExpose({ openCreate });
                                 <span class="truncate block">{{ n.notable_label }}</span>
                             </div>
                             <div
-                                class="shrink-0 px-3 py-4 text-sm text-text-primary flex items-center justify-start">
+                                class="shrink-0 px-3 py-4 text-sm text-text-primary flex items-center justify-start flex-wrap gap-1">
                                 <Badge v-if="n.visibility === 'private'" class="text-xs w-fit">Private</Badge>
                                 <Badge v-else class="text-xs w-fit">Shared</Badge>
+                                <Badge v-if="n.is_archived" class="text-xs w-fit text-text-tertiary"
+                                    >Archived</Badge
+                                >
                             </div>
                             <div
                                 class="whitespace-nowrap pl-3 pr-2 sm:pr-3 py-4 text-sm text-text-secondary min-w-0 flex items-center">
@@ -163,6 +176,14 @@ defineExpose({ openCreate });
                                     @click="toggleExpand(n.id)">
                                     <ChevronUpIcon v-if="expandedId === n.id" class="w-5 h-5" />
                                     <ChevronDownIcon v-else class="w-5 h-5" />
+                                </button>
+                                <button
+                                    v-if="canEdit(n)"
+                                    type="button"
+                                    class="p-1.5 rounded text-text-secondary hover:bg-white/5"
+                                    :aria-label="n.is_archived ? 'Unarchive note' : 'Archive note'"
+                                    @click="toggleArchive(n)">
+                                    <ArchiveBoxIcon class="w-5 h-5" />
                                 </button>
                                 <button
                                     v-if="canEdit(n)"
