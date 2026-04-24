@@ -42,6 +42,15 @@ class NoteIndexRequest extends BaseFormRequest
                 'string',
                 'max:500',
             ],
+            'archived' => [
+                'string',
+                'in:true,false,all',
+            ],
         ];
+    }
+
+    public function getFilterArchived(): string
+    {
+        return $this->input('archived', 'false');
     }
 }

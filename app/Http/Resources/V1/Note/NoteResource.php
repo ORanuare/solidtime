@@ -35,6 +35,7 @@ class NoteResource extends BaseResource
             'title' => $this->resource->title,
             'body' => $this->resource->body,
             'visibility' => $this->resource->visibility->value,
+            'is_archived' => $this->resource->is_archived,
             'user_id' => $this->resource->user_id,
             'user_name' => $this->resource->user?->name ?? '',
             'project_id' => $projectId,

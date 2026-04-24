@@ -19,6 +19,7 @@ use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Carbon;
 
 class NoteController extends Controller
 {
@@ -73,6 +74,13 @@ class NoteController extends Controller
                 $q->where('title', 'like', '%'.$search.'%')
                     ->orWhere('body', 'like', '%'.$search.'%');
             });
+        }
+
+        $filterArchived = $request->getFilterArchived();
+        if ($filterArchived === 'true') {
+            $query->whereNotNull('archived_at');
+        } elseif ($filterArchived === 'false') {
+            $query->whereNull('archived_at');
         }
 
         $notes = $query
@@ -147,6 +155,9 @@ class NoteController extends Controller
         }
         if ($request->has('visibility')) {
             $note->visibility = NoteVisibility::from($request->input('visibility'));
+        }
+        if ($request->has('is_archived')) {
+            $note->archived_at = $request->getIsArchived() ? Carbon::now() : null;
         }
         $note->save();
         $note->load(['user', 'notable']);

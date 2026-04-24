@@ -32,6 +32,17 @@ class NoteUpdateRequest extends BaseFormRequest
                 'string',
                 Rule::enum(NoteVisibility::class),
             ],
+            'is_archived' => [
+                'sometimes',
+                'boolean',
+            ],
         ];
+    }
+
+    public function getIsArchived(): bool
+    {
+        assert($this->has('is_archived'));
+
+        return (bool) $this->input('is_archived');
     }
 }

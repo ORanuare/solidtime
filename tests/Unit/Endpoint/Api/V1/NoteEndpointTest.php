@@ -152,4 +152,129 @@ class NoteEndpointTest extends ApiEndpointTestAbstract
 
         $response->assertForbidden();
     }
+
+    public function test_index_without_archived_filter_returns_only_non_archived_notes(): void
+    {
+        $data = $this->createUserWithPermission(['notes:view', 'notes:create']);
+        $active = Note::factory()
+            ->forOrganization($data->organization)
+            ->author($data->user)
+            ->shared()
+            ->create(['title' => 'Active note']);
+        Note::factory()
+            ->forOrganization($data->organization)
+            ->author($data->user)
+            ->shared()
+            ->archived()
+            ->create(['title' => 'Archived note']);
+        Passport::actingAs($data->user);
+
+        $response = $this->getJson(route('api.v1.notes.index', [$data->organization->getKey()]));
+
+        $response->assertStatus(200);
+        $response->assertJsonCount(1, 'data');
+        $response->assertJsonPath('data.0.id', $active->getKey());
+        $response->assertJsonPath('data.0.is_archived', false);
+    }
+
+    public function test_index_with_archived_true_returns_only_archived_notes(): void
+    {
+        $data = $this->createUserWithPermission(['notes:view', 'notes:create']);
+        Note::factory()
+            ->forOrganization($data->organization)
+            ->author($data->user)
+            ->shared()
+            ->create(['title' => 'Active note']);
+        $archived = Note::factory()
+            ->forOrganization($data->organization)
+            ->author($data->user)
+            ->shared()
+            ->archived()
+            ->create(['title' => 'Archived note']);
+        Passport::actingAs($data->user);
+
+        $response = $this->getJson(route('api.v1.notes.index', [
+            $data->organization->getKey(),
+            'archived' => 'true',
+        ]));
+
+        $response->assertStatus(200);
+        $response->assertJsonCount(1, 'data');
+        $response->assertJsonPath('data.0.id', $archived->getKey());
+        $response->assertJsonPath('data.0.is_archived', true);
+    }
+
+    public function test_index_with_archived_all_returns_archived_and_active_notes(): void
+    {
+        $data = $this->createUserWithPermission(['notes:view', 'notes:create']);
+        $active = Note::factory()
+            ->forOrganization($data->organization)
+            ->author($data->user)
+            ->shared()
+            ->create(['title' => 'Active note']);
+        $archived = Note::factory()
+            ->forOrganization($data->organization)
+            ->author($data->user)
+            ->shared()
+            ->archived()
+            ->create(['title' => 'Archived note']);
+        Passport::actingAs($data->user);
+
+        $response = $this->getJson(route('api.v1.notes.index', [
+            $data->organization->getKey(),
+            'archived' => 'all',
+        ]));
+
+        $response->assertStatus(200);
+        $response->assertJsonCount(2, 'data');
+        $ids = collect($response->json('data'))->pluck('id')->all();
+        $this->assertEqualsCanonicalizing([$active->getKey(), $archived->getKey()], $ids);
+    }
+
+    public function test_update_can_archive_a_note(): void
+    {
+        $data = $this->createUserWithPermission(['notes:view', 'notes:create', 'notes:update']);
+        $note = Note::factory()
+            ->forOrganization($data->organization)
+            ->author($data->user)
+            ->shared()
+            ->create(['title' => 'To archive', 'body' => 'x']);
+        Passport::actingAs($data->user);
+
+        $response = $this->putJson(route('api.v1.notes.update', [
+            $data->organization->getKey(),
+            $note->getKey(),
+        ]), [
+            'is_archived' => true,
+        ]);
+
+        $response->assertStatus(200);
+        $response->assertJsonPath('data.is_archived', true);
+        $note->refresh();
+        $this->assertNotNull($note->archived_at);
+    }
+
+    public function test_update_can_unarchive_a_note(): void
+    {
+        $data = $this->createUserWithPermission(['notes:view', 'notes:create', 'notes:update']);
+        $note = Note::factory()
+            ->forOrganization($data->organization)
+            ->author($data->user)
+            ->shared()
+            ->archived()
+            ->create(['title' => 'Was archived', 'body' => 'x']);
+        Passport::actingAs($data->user);
+
+        $response = $this->putJson(route('api.v1.notes.update', [
+            $data->organization->getKey(),
+            $note->getKey(),
+        ]), [
+            'is_archived' => false,
+        ]);
+
+        $response->assertStatus(200);
+        $response->assertJsonPath('data.is_archived', false);
+        $note->refresh();
+        $this->assertNull($note->archived_at);
+    }
 }
