@@ -123,6 +123,52 @@ const { data: aggregateResult } = useQuery({
     staleTime: 30_000,
 });
 
+const { data: projectBillableByProjectResult, isPending: projectBillableTotalsPending } = useQuery({
+    queryKey: computed(() => [
+        'client-billable-by-project',
+        getCurrentOrganizationId(),
+        clientId.value,
+        getCurrentRole(),
+        getCurrentMembershipId(),
+    ]),
+    queryFn: () =>
+        api.getAggregatedTimeEntries({
+            params: { organization: getCurrentOrganizationId()! },
+            queries: {
+                ...aggregateQueries.value!,
+                group: 'project',
+            },
+        }),
+    enabled: computed(
+        () =>
+            showBillableCost.value &&
+            canFetchAggregate.value &&
+            aggregateQueries.value !== null &&
+            !notFound.value
+    ),
+    staleTime: 30_000,
+});
+
+const perProjectBillableCentsById = computed(() => {
+    if (!showBillableCost.value) {
+        return null;
+    }
+    if (projectBillableTotalsPending.value) {
+        return null;
+    }
+    const groups = projectBillableByProjectResult.value?.data?.grouped_data;
+    if (!groups) {
+        return {};
+    }
+    const map: Record<string, number> = {};
+    for (const row of groups) {
+        if (row.key) {
+            map[row.key] = row.cost ?? 0;
+        }
+    }
+    return map;
+});
+
 const totalCostCents = computed(() => aggregateResult.value?.data?.cost);
 const totalSeconds = computed(() => aggregateResult.value?.data?.seconds ?? 0);
 
@@ -317,6 +363,8 @@ function archiveClient() {
                     <ProjectTable
                         :projects="projectsForClient"
                         :show-billable-rate="showBillableRate"
+                        :show-per-project-billable-total="showBillableCost"
+                        :per-project-billable-cents-by-id="perProjectBillableCentsById"
                         :sort-column="projectTableSort.sortColumn"
                         :sort-direction="projectTableSort.sortDirection"
                         @sort="handleProjectSort" />

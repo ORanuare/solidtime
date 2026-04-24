@@ -5,6 +5,7 @@ import type { SortColumn, SortDirection } from '@/Components/Common/Project/Proj
 
 const props = defineProps<{
     showBillableRate: boolean;
+    showPerProjectBillableTotal?: boolean;
     sortColumn: SortColumn;
     sortDirection: SortDirection;
     descFirstColumns: ReadonlySet<SortColumn>;
@@ -62,6 +63,15 @@ function isChevronUp(column: SortColumn): boolean {
             <span v-else class="w-4 h-4"></span>
         </div>
         <div
+            v-if="showPerProjectBillableTotal"
+            class="px-3 py-1.5 text-left text-text-tertiary cursor-pointer hover:bg-secondary hover:text-text-primary transition-colors select-none flex items-center gap-1"
+            @click="handleSort('billable_total')">
+            Billable total
+            <ChevronDownIcon v-if="isChevronDown('billable_total')" class="w-4 h-4" />
+            <ChevronUpIcon v-else-if="isChevronUp('billable_total')" class="w-4 h-4" />
+            <span v-else class="w-4 h-4"></span>
+        </div>
+        <div
             class="px-3 py-1.5 text-left text-text-tertiary cursor-pointer hover:bg-secondary hover:text-text-primary transition-colors select-none flex items-center gap-1"
             @click="handleSort('progress')">
             Progress
@@ -73,7 +83,7 @@ function isChevronUp(column: SortColumn): boolean {
             v-if="showBillableRate"
             class="px-3 py-1.5 text-left text-text-tertiary cursor-pointer hover:bg-secondary hover:text-text-primary transition-colors select-none flex items-center gap-1"
             @click="handleSort('billable_rate')">
-            Billable Rate
+            Billing
             <ChevronDownIcon v-if="isChevronDown('billable_rate')" class="w-4 h-4" />
             <ChevronUpIcon v-else-if="isChevronUp('billable_rate')" class="w-4 h-4" />
             <span v-else class="w-4 h-4"></span>

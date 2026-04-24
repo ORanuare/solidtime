@@ -226,6 +226,8 @@ export async function createProjectViaApi(
         color?: string;
         is_billable?: boolean;
         billable_rate?: number | null;
+        billing_type?: 'hourly' | 'fixed';
+        fixed_price?: number | null;
         client_id?: string | null;
         estimated_time?: number | null;
         is_public?: boolean;
@@ -239,6 +241,8 @@ export async function createProjectViaApi(
                 color: data.color ?? randomColor(),
                 is_billable: data.is_billable ?? false,
                 billable_rate: data.billable_rate ?? null,
+                billing_type: data.billing_type ?? 'hourly',
+                fixed_price: data.fixed_price ?? null,
                 client_id: data.client_id ?? null,
                 estimated_time: data.estimated_time ?? null,
                 is_public: data.is_public ?? false,

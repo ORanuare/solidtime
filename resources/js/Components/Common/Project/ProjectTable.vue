@@ -11,6 +11,7 @@ export type SortColumn =
     | 'name'
     | 'client_name'
     | 'spent_time'
+    | 'billable_total'
     | 'progress'
     | 'billable_rate'
     | 'status';
@@ -38,6 +39,10 @@ const props = defineProps<{
     showBillableRate: boolean;
     sortColumn: SortColumn;
     sortDirection: SortDirection;
+    /** When set, show a per-row billable total column (e.g. client detail). */
+    showPerProjectBillableTotal?: boolean;
+    /** Cents per project id; null while loading. Ignored unless showPerProjectBillableTotal. */
+    perProjectBillableCentsById?: Readonly<Record<string, number>> | null;
 }>();
 
 const emit = defineEmits<{
@@ -66,43 +71,67 @@ const sorting = computed<SortingState>(() => [
 // Define column accessors for sorting.
 // Numeric columns use sortDescFirst so that the first click (chevron down) sorts highest-first,
 // while text columns default to ascending (A-Z) on first click (chevron down).
-const columns = computed(() => [
-    {
-        id: 'name',
-        accessorFn: (row: Project) => row.name.toLowerCase(),
-    },
-    {
-        id: 'client_name',
-        sortUndefined: 'last' as const,
-        accessorFn: (row: Project) => {
-            if (!row.client_id) return undefined;
-            return (clientNameMap.value.get(row.client_id) ?? '').toLowerCase();
+const columns = computed(() => {
+    const cols: Array<{
+        id: string;
+        sortDescFirst?: boolean;
+        sortUndefined?: 'last';
+        accessorFn: (row: Project) => string | number | undefined;
+    }> = [
+        {
+            id: 'name',
+            accessorFn: (row: Project) => row.name.toLowerCase(),
         },
-    },
-    {
-        id: 'spent_time',
-        sortDescFirst: true,
-        accessorFn: (row: Project) => row.spent_time ?? 0,
-    },
-    {
-        id: 'progress',
-        sortDescFirst: true,
-        sortUndefined: 'last' as const,
-        accessorFn: (row: Project) => {
-            if (!row.estimated_time) return undefined;
-            return (row.spent_time / row.estimated_time) * 100;
+        {
+            id: 'client_name',
+            sortUndefined: 'last' as const,
+            accessorFn: (row: Project) => {
+                if (!row.client_id) return undefined;
+                return (clientNameMap.value.get(row.client_id) ?? '').toLowerCase();
+            },
         },
-    },
-    {
-        id: 'billable_rate',
-        sortDescFirst: true,
-        accessorFn: (row: Project) => row.billable_rate ?? 0,
-    },
-    {
-        id: 'status',
-        accessorFn: (row: Project) => (row.is_archived ? 1 : 0),
-    },
-]);
+        {
+            id: 'spent_time',
+            sortDescFirst: true,
+            accessorFn: (row: Project) => row.spent_time ?? 0,
+        },
+    ];
+    if (props.showPerProjectBillableTotal) {
+        cols.push({
+            id: 'billable_total',
+            sortDescFirst: true,
+            sortUndefined: 'last' as const,
+            accessorFn: (row: Project) => {
+                const map = props.perProjectBillableCentsById;
+                if (map == null) {
+                    return undefined;
+                }
+                return map[row.id] ?? 0;
+            },
+        });
+    }
+    cols.push(
+        {
+            id: 'progress',
+            sortDescFirst: true,
+            sortUndefined: 'last' as const,
+            accessorFn: (row: Project) => {
+                if (!row.estimated_time) return undefined;
+                return (row.spent_time / row.estimated_time) * 100;
+            },
+        },
+        {
+            id: 'billable_rate',
+            sortDescFirst: true,
+            accessorFn: (row: Project) => row.billable_rate ?? 0,
+        },
+        {
+            id: 'status',
+            accessorFn: (row: Project) => (row.is_archived ? 1 : 0),
+        }
+    );
+    return cols;
+});
 
 // Columns with sortDescFirst get desc as default direction on first click.
 const descFirstColumns = new Set<SortColumn>(
@@ -149,7 +178,20 @@ async function createClient(client: CreateClientBody): Promise<Client | undefine
 }
 
 const gridTemplate = computed(() => {
-    return `grid-template-columns: minmax(300px, 1fr) minmax(150px, auto) minmax(140px, auto) minmax(130px, auto) ${props.showBillableRate ? 'minmax(130px, auto)' : ''} minmax(120px, auto) 80px;`;
+    const parts = [
+        'minmax(300px, 1fr)',
+        'minmax(150px, auto)',
+        'minmax(140px, auto)',
+    ];
+    if (props.showPerProjectBillableTotal) {
+        parts.push('minmax(130px, auto)');
+    }
+    parts.push('minmax(130px, auto)');
+    if (props.showBillableRate) {
+        parts.push('minmax(130px, auto)');
+    }
+    parts.push('minmax(120px, auto)', '80px');
+    return `grid-template-columns: ${parts.join(' ')}`;
 });
 </script>
 
@@ -167,11 +209,12 @@ const gridTemplate = computed(() => {
             <div data-testid="project_table" class="grid min-w-full" :style="gridTemplate">
                 <ProjectTableHeading
                     :show-billable-rate="props.showBillableRate"
+                    :show-per-project-billable-total="!!props.showPerProjectBillableTotal"
                     :sort-column="props.sortColumn"
                     :sort-direction="props.sortDirection"
                     :desc-first-columns="descFirstColumns"
                     @sort="handleSort"></ProjectTableHeading>
-                <div v-if="sortedProjects.length === 0" class="col-span-5 py-24 text-center">
+                <div v-if="sortedProjects.length === 0" class="col-span-full py-24 text-center">
                     <FolderPlusIcon class="w-8 text-icon-default inline pb-2"></FolderPlusIcon>
                     <h3 class="text-text-primary font-semibold">
                         {{
@@ -197,6 +240,18 @@ const gridTemplate = computed(() => {
                 <template v-for="project in sortedProjects" :key="project.id">
                     <ProjectTableRow
                         :show-billable-rate="props.showBillableRate"
+                        :show-per-project-billable-total="!!props.showPerProjectBillableTotal"
+                        :project-billable-total-cents="
+                            props.showPerProjectBillableTotal && props.perProjectBillableCentsById
+                                ? (props.perProjectBillableCentsById[project.id] ?? 0)
+                                : null
+                        "
+                        :project-billable-totals-pending="
+                            !!(
+                                props.showPerProjectBillableTotal &&
+                                props.perProjectBillableCentsById === null
+                            )
+                        "
                         :project="project"></ProjectTableRow>
                 </template>
             </div>

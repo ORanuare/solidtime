@@ -23,6 +23,8 @@ const rateType = ref<RateType>('default-rate');
 
 const billableRate = defineModel<number | null>('billableRate');
 const isBillable = defineModel<boolean>('isBillable');
+const billingType = defineModel<'hourly' | 'fixed'>('billingType', { default: 'hourly' });
+const fixedPrice = defineModel<number | null>('fixedPrice');
 
 onMounted(() => {
     if (isBillable.value === true) {
@@ -48,6 +50,17 @@ watch(rateType, () => {
         if (!billableRate.value) {
             billableRate.value = props.organizationBillableRate ?? null;
         }
+    }
+});
+
+watch(billingType, () => {
+    if (billingType.value === 'fixed') {
+        billableDefault.value = 'billable';
+        isBillable.value = true;
+        rateType.value = 'default-rate';
+        billableRate.value = null;
+    } else {
+        fixedPrice.value = null;
     }
 });
 
@@ -77,52 +90,84 @@ const emit = defineEmits(['submit']);
 
 <template>
     <Field>
-        <FieldLabel for="billable" :icon="BillableIcon">Billable Default</FieldLabel>
-        <Select v-model="billableDefault">
-            <SelectTrigger id="billable">
+        <FieldLabel for="billingType" :icon="BillableIcon">Billing</FieldLabel>
+        <Select v-model="billingType">
+            <SelectTrigger id="billingType">
                 <SelectValue />
             </SelectTrigger>
             <SelectContent>
-                <SelectItem value="non-billable">Non-billable</SelectItem>
-                <SelectItem value="billable">Billable</SelectItem>
+                <SelectItem value="hourly">Hourly rate</SelectItem>
+                <SelectItem value="fixed">Fixed price</SelectItem>
             </SelectContent>
         </Select>
-        <FieldDescription>{{ billableDescription }}</FieldDescription>
+        <FieldDescription>
+            Fixed-price revenue is split across reporting rows by billable time in each view.
+        </FieldDescription>
     </Field>
-    <Field>
-        <FieldLabel :icon="BillableIcon" for="billableRateType">Billable Rate</FieldLabel>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <Select v-model="rateType">
-                <SelectTrigger id="billableRateType">
+    <template v-if="billingType === 'hourly'">
+        <Field>
+            <FieldLabel for="billable" :icon="BillableIcon">Billable Default</FieldLabel>
+            <Select v-model="billableDefault">
+                <SelectTrigger id="billable">
                     <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                    <SelectItem value="default-rate">Default Rate</SelectItem>
-                    <SelectItem value="custom-rate">Custom Rate</SelectItem>
+                    <SelectItem value="non-billable">Non-billable</SelectItem>
+                    <SelectItem value="billable">Billable</SelectItem>
                 </SelectContent>
             </Select>
-            <TooltipProvider v-if="rateType === 'default-rate'">
-                <Tooltip>
-                    <TooltipTrigger as-child>
-                        <div>
-                            <BillableRateInput
-                                v-model="displayedRate"
-                                :currency="currency"
-                                disabled
-                                name="billableRate" />
-                        </div>
-                    </TooltipTrigger>
-                    <TooltipContent> Uses the default rate of the organization </TooltipContent>
-                </Tooltip>
-            </TooltipProvider>
+            <FieldDescription>{{ billableDescription }}</FieldDescription>
+        </Field>
+        <Field>
+            <FieldLabel :icon="BillableIcon" for="billableRateType">Billable Rate</FieldLabel>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <Select v-model="rateType">
+                    <SelectTrigger id="billableRateType">
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="default-rate">Default Rate</SelectItem>
+                        <SelectItem value="custom-rate">Custom Rate</SelectItem>
+                    </SelectContent>
+                </Select>
+                <TooltipProvider v-if="rateType === 'default-rate'">
+                    <Tooltip>
+                        <TooltipTrigger as-child>
+                            <div>
+                                <BillableRateInput
+                                    v-model="displayedRate"
+                                    :currency="currency"
+                                    disabled
+                                    name="billableRate" />
+                            </div>
+                        </TooltipTrigger>
+                        <TooltipContent> Uses the default rate of the organization </TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
+                <BillableRateInput
+                    v-else
+                    v-model="displayedRate"
+                    :currency="currency"
+                    name="billableRate"
+                    @keydown.enter="emit('submit')" />
+            </div>
+        </Field>
+    </template>
+    <template v-else>
+        <Field>
+            <FieldLabel for="fixedPrice" :icon="BillableIcon">Fixed contract total</FieldLabel>
             <BillableRateInput
-                v-else
-                v-model="displayedRate"
+                id="fixedPrice"
+                v-model="fixedPrice"
                 :currency="currency"
-                name="billableRate"
+                name="fixedPrice"
                 @keydown.enter="emit('submit')" />
-        </div>
-    </Field>
+            <FieldDescription>
+                Billable time on this project splits this amount in reports (same currency minor units as hourly
+                rates).
+            </FieldDescription>
+        </Field>
+    </template>
 </template>
 
 <style scoped></style>

@@ -4,6 +4,8 @@ import SecondaryButton from '@/packages/ui/src/Buttons/SecondaryButton.vue';
 import DialogModal from '@/packages/ui/src/DialogModal.vue';
 import { computed, ref } from 'vue';
 import type { CreateClientBody, CreateProjectBody, Project } from '@/packages/api/src';
+
+type ProjectUpdateForm = CreateProjectBody & { billing_type: 'hourly' | 'fixed' };
 import PrimaryButton from '@/packages/ui/src/Buttons/PrimaryButton.vue';
 import { useProjectsStore } from '@/utils/useProjects';
 import { useClientsStore } from '@/utils/useClients';
@@ -37,11 +39,13 @@ async function createClient(body: CreateClientBody) {
     return await useClientsStore().createClient(body);
 }
 
-const project = ref<CreateProjectBody>({
+const project = ref<ProjectUpdateForm>({
     name: props.originalProject.name,
     color: props.originalProject.color,
     client_id: props.originalProject.client_id,
     billable_rate: props.originalProject.billable_rate,
+    billing_type: props.originalProject.billing_type === 'fixed' ? 'fixed' : 'hourly',
+    fixed_price: props.originalProject.fixed_price ?? null,
     is_billable: props.originalProject.is_billable,
     estimated_time: props.originalProject.estimated_time,
 });
@@ -54,7 +58,7 @@ async function submit() {
         }, 0);
         return;
     }
-    await updateProject(props.originalProject.id, project.value);
+    await updateProject(props.originalProject.id, project.value as CreateProjectBody);
     show.value = false;
 }
 
@@ -70,7 +74,7 @@ const currentClientName = computed(() => {
 });
 
 async function submitBillableRate() {
-    await updateProject(props.originalProject.id, project.value);
+    await updateProject(props.originalProject.id, project.value as CreateProjectBody);
     show.value = false;
     showBillableRateModal.value = false;
 }
@@ -119,6 +123,8 @@ async function submitBillableRate() {
                 <ProjectEditBillableSection
                     v-model:is-billable="project.is_billable"
                     v-model:billable-rate="project.billable_rate"
+                    v-model:billing-type="project.billing_type"
+                    v-model:fixed-price="project.fixed_price"
                     :currency="getOrganizationCurrencyString()"
                     :organization-billable-rate="organization?.billable_rate ?? null"
                     @submit="submit"></ProjectEditBillableSection>

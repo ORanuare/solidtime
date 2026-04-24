@@ -35,6 +35,10 @@ const { tasks } = useTasksQuery();
 const props = defineProps<{
     project: Project;
     showBillableRate: boolean;
+    showPerProjectBillableTotal?: boolean;
+    /** Resolved cents for this project when totals are loaded. */
+    projectBillableTotalCents?: number | null;
+    projectBillableTotalsPending?: boolean;
 }>();
 
 const client = computed(() => {
@@ -53,29 +57,65 @@ function archiveProject() {
     useProjectsStore().updateProject(props.project.id, {
         ...props.project,
         is_archived: !props.project.is_archived,
+        billing_type: props.project.billing_type === 'fixed' ? 'fixed' : 'hourly',
     });
 }
 
 const organization = inject<ComputedRef<Organization>>('organization');
 
-const billableRateInfo = computed(() => {
-    if (props.project.is_billable) {
-        if (props.project.billable_rate) {
-            return formatCents(
-                props.project.billable_rate,
-                getOrganizationCurrencyString(),
-                organization?.value?.currency_format,
-                organization?.value?.currency_symbol,
-                organization?.value?.number_format
-            );
-        } else {
-            return 'Default Rate';
-        }
+type BillableBillingDisplay =
+    | { kind: 'fixed_price'; amount: string }
+    | { kind: 'fixed_unpriced' }
+    | { kind: 'hourly_custom'; amount: string }
+    | { kind: 'hourly_default' };
+
+const billableBillingDisplay = computed((): BillableBillingDisplay | null => {
+    if (!props.project.is_billable) {
+        return null;
     }
-    return null;
+    const org = organization?.value;
+    if (!org) {
+        return null;
+    }
+    const fmt = (cents: number) =>
+        formatCents(
+            cents,
+            getOrganizationCurrencyString(),
+            org.currency_format,
+            org.currency_symbol,
+            org.number_format
+        );
+    if (props.project.billing_type === 'fixed') {
+        if (props.project.fixed_price != null) {
+            return { kind: 'fixed_price', amount: fmt(props.project.fixed_price) ?? '—' };
+        }
+        return { kind: 'fixed_unpriced' };
+    }
+    if (props.project.billable_rate) {
+        return { kind: 'hourly_custom', amount: fmt(props.project.billable_rate) ?? '—' };
+    }
+    return { kind: 'hourly_default' };
 });
 
 const showEditProjectModal = ref(false);
+
+const projectBillableTotalFormatted = computed(() => {
+    if (!props.showPerProjectBillableTotal || props.projectBillableTotalsPending) {
+        return null;
+    }
+    const org = organization?.value;
+    if (!org) {
+        return null;
+    }
+    const cents = props.projectBillableTotalCents ?? 0;
+    return formatCents(
+        cents,
+        getOrganizationCurrencyString(),
+        org.currency_format,
+        org.currency_symbol,
+        org.number_format
+    );
+});
 </script>
 
 <template>
@@ -116,6 +156,12 @@ const showEditProjectModal = ref(false);
                     </div>
                     <div v-else class="text-text-tertiary">--</div>
                 </div>
+                <div
+                    v-if="showPerProjectBillableTotal"
+                    class="whitespace-nowrap px-3 py-4 text-sm text-text-primary">
+                    <span v-if="projectBillableTotalFormatted">{{ projectBillableTotalFormatted }}</span>
+                    <span v-else class="text-text-tertiary">—</span>
+                </div>
                 <div class="whitespace-nowrap px-3 flex items-center text-sm text-text-primary">
                     <UpgradeBadge v-if="!isAllowedToPerformPremiumAction()"></UpgradeBadge>
                     <EstimatedTimeProgress
@@ -127,7 +173,21 @@ const showEditProjectModal = ref(false);
                 <div
                     v-if="showBillableRate"
                     class="whitespace-nowrap px-3 py-4 text-sm text-text-primary">
-                    <span v-if="billableRateInfo">{{ billableRateInfo }}</span>
+                    <template v-if="billableBillingDisplay">
+                        <template v-if="billableBillingDisplay.kind === 'fixed_price'">
+                            {{ billableBillingDisplay.amount }}
+                        </template>
+                        <template v-else-if="billableBillingDisplay.kind === 'fixed_unpriced'">
+                            Fixed
+                        </template>
+                        <template v-else-if="billableBillingDisplay.kind === 'hourly_custom'">
+                            {{ billableBillingDisplay.amount
+                            }}<span class="text-text-secondary"> / h</span>
+                        </template>
+                        <template v-else-if="billableBillingDisplay.kind === 'hourly_default'">
+                            Default Rate<span class="text-text-secondary"> / h</span>
+                        </template>
+                    </template>
                     <span v-else class="text-text-tertiary">--</span>
                 </div>
                 <div

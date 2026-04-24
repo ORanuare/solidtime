@@ -4,6 +4,8 @@ import SecondaryButton from '@/packages/ui/src/Buttons/SecondaryButton.vue';
 import DialogModal from '@/packages/ui/src/DialogModal.vue';
 import { computed, ref } from 'vue';
 import type { CreateClientBody, CreateProjectBody, Project } from '@/packages/api/src';
+
+type ProjectCreateForm = CreateProjectBody & { billing_type: 'hourly' | 'fixed' };
 import { getRandomColor } from '@/packages/ui/src/utils/color';
 import PrimaryButton from '@/packages/ui/src/Buttons/PrimaryButton.vue';
 import { useFocus } from '@vueuse/core';
@@ -34,23 +36,27 @@ const activeClients = computed(() => {
     return props.clients.filter((client) => !client.is_archived);
 });
 
-const project = ref<CreateProjectBody>({
+const project = ref<ProjectCreateForm>({
     name: props.initialProjectName ?? '',
     color: getRandomColor(),
     client_id: null,
     billable_rate: null,
+    billing_type: 'hourly',
+    fixed_price: null,
     is_billable: false,
     estimated_time: null,
 });
 
 async function submit() {
-    await props.createProject(project.value);
+    await props.createProject(project.value as CreateProjectBody);
     show.value = false;
     project.value = {
         name: '',
         color: getRandomColor(),
         client_id: null,
         billable_rate: null,
+        billing_type: 'hourly',
+        fixed_price: null,
         is_billable: false,
         estimated_time: null,
     };
@@ -115,6 +121,8 @@ const currentClientName = computed(() => {
                 <ProjectEditBillableSection
                     v-model:is-billable="project.is_billable"
                     v-model:billable-rate="project.billable_rate"
+                    v-model:billing-type="project.billing_type"
+                    v-model:fixed-price="project.fixed_price"
                     :currency="currency"
                     :organization-billable-rate="
                         organizationBillableRate

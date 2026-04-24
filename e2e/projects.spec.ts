@@ -475,13 +475,13 @@ test('test that sorting projects by all columns works', async ({ page, ctx }) =>
     order = await getOrder();
     expect(order[2]).toBe('CCC Project'); // C=3h last
 
-    // --- Sort by Billable Rate (numeric: first click = highest first) ---
-    await clickSortHeader('Billable Rate', 'BBB Project');
+    // --- Sort by Billing (numeric: first click = highest first) ---
+    await clickSortHeader('Billing', 'BBB Project');
     order = await getOrder();
     expect(order).toEqual(['BBB Project', 'CCC Project', 'AAA Project']); // 15000, 10000, 5000
 
     // Reverse: lowest first
-    await clickSortHeader('Billable Rate', 'AAA Project');
+    await clickSortHeader('Billing', 'AAA Project');
     order = await getOrder();
     expect(order).toEqual(['AAA Project', 'CCC Project', 'BBB Project']); // 5000, 10000, 15000
 
@@ -927,6 +927,23 @@ test.describe('Employee Projects Restrictions', () => {
     });
 });
 
+test('API creates fixed-price project with billing_type and fixed_price', async ({ ctx }) => {
+    const project = await createProjectViaApi(ctx, {
+        name: 'Fixed API ' + Math.floor(Math.random() * 100000),
+        is_billable: true,
+        billing_type: 'fixed',
+        fixed_price: 12345,
+    });
+    const res = await ctx.request.get(
+        `${PLAYWRIGHT_BASE_URL}/api/v1/organizations/${ctx.orgId}/projects/${project.id}`
+    );
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    expect(body.data.billing_type).toBe('fixed');
+    expect(body.data.fixed_price).toBe(12345);
+    expect(body.data.billable_rate).toBeNull();
+});
+
 test.describe('Employee Billable Rate Visibility', () => {
     test('employee cannot see billable rate column by default', async ({ ctx, employee }) => {
         const projectName = 'EmpBillableProj ' + Math.floor(Math.random() * 10000);
@@ -939,8 +956,8 @@ test.describe('Employee Billable Rate Visibility', () => {
         await employee.page.goto(PLAYWRIGHT_BASE_URL + '/projects');
         await expect(employee.page.getByText(projectName)).toBeVisible({ timeout: 10000 });
 
-        // Billable Rate column should not be visible to employee by default
-        await expect(employee.page.getByText('Billable Rate')).not.toBeVisible();
+        // Billing column should not be visible to employee by default
+        await expect(employee.page.getByText('Billing')).not.toBeVisible();
     });
 
     test('employee can see billable rate column when employees_can_see_billable_rates is enabled', async ({
@@ -959,8 +976,8 @@ test.describe('Employee Billable Rate Visibility', () => {
         await employee.page.goto(PLAYWRIGHT_BASE_URL + '/projects');
         await expect(employee.page.getByText(projectName)).toBeVisible({ timeout: 10000 });
 
-        // Billable Rate column header should be visible
-        await expect(employee.page.getByText('Billable Rate')).toBeVisible();
+        // Billing column header should be visible
+        await expect(employee.page.getByText('Billing')).toBeVisible();
 
         // The project row should show the formatted billable rate
         const projectRow = employee.page.getByRole('row').filter({ hasText: projectName });

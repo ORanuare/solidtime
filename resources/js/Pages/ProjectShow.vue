@@ -69,6 +69,19 @@ const billableRateFormatted = computed(() => {
     return null;
 });
 
+const fixedPriceFormatted = computed(() => {
+    if (project.value?.billing_type === 'fixed' && project.value.fixed_price != null) {
+        return formatCents(
+            project.value.fixed_price,
+            getOrganizationCurrencyString(),
+            organization.value?.currency_format,
+            organization.value?.currency_symbol,
+            organization.value?.number_format
+        );
+    }
+    return null;
+});
+
 const activeTab = ref<'active' | 'done'>('active');
 
 const { tasks } = useTasksQuery();
@@ -118,12 +131,18 @@ const shownTasks = computed(() => {
                     </li>
                 </ol>
                 <div class="px-4">
-                    <Badge v-if="project?.billable_rate">
+                    <Badge v-if="fixedPriceFormatted">
+                        {{ fixedPriceFormatted }}
+                    </Badge>
+                    <Badge v-else-if="project?.billable_rate">
                         {{ billableRateFormatted }}
                         / h
                     </Badge>
-                    <Badge v-if="project?.is_billable && !project?.billable_rate">
+                    <Badge v-else-if="project?.is_billable && project?.billing_type !== 'fixed'">
                         Default Rate
+                    </Badge>
+                    <Badge v-else-if="project?.is_billable && project?.billing_type === 'fixed'">
+                        Fixed
                     </Badge>
                     <Badge v-if="!project?.is_billable"> Non-Billable </Badge>
                 </div>

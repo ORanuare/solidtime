@@ -175,6 +175,8 @@ function updateFilteredResults() {
                     value: '',
                     client_id: null,
                     billable_rate: null,
+                    billing_type: 'hourly',
+                    fixed_price: null,
                     is_archived: false,
                     is_billable: false,
                     expanded: false,
