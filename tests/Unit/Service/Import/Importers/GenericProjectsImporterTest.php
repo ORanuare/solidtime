@@ -50,6 +50,7 @@ class GenericProjectsImporterTest extends ImporterTestAbstract
         $this->assertFalse($project1->is_public);
         $this->assertSame($client1->getKey(), $project1->client_id);
         $this->assertTrue($project1->is_billable);
+        $this->assertTrue($project1->is_paid);
         $this->assertSame(null, $project1->estimated_time);
         $this->assertNull($project1->archived_at);
         // Project 2
@@ -60,6 +61,7 @@ class GenericProjectsImporterTest extends ImporterTestAbstract
         $this->assertFalse($project2->is_public);
         $this->assertSame(null, $project2->client_id);
         $this->assertFalse($project2->is_billable);
+        $this->assertTrue($project2->is_paid);
         $this->assertSame(1000, $project2->estimated_time);
         $this->assertSame(null, $project2->archived_at);
         $project3 = $projects->firstWhere('name', 'Project (Archived)');
@@ -69,6 +71,7 @@ class GenericProjectsImporterTest extends ImporterTestAbstract
         $this->assertTrue($project3->is_public);
         $this->assertSame($client2->getKey(), $project3->client_id);
         $this->assertTrue($project3->is_billable);
+        $this->assertTrue($project3->is_paid);
         $this->assertSame(null, $project3->estimated_time);
         $this->assertSame('2024-08-25T10:00:00Z', $project3->archived_at->toIso8601ZuluString());
 

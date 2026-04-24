@@ -57,6 +57,10 @@ class ProjectUpdateRequest extends BaseFormRequest
                 'required',
                 'boolean',
             ],
+            'is_paid' => [
+                'required',
+                'boolean',
+            ],
             'is_archived' => [
                 'boolean',
             ],

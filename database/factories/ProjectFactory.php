@@ -29,6 +29,7 @@ class ProjectFactory extends Factory
             'name' => $this->faker->company(),
             'color' => app(ColorService::class)->getRandomColor(),
             'is_billable' => false,
+            'is_paid' => true,
             'billable_rate' => null,
             'is_public' => false,
             'archived_at' => null,

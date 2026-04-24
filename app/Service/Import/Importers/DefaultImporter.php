@@ -111,6 +111,10 @@ abstract class DefaultImporter implements ImporterContract
                 'required',
                 'boolean',
             ],
+            'is_paid' => [
+                'nullable',
+                'boolean',
+            ],
             'billable_rate' => [
                 'nullable',
                 'integer',

@@ -185,6 +185,7 @@ class SolidtimeImporter extends DefaultImporter
                     'fixed_price' => ($project['fixed_price'] ?? '') !== '' ? (int) $project['fixed_price'] : null,
                     'is_public' => $project['is_public'] === 'true',
                     'is_billable' => $project['is_billable'] === 'true',
+                    'is_paid' => ($project['is_paid'] ?? '') === '' || $project['is_paid'] === 'true',
                     'archived_at' => $project['archived_at'] !== '' ? Carbon::createFromFormat('Y-m-d\TH:i:s\Z', $project['archived_at'], 'UTC') : null,
                 ], $project['id']);
             }

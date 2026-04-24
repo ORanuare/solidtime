@@ -321,6 +321,7 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'color' => $projectFake->color,
             'client_id' => null,
             'is_billable' => $projectFake->is_billable,
+            'is_paid' => $projectFake->is_paid,
         ]);
 
         // Assert
@@ -342,6 +343,7 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'name' => $projectFake->name,
             'color' => $projectFake->color,
             'is_billable' => $projectFake->is_billable,
+            'is_paid' => $projectFake->is_paid,
             'client_id' => null,
             'billable_rate' => $billableRate,
         ]);
@@ -353,6 +355,7 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'color' => $projectFake->color,
             'organization_id' => $projectFake->organization_id,
             'is_billable' => $projectFake->is_billable,
+            'is_paid' => $projectFake->is_paid,
             'client_id' => null,
             'billable_rate' => $billableRate,
         ]);
@@ -373,6 +376,7 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'name' => $projectFake->name,
             'color' => $projectFake->color,
             'is_billable' => $projectFake->is_billable,
+            'is_paid' => $projectFake->is_paid,
             'client_id' => null,
             'billable_rate' => $billableRate,
         ]);
@@ -399,6 +403,7 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'color' => $projectFake->color,
             'client_id' => null,
             'is_billable' => $projectFake->is_billable,
+            'is_paid' => $projectFake->is_paid,
         ]);
 
         // Assert
@@ -409,6 +414,7 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'organization_id' => $projectFake->organization_id,
             'client_id' => null,
             'is_billable' => $projectFake->is_billable,
+            'is_paid' => $projectFake->is_paid,
         ]);
     }
 
@@ -426,6 +432,7 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'name' => $projectFake->name,
             'color' => $projectFake->color,
             'is_billable' => $projectFake->is_billable,
+            'is_paid' => $projectFake->is_paid,
             'client_id' => null,
             'estimated_time' => 10000,
         ]);
@@ -443,6 +450,7 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'color' => $projectFake->color,
             'organization_id' => $projectFake->organization_id,
             'is_billable' => $projectFake->is_billable,
+            'is_paid' => $projectFake->is_paid,
             'client_id' => null,
             'estimated_time' => null,
         ]);
@@ -463,6 +471,7 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'name' => $projectFake->name,
             'color' => $projectFake->color,
             'is_billable' => $projectFake->is_billable,
+            'is_paid' => $projectFake->is_paid,
             'client_id' => null,
             'estimated_time' => 10000,
         ]);
@@ -480,6 +489,7 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'color' => $projectFake->color,
             'organization_id' => $projectFake->organization_id,
             'is_billable' => $projectFake->is_billable,
+            'is_paid' => $projectFake->is_paid,
             'client_id' => null,
             'estimated_time' => 10000,
         ]);
@@ -506,6 +516,7 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'color' => $projectFake->color,
             'client_id' => $clientB->getKey(),
             'is_billable' => $projectFake->is_billable,
+            'is_paid' => $projectFake->is_paid,
         ]);
 
         // Assert
@@ -539,6 +550,7 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'color' => $projectFake->color,
             'client_id' => null,
             'is_billable' => $projectFake->is_billable,
+            'is_paid' => $projectFake->is_paid,
         ]);
 
         // Assert
@@ -568,6 +580,7 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'color' => $projectFake->color,
             'client_id' => $client->getKey(),
             'is_billable' => $projectFake->is_billable,
+            'is_paid' => $projectFake->is_paid,
         ]);
 
         // Assert
@@ -597,6 +610,7 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'color' => $projectFake->color,
             'client_id' => null,
             'is_billable' => $projectFake->is_billable,
+            'is_paid' => $projectFake->is_paid,
         ]);
 
         // Assert
@@ -606,6 +620,7 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'color' => $projectFake->color,
             'organization_id' => $data->organization->getKey(),
             'is_billable' => $projectFake->is_billable,
+            'is_paid' => $projectFake->is_paid,
         ]);
     }
 
@@ -624,6 +639,7 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'name' => $projectFake->name,
             'color' => $projectFake->color,
             'is_billable' => $projectFake->is_billable,
+            'is_paid' => $projectFake->is_paid,
             'client_id' => $client->getKey(),
         ]);
 
@@ -633,6 +649,7 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'name' => $projectFake->name,
             'color' => $projectFake->color,
             'is_billable' => $projectFake->is_billable,
+            'is_paid' => $projectFake->is_paid,
             'organization_id' => $projectFake->organization_id,
             'client_id' => $client->getKey(),
         ]);
@@ -654,6 +671,7 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'color' => $projectFake->color,
             'client_id' => null,
             'is_billable' => true,
+            'is_paid' => $projectFake->is_paid,
             'billable_rate' => 10001,
         ]);
 
@@ -663,9 +681,71 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'name' => $projectFake->name,
             'color' => $projectFake->color,
             'is_billable' => true,
+            'is_paid' => $projectFake->is_paid,
             'billable_rate' => 10001,
             'organization_id' => $projectFake->organization_id,
         ]);
+    }
+
+    public function test_store_endpoint_without_is_paid_defaults_to_true_in_database_and_response(): void
+    {
+        $data = $this->createUserWithPermission([
+            'projects:create',
+        ]);
+        $projectFake = Project::factory()->forOrganization($data->organization)->make();
+        Passport::actingAs($data->user);
+
+        $response = $this->postJson(route('api.v1.projects.store', [$data->organization->getKey()]), [
+            'name' => $projectFake->name,
+            'color' => $projectFake->color,
+            'client_id' => null,
+            'is_billable' => $projectFake->is_billable,
+        ]);
+
+        $response->assertStatus(201);
+        $response->assertJsonPath('data.is_paid', true);
+        $this->assertDatabaseHas(Project::class, [
+            'name' => $projectFake->name,
+            'is_paid' => true,
+        ]);
+    }
+
+    public function test_store_and_update_persist_is_paid_false(): void
+    {
+        $data = $this->createUserWithPermission([
+            'projects:create',
+            'projects:update',
+        ]);
+        $projectFake = Project::factory()->forOrganization($data->organization)->make();
+        Passport::actingAs($data->user);
+
+        $create = $this->postJson(route('api.v1.projects.store', [$data->organization->getKey()]), [
+            'name' => $projectFake->name,
+            'color' => $projectFake->color,
+            'client_id' => null,
+            'is_billable' => $projectFake->is_billable,
+            'is_paid' => false,
+        ]);
+        $create->assertStatus(201);
+        $create->assertJsonPath('data.is_paid', false);
+        $projectId = $create->json('data.id');
+        $this->assertDatabaseHas(Project::class, [
+            'id' => $projectId,
+            'is_paid' => false,
+        ]);
+
+        $project = Project::query()->findOrFail($projectId);
+        $update = $this->putJson(route('api.v1.projects.update', [$data->organization->getKey(), $project->getKey()]), [
+            'name' => $project->name,
+            'color' => $project->color,
+            'client_id' => null,
+            'is_billable' => $project->is_billable,
+            'is_paid' => true,
+        ]);
+        $update->assertStatus(200);
+        $update->assertJsonPath('data.is_paid', true);
+        $project->refresh();
+        $this->assertTrue($project->is_paid);
     }
 
     public function test_update_endpoint_fails_if_user_is_not_part_of_project_organization(): void
@@ -686,6 +766,7 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'color' => $projectFake->color,
             'client_id' => null,
             'is_billable' => $projectFake->is_billable,
+            'is_paid' => $projectFake->is_paid,
         ]);
 
         // Assert
@@ -707,6 +788,7 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'color' => $projectFake->color,
             'client_id' => null,
             'is_billable' => $projectFake->is_billable,
+            'is_paid' => $projectFake->is_paid,
         ]);
 
         // Assert
@@ -735,6 +817,7 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'color' => $projectFake->color,
             'client_id' => $clientB->getKey(),
             'is_billable' => $projectFake->is_billable,
+            'is_paid' => $projectFake->is_paid,
         ]);
 
         // Assert
@@ -769,6 +852,7 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'color' => $projectFake->color,
             'client_id' => null,
             'is_billable' => $projectFake->is_billable,
+            'is_paid' => $projectFake->is_paid,
         ]);
 
         // Assert
@@ -799,6 +883,7 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'color' => $projectFake->color,
             'client_id' => $client->getKey(),
             'is_billable' => $projectFake->is_billable,
+            'is_paid' => $projectFake->is_paid,
         ]);
 
         // Assert
@@ -826,6 +911,7 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'name' => $projectFake->name,
             'color' => $projectFake->color,
             'is_billable' => $projectFake->is_billable,
+            'is_paid' => $projectFake->is_paid,
             'client_id' => $clientNew->getKey(),
         ]);
 
@@ -852,6 +938,7 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'name' => $projectFake->name,
             'color' => $projectFake->color,
             'is_billable' => $projectFake->is_billable,
+            'is_paid' => $projectFake->is_paid,
             'client_id' => null,
         ]);
 
@@ -878,6 +965,7 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'name' => $projectFake->name,
             'color' => $projectFake->color,
             'is_billable' => $projectFake->is_billable,
+            'is_paid' => $projectFake->is_paid,
             'client_id' => $clientNew->getKey(),
         ]);
 
@@ -910,6 +998,7 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'color' => $projectFake->color,
             'client_id' => null,
             'is_billable' => $projectFake->is_billable,
+            'is_paid' => $projectFake->is_paid,
         ]);
 
         // Assert
@@ -919,6 +1008,7 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'color' => $projectFake->color,
             'organization_id' => $data->organization->getKey(),
             'is_billable' => $projectFake->is_billable,
+            'is_paid' => $projectFake->is_paid,
         ]);
     }
 
@@ -939,6 +1029,7 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'name' => $projectFake->name,
             'color' => $projectFake->color,
             'is_billable' => $projectFake->is_billable,
+            'is_paid' => $projectFake->is_paid,
             'client_id' => $client->getKey(),
         ]);
 
@@ -973,6 +1064,7 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'color' => $projectFake->color,
             'client_id' => null,
             'is_billable' => $projectFake->is_billable,
+            'is_paid' => $projectFake->is_paid,
             'estimated_time' => 10000,
         ]);
 
@@ -1007,6 +1099,7 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'color' => $projectFake->color,
             'client_id' => null,
             'is_billable' => $projectFake->is_billable,
+            'is_paid' => $projectFake->is_paid,
             'estimated_time' => 10000,
         ]);
 
@@ -1041,6 +1134,7 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'color' => $projectFake->color,
             'client_id' => null,
             'is_billable' => $projectFake->is_billable,
+            'is_paid' => $projectFake->is_paid,
             'billable_rate' => $project->billable_rate,
         ]);
 
@@ -1074,6 +1168,7 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'color' => $projectFake->color,
             'client_id' => null,
             'is_billable' => $projectFake->is_billable,
+            'is_paid' => $projectFake->is_paid,
             'billable_rate' => 10003,
         ]);
 
@@ -1102,6 +1197,7 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'color' => $projectFake->color,
             'client_id' => null,
             'is_billable' => $projectFake->is_billable,
+            'is_paid' => $projectFake->is_paid,
             'is_archived' => true,
         ]);
 
@@ -1131,6 +1227,7 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'color' => $projectFake->color,
             'client_id' => null,
             'is_billable' => $projectFake->is_billable,
+            'is_paid' => $projectFake->is_paid,
             'is_archived' => false,
         ]);
 

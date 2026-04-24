@@ -30,6 +30,7 @@ use OwenIt\Auditing\Contracts\Auditable as AuditableContract;
  * @property ProjectBillingType $billing_type
  * @property int|null $fixed_price
  * @property bool $is_public
+ * @property bool $is_paid
  * @property bool $is_billable
  * @property-read bool $is_archived
  * @property int|null $estimated_time
@@ -78,6 +79,7 @@ class Project extends Model implements AuditableContract
     protected $attributes = [
         'is_billable' => false,
         'billing_type' => 'hourly',
+        'is_paid' => true,
     ];
 
     /**

@@ -7761,6 +7761,10 @@
                         "type": "boolean",
                         "description": "Project time entries billable default"
                     },
+                    "is_paid": {
+                        "type": "boolean",
+                        "description": "Whether the project is a paid project (vs unpaid/internal)"
+                    },
                     "estimated_time": {
                         "type": [
                             "integer",
@@ -7787,6 +7791,7 @@
                     "billable_rate",
                     "fixed_price",
                     "is_billable",
+                    "is_paid",
                     "estimated_time",
                     "spent_time",
                     "is_public"
@@ -7854,6 +7859,9 @@
                     "is_public": {
                         "type": "boolean",
                         "description": "Whether the project is public"
+                    },
+                    "is_paid": {
+                        "type": "boolean"
                     }
                 },
                 "required": [
@@ -7875,6 +7883,9 @@
                         "maxLength": 255
                     },
                     "is_billable": {
+                        "type": "boolean"
+                    },
+                    "is_paid": {
                         "type": "boolean"
                     },
                     "is_archived": {
@@ -7928,7 +7939,8 @@
                 "required": [
                     "name",
                     "color",
-                    "is_billable"
+                    "is_billable",
+                    "is_paid"
                 ],
                 "title": "ProjectUpdateRequest"
             },

@@ -234,6 +234,7 @@ const ProjectResource = z
         billable_rate: z.union([z.number(), z.null()]),
         fixed_price: z.union([z.number(), z.null()]),
         is_billable: z.boolean(),
+        is_paid: z.boolean(),
         estimated_time: z.union([z.number(), z.null()]),
         spent_time: z.number().int(),
         is_public: z.boolean(),
@@ -250,6 +251,7 @@ const ProjectStoreRequest = z
         client_id: z.union([z.string(), z.null()]).optional(),
         estimated_time: z.union([z.number(), z.null()]).optional(),
         is_public: z.boolean().optional(),
+        is_paid: z.boolean().optional(),
     })
     .passthrough();
 const ProjectUpdateRequest = z
@@ -257,6 +259,7 @@ const ProjectUpdateRequest = z
         name: z.string().max(255),
         color: z.string().max(255),
         is_billable: z.boolean(),
+        is_paid: z.boolean(),
         is_archived: z.boolean().optional(),
         is_public: z.boolean().optional(),
         client_id: z.union([z.string(), z.null()]).optional(),

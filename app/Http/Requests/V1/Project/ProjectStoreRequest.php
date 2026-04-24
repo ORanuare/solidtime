@@ -94,6 +94,9 @@ class ProjectStoreRequest extends BaseFormRequest
             'is_public' => [
                 'boolean',
             ],
+            'is_paid' => [
+                'boolean',
+            ],
         ];
     }
 
@@ -137,6 +140,11 @@ class ProjectStoreRequest extends BaseFormRequest
     public function getIsPublic(): bool
     {
         return $this->has('is_public') && $this->boolean('is_public');
+    }
+
+    public function getIsPaid(): bool
+    {
+        return $this->has('is_paid') ? $this->boolean('is_paid') : true;
     }
 
     public function getBillableRate(): ?int
