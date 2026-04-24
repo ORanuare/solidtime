@@ -67,7 +67,7 @@ type BillableBillingDisplay =
     | { kind: 'fixed_price'; amount: string }
     | { kind: 'fixed_unpriced' }
     | { kind: 'hourly_custom'; amount: string }
-    | { kind: 'hourly_default' };
+    | { kind: 'hourly_default'; amount: string };
 
 const billableBillingDisplay = computed((): BillableBillingDisplay | null => {
     if (!props.project.is_billable) {
@@ -94,7 +94,11 @@ const billableBillingDisplay = computed((): BillableBillingDisplay | null => {
     if (props.project.billable_rate) {
         return { kind: 'hourly_custom', amount: fmt(props.project.billable_rate) ?? '—' };
     }
-    return { kind: 'hourly_default' };
+    const defaultCents = org.billable_rate;
+    return {
+        kind: 'hourly_default',
+        amount: defaultCents != null ? (fmt(defaultCents) ?? '—') : '—',
+    };
 });
 
 const showEditProjectModal = ref(false);
@@ -191,7 +195,8 @@ const projectBillableTotalFormatted = computed(() => {
                             }}<span class="text-text-secondary"> / h</span>
                         </template>
                         <template v-else-if="billableBillingDisplay.kind === 'hourly_default'">
-                            Default Rate<span class="text-text-secondary"> / h</span>
+                            {{ billableBillingDisplay.amount
+                            }}<span class="text-text-secondary"> / h</span>
                         </template>
                     </template>
                     <span v-else class="text-text-tertiary">--</span>

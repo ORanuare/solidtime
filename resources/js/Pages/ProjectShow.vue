@@ -69,6 +69,19 @@ const billableRateFormatted = computed(() => {
     return null;
 });
 
+const organizationDefaultBillableRateFormatted = computed(() => {
+    if (organization.value?.billable_rate == null) {
+        return null;
+    }
+    return formatCents(
+        organization.value.billable_rate,
+        getOrganizationCurrencyString(),
+        organization.value?.currency_format,
+        organization.value?.currency_symbol,
+        organization.value?.number_format
+    );
+});
+
 const fixedPriceFormatted = computed(() => {
     if (project.value?.billing_type === 'fixed' && project.value.fixed_price != null) {
         return formatCents(
@@ -139,7 +152,11 @@ const shownTasks = computed(() => {
                         / h
                     </Badge>
                     <Badge v-else-if="project?.is_billable && project?.billing_type !== 'fixed'">
-                        Default Rate
+                        <template v-if="organizationDefaultBillableRateFormatted">
+                            {{ organizationDefaultBillableRateFormatted }}
+                            / h
+                        </template>
+                        <span v-else>—</span>
                     </Badge>
                     <Badge v-else-if="project?.is_billable && project?.billing_type === 'fixed'">
                         Fixed
