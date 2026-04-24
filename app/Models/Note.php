@@ -8,10 +8,12 @@ use App\Enums\NoteVisibility;
 use App\Models\Concerns\CustomAuditable;
 use App\Models\Concerns\HasUuids;
 use Database\Factories\NoteFactory;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Support\Carbon;
 use OwenIt\Auditing\Contracts\Auditable as AuditableContract;
 
 /**
@@ -23,6 +25,8 @@ use OwenIt\Auditing\Contracts\Auditable as AuditableContract;
  * @property string $title
  * @property string $body
  * @property NoteVisibility $visibility
+ * @property-read bool $is_archived
+ * @property Carbon|null $archived_at
  * @property-read Organization $organization
  * @property-read User $user
  * @property-read Project|Task|null $notable
@@ -54,6 +58,7 @@ class Note extends Model implements AuditableContract
         'title' => 'string',
         'body' => 'string',
         'visibility' => NoteVisibility::class,
+        'archived_at' => 'datetime',
     ];
 
     /**
@@ -78,5 +83,15 @@ class Note extends Model implements AuditableContract
     public function notable(): MorphTo
     {
         return $this->morphTo();
+    }
+
+    /**
+     * @return Attribute<bool, never>
+     */
+    protected function isArchived(): Attribute
+    {
+        return Attribute::make(
+            get: fn (mixed $value, array $attributes) => isset($attributes['archived_at']),
+        );
     }
 }

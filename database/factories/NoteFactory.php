@@ -32,6 +32,7 @@ class NoteFactory extends Factory
             'title' => $this->faker->sentence(4),
             'body' => $this->faker->paragraph(),
             'visibility' => NoteVisibility::Shared,
+            'archived_at' => null,
         ];
     }
 
@@ -60,6 +61,13 @@ class NoteFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'visibility' => NoteVisibility::Shared,
+        ]);
+    }
+
+    public function archived(): self
+    {
+        return $this->state(fn (array $attributes) => [
+            'archived_at' => $this->faker->dateTime(),
         ]);
     }
 }
