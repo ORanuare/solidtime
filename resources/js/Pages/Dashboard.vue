@@ -25,6 +25,7 @@ const refreshDashboardData = () => {
     queryClient.invalidateQueries({ queryKey: ['totalWeeklyBillableTime'] });
     queryClient.invalidateQueries({ queryKey: ['totalWeeklyBillableAmount'] });
     queryClient.invalidateQueries({ queryKey: ['weeklyHistory'] });
+    queryClient.invalidateQueries({ queryKey: ['dashboardThisWeekReporting'] });
     queryClient.invalidateQueries({ queryKey: ['timeEntries'] });
 };
 </script>

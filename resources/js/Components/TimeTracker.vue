@@ -143,6 +143,7 @@ async function createTag(tag: string): Promise<Tag | undefined> {
 async function createTimeEntry(timeEntry: Omit<CreateTimeEntryBody, 'member_id'>) {
     await createTimeEntryMutation(timeEntry);
     showManualTimeEntryModal.value = false;
+    emit('change');
 }
 
 async function createTimeEntryFromCurrentEntry() {
@@ -161,6 +162,7 @@ async function discardCurrentTimeEntry() {
             'Failed to discard time entry'
         );
         await currentTimeEntryStore.fetchCurrentTimeEntry();
+        emit('change');
     }
 }
 
