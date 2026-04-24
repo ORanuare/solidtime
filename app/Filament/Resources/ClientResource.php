@@ -6,7 +6,9 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\ClientResource\Pages;
 use App\Models\Client;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -31,6 +33,26 @@ class ClientResource extends Resource
                 TextInput::make('name')
                     ->label('Name')
                     ->required(),
+                Textarea::make('description')
+                    ->label('Description')
+                    ->rows(4)
+                    ->columnSpanFull(),
+                Repeater::make('contacts')
+                    ->label('Contacts')
+                    ->schema([
+                        TextInput::make('label')
+                            ->label('Label')
+                            ->required()
+                            ->maxLength(100),
+                        TextInput::make('value')
+                            ->label('Value')
+                            ->required()
+                            ->maxLength(500),
+                    ])
+                    ->default([])
+                    ->addActionLabel('Add contact')
+                    ->columnSpanFull()
+                    ->collapsed(),
                 Select::make('organization_id')
                     ->relationship(name: 'organization', titleAttribute: 'name')
                     ->label('Organization')
