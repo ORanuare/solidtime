@@ -75,7 +75,7 @@ const queryParams = computed<AggregatedTimeEntriesQueryParams>(() => {
     };
 });
 
-const { data: reportingResponse, isLoading } = useQuery({
+const { data: reportingResponse, isLoading, isFetching } = useQuery({
     queryKey: [
         'dashboardThisWeekReporting',
         organizationId,
@@ -94,6 +94,7 @@ const { data: reportingResponse, isLoading } = useQuery({
         });
     },
     enabled: computed(() => !!organizationId.value),
+    placeholderData: (previousData) => previousData,
 });
 
 const aggregatedTableTimeEntries = computed<AggregatedTimeEntries | null>(() => {
@@ -131,6 +132,8 @@ const showBillableRate = computed(() => {
         getCurrentRole() !== 'employee' || organization?.value?.employees_can_see_billable_rates
     );
 });
+
+const isTableRefetching = computed(() => isFetching.value && !isLoading.value);
 </script>
 
 <template>
@@ -150,8 +153,16 @@ const showBillableRate = computed(() => {
         </div>
 
         <div
-            class="grid items-center"
+            class="grid items-center relative transition-opacity duration-200"
+            :class="isTableRefetching ? 'opacity-60' : 'opacity-100'"
             :style="`grid-template-columns: 1fr 100px ${showBillableRate ? '150px' : ''}`">
+            <div
+                v-if="isTableRefetching"
+                class="absolute right-4 top-1 text-xs text-text-tertiary z-10"
+                role="status"
+                aria-live="polite">
+                Updating…
+            </div>
             <div
                 class="contents [&>*]:border-card-background-separator [&>*]:border-b [&>*]:pb-1.5 [&>*]:pt-1 text-text-tertiary text-sm">
                 <div class="pl-6">Name</div>

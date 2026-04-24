@@ -79,7 +79,7 @@ const weekSectionTitle = computed(() => {
 });
 
 // Set up the queries
-const { data: weeklyProjectOverview } = useQuery({
+const { data: weeklyProjectOverview, isFetching: isFetchingProjectOverview } = useQuery({
     queryKey: ['weeklyProjectOverview', organizationId, weekOffset],
     queryFn: () => {
         return api.weeklyProjectOverview({
@@ -91,9 +91,10 @@ const { data: weeklyProjectOverview } = useQuery({
     },
     enabled: computed(() => !!organizationId.value),
     staleTime: 1000 * 30, // 30 seconds
+    placeholderData: (previousData) => previousData,
 });
 
-const { data: totalWeeklyTime } = useQuery({
+const { data: totalWeeklyTime, isFetching: isFetchingTotalTime } = useQuery({
     queryKey: ['totalWeeklyTime', organizationId, weekOffset],
     queryFn: () => {
         return api.totalWeeklyTime({
@@ -105,9 +106,10 @@ const { data: totalWeeklyTime } = useQuery({
     },
     enabled: computed(() => !!organizationId.value),
     staleTime: 1000 * 30, // 30 seconds
+    placeholderData: (previousData) => previousData,
 });
 
-const { data: totalWeeklyBillableTime } = useQuery({
+const { data: totalWeeklyBillableTime, isFetching: isFetchingBillableTime } = useQuery({
     queryKey: ['totalWeeklyBillableTime', organizationId, weekOffset],
     queryFn: () => {
         return api.totalWeeklyBillableTime({
@@ -119,9 +121,10 @@ const { data: totalWeeklyBillableTime } = useQuery({
     },
     enabled: computed(() => !!organizationId.value),
     staleTime: 1000 * 30, // 30 seconds
+    placeholderData: (previousData) => previousData,
 });
 
-const { data: totalWeeklyBillableAmount } = useQuery({
+const { data: totalWeeklyBillableAmount, isFetching: isFetchingBillableAmount } = useQuery({
     queryKey: ['totalWeeklyBillableAmount', organizationId, weekOffset],
     queryFn: () => {
         return api.totalWeeklyBillableAmount({
@@ -133,9 +136,10 @@ const { data: totalWeeklyBillableAmount } = useQuery({
     },
     enabled: computed(() => !!organizationId.value),
     staleTime: 1000 * 30, // 30 seconds
+    placeholderData: (previousData) => previousData,
 });
 
-const { data: weeklyHistory } = useQuery({
+const { data: weeklyHistory, isFetching: isFetchingWeeklyHistory } = useQuery({
     queryKey: ['weeklyHistory', organizationId, weekOffset],
     queryFn: () => {
         return api.weeklyHistory({
@@ -147,7 +151,17 @@ const { data: weeklyHistory } = useQuery({
     },
     enabled: computed(() => !!organizationId.value),
     staleTime: 1000 * 30, // 30 seconds
+    placeholderData: (previousData) => previousData,
 });
+
+const isThisWeekSummaryFetching = computed(
+    () =>
+        isFetchingProjectOverview.value ||
+        isFetchingTotalTime.value ||
+        isFetchingBillableTime.value ||
+        isFetchingBillableAmount.value ||
+        isFetchingWeeklyHistory.value
+);
 
 const seriesData = computed(() => {
     if (!weeklyHistory.value) {
@@ -295,13 +309,27 @@ const option = computed(() => {
                     </div>
                 </template>
             </CardTitle>
-            <v-chart v-if="weeklyHistory" :autoresize="true" class="chart" :option="option" />
+            <div
+                :class="[
+                    'transition-opacity duration-200',
+                    isThisWeekSummaryFetching ? 'opacity-60' : 'opacity-100',
+                ]">
+                <v-chart
+                    v-if="weeklyHistory !== undefined"
+                    :autoresize="true"
+                    class="chart"
+                    :option="option" />
+            </div>
 
             <div class="mt-6">
                 <ThisWeekReportingTable></ThisWeekReportingTable>
             </div>
         </div>
-        <div class="space-y-6">
+        <div
+            :class="[
+                'space-y-6 transition-opacity duration-200',
+                isThisWeekSummaryFetching ? 'opacity-60' : 'opacity-100',
+            ]">
             <StatCard
                 title="Spent Time"
                 :value="
