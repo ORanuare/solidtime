@@ -74,6 +74,8 @@ class ClientController extends Controller
 
         $client = new Client;
         $client->name = $request->input('name');
+        $client->description = $request->input('description');
+        $client->contacts = $this->normalizeContacts($request->input('contacts'));
         $client->organization()->associate($organization);
         $client->save();
 
@@ -92,6 +94,12 @@ class ClientController extends Controller
         $this->checkPermission($organization, 'clients:update', $client);
 
         $client->name = $request->input('name');
+        if ($request->has('description')) {
+            $client->description = $request->input('description');
+        }
+        if ($request->has('contacts')) {
+            $client->contacts = $this->normalizeContacts($request->input('contacts'));
+        }
         if ($request->has('is_archived')) {
             $client->archived_at = $request->getIsArchived() ? Carbon::now() : null;
         }
@@ -118,5 +126,31 @@ class ClientController extends Controller
         $client->delete();
 
         return response()->json(null, 204);
+    }
+
+    /**
+     * @param  list<array<string, mixed>>|null  $contacts
+     * @return list<array{label: string, value: string}>|null
+     */
+    private function normalizeContacts(?array $contacts): ?array
+    {
+        if ($contacts === null || $contacts === []) {
+            return null;
+        }
+        $out = [];
+        foreach ($contacts as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            if (! array_key_exists('label', $row) || ! array_key_exists('value', $row)) {
+                continue;
+            }
+            $out[] = [
+                'label' => (string) $row['label'],
+                'value' => (string) $row['value'],
+            ];
+        }
+
+        return $out === [] ? null : $out;
     }
 }

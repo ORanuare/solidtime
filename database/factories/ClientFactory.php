@@ -22,6 +22,8 @@ class ClientFactory extends Factory
     {
         return [
             'name' => $this->faker->company(),
+            'description' => null,
+            'contacts' => null,
             'archived_at' => null,
             'organization_id' => Organization::factory(),
         ];

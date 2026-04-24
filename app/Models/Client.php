@@ -19,6 +19,8 @@ use OwenIt\Auditing\Contracts\Auditable as AuditableContract;
 /**
  * @property string $id
  * @property string $name
+ * @property string|null $description
+ * @property array<int, array{label: string, value: string}>|null $contacts
  * @property string $organization_id
  * @property-read bool $is_archived
  * @property Carbon|null $archived_at
@@ -44,6 +46,8 @@ class Client extends Model implements AuditableContract
      */
     protected $casts = [
         'name' => 'string',
+        'description' => 'string',
+        'contacts' => 'array',
         'archived_at' => 'datetime',
     ];
 

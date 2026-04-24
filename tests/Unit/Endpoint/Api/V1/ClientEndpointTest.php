@@ -257,6 +257,43 @@ class ClientEndpointTest extends ApiEndpointTestAbstract
         );
     }
 
+    public function test_store_endpoint_creates_client_with_description_and_contacts(): void
+    {
+        // Arrange
+        $data = $this->createUserWithPermission([
+            'clients:create',
+        ]);
+        $clientFake = Client::factory()->make();
+        Passport::actingAs($data->user);
+
+        // Act
+        $response = $this->postJson(route('api.v1.clients.store', [$data->organization->getKey()]), [
+            'name' => $clientFake->name,
+            'description' => 'Agency / retainer',
+            'contacts' => [
+                ['label' => 'Email', 'value' => 'hello@example.com'],
+                ['label' => 'Twitter', 'value' => '@client'],
+            ],
+        ]);
+
+        // Assert
+        $response->assertStatus(201);
+        $response->assertJson(fn (AssertableJson $json) => $json
+            ->has('data')
+            ->where('data.name', $clientFake->name)
+            ->where('data.description', 'Agency / retainer')
+            ->where('data.contacts.0.label', 'Email')
+            ->where('data.contacts.0.value', 'hello@example.com')
+            ->where('data.contacts.1.label', 'Twitter')
+            ->where('data.contacts.1.value', '@client')
+        );
+        $this->assertDatabaseHas(Client::class, [
+            'name' => $clientFake->name,
+            'description' => 'Agency / retainer',
+            'organization_id' => $data->organization->getKey(),
+        ]);
+    }
+
     public function test_update_endpoint_fails_if_user_has_no_permission_to_update_clients(): void
     {
         // Arrange
@@ -376,6 +413,40 @@ class ClientEndpointTest extends ApiEndpointTestAbstract
             'name' => $clientFake->name,
             'organization_id' => $data->organization->getKey(),
         ]);
+    }
+
+    public function test_update_endpoint_updates_description_and_contacts(): void
+    {
+        // Arrange
+        $data = $this->createUserWithPermission([
+            'clients:update',
+        ]);
+        $client = Client::factory()->forOrganization($data->organization)->create([
+            'description' => 'Old',
+            'contacts' => [['label' => 'Email', 'value' => 'old@x.com']],
+        ]);
+        $clientFake = Client::factory()->make();
+        Passport::actingAs($data->user);
+
+        // Act
+        $response = $this->putJson(route('api.v1.clients.update', [$data->organization->getKey(), $client->getKey()]), [
+            'name' => $clientFake->name,
+            'description' => 'New notes',
+            'contacts' => [
+                ['label' => 'Phone', 'value' => '+1 555'],
+            ],
+        ]);
+
+        // Assert
+        $response->assertStatus(200);
+        $response->assertJson(fn (AssertableJson $json) => $json
+            ->where('data.description', 'New notes')
+            ->where('data.contacts.0.label', 'Phone')
+            ->where('data.contacts.0.value', '+1 555')
+        );
+        $client->refresh();
+        $this->assertSame('New notes', $client->description);
+        $this->assertSame('Phone', $client->contacts[0]['label'] ?? null);
     }
 
     public function test_update_endpoint_can_archive_a_client(): void

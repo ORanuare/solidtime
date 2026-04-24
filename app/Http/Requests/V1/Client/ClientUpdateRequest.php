@@ -39,6 +39,26 @@ class ClientUpdateRequest extends BaseFormRequest
             'is_archived' => [
                 'boolean',
             ],
+            'description' => [
+                'nullable',
+                'string',
+                'max:5000',
+            ],
+            'contacts' => [
+                'nullable',
+                'array',
+                'max:20',
+            ],
+            'contacts.*.label' => [
+                'required',
+                'string',
+                'max:100',
+            ],
+            'contacts.*.value' => [
+                'required',
+                'string',
+                'max:500',
+            ],
         ];
     }
 
