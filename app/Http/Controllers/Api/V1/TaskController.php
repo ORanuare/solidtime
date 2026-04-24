@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Enums\NoteVisibility;
 use App\Exceptions\Api\EntityStillInUseApiException;
 use App\Http\Requests\V1\Task\TaskIndexRequest;
 use App\Http\Requests\V1\Task\TaskStoreRequest;
@@ -84,6 +85,17 @@ class TaskController extends Controller
 
         $tasks = $query
             ->computedAttributesGenerate(['spent_time'])
+            ->withCount([
+                'notes as notes_count' => function ($noteQuery) use ($user): void {
+                    $noteQuery->where(function ($q) use ($user): void {
+                        $q->where('visibility', NoteVisibility::Shared)
+                            ->orWhere(function ($q2) use ($user): void {
+                                $q2->where('visibility', NoteVisibility::Private)
+                                    ->where('user_id', $user->id);
+                            });
+                    });
+                },
+            ])
             ->orderBy('created_at', 'desc')
             ->paginate(config('app.pagination_per_page_default'));
 

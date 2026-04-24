@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\V1\ExportController;
 use App\Http\Controllers\Api\V1\ImportController;
 use App\Http\Controllers\Api\V1\InvitationController;
 use App\Http\Controllers\Api\V1\MemberController;
+use App\Http\Controllers\Api\V1\NoteController;
 use App\Http\Controllers\Api\V1\OrganizationController;
 use App\Http\Controllers\Api\V1\ProjectController;
 use App\Http\Controllers\Api\V1\ProjectMemberController;
@@ -145,6 +146,14 @@ Route::prefix('v1')->name('v1.')->group(static function (): void {
             Route::post('/tags', [TagController::class, 'store'])->name('store')->middleware('check-organization-blocked');
             Route::put('/tags/{tag}', [TagController::class, 'update'])->name('update')->middleware('check-organization-blocked');
             Route::delete('/tags/{tag}', [TagController::class, 'destroy'])->name('destroy');
+        });
+
+        // Note routes
+        Route::name('notes.')->prefix('/organizations/{organization}')->group(static function (): void {
+            Route::get('/notes', [NoteController::class, 'index'])->name('index');
+            Route::post('/notes', [NoteController::class, 'store'])->name('store')->middleware('check-organization-blocked');
+            Route::put('/notes/{note}', [NoteController::class, 'update'])->name('update')->middleware('check-organization-blocked');
+            Route::delete('/notes/{note}', [NoteController::class, 'destroy'])->name('destroy');
         });
 
         // Client routes

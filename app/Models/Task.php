@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Korridor\LaravelComputedAttributes\ComputedAttributes;
@@ -259,6 +260,14 @@ class Task extends Model implements AuditableContract
     public function timeEntries(): HasMany
     {
         return $this->hasMany(TimeEntry::class, 'task_id');
+    }
+
+    /**
+     * @return MorphMany<Note, $this>
+     */
+    public function notes(): MorphMany
+    {
+        return $this->morphMany(Note::class, 'notable');
     }
 
     /**
