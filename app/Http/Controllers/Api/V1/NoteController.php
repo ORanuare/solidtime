@@ -47,14 +47,8 @@ class NoteController extends Controller
 
         if ($request->filled('task_id')) {
             $taskId = $request->input('task_id');
-            $query->where(function (Builder $q) use ($taskId): void {
-                $q->where(function (Builder $q2) use ($taskId): void {
-                    $q2->where('notable_type', 'task')
-                        ->where('notable_id', $taskId);
-                })->orWhere(function (Builder $q2): void {
-                    $this->scopeWorkspaceNotables($q2);
-                });
-            });
+            $query->where('notable_type', 'task')
+                ->where('notable_id', $taskId);
         } elseif ($request->filled('project_id')) {
             $projectId = $request->input('project_id');
             $query->where(function (Builder $q) use ($projectId): void {

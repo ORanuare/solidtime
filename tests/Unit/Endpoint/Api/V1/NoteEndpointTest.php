@@ -101,7 +101,7 @@ class NoteEndpointTest extends ApiEndpointTestAbstract
         );
     }
 
-    public function test_index_with_task_id_includes_workspace_notes(): void
+    public function test_index_with_task_id_returns_only_notes_on_that_task(): void
     {
         $data = $this->createUserWithPermission([
             'notes:view',
@@ -112,11 +112,19 @@ class NoteEndpointTest extends ApiEndpointTestAbstract
         $project = Project::factory()->forOrganization($data->organization)->create();
         $task = Task::factory()->forProject($project)->forOrganization($data->organization)->create();
 
-        $workspaceNote = Note::factory()
+        Note::factory()
             ->forOrganization($data->organization)
             ->author($data->user)
             ->shared()
             ->create(['body' => 'Workspace']);
+
+        $projectNote = Note::factory()
+            ->forOrganization($data->organization)
+            ->author($data->user)
+            ->shared()
+            ->create(['body' => 'On project']);
+        $projectNote->notable()->associate($project);
+        $projectNote->save();
 
         $taskNote = Note::factory()
             ->forOrganization($data->organization)
@@ -144,7 +152,7 @@ class NoteEndpointTest extends ApiEndpointTestAbstract
         $response->assertStatus(200);
         $ids = collect($response->json('data'))->pluck('id')->all();
         $this->assertEqualsCanonicalizing(
-            [$workspaceNote->getKey(), $taskNote->getKey()],
+            [$taskNote->getKey()],
             $ids
         );
     }
