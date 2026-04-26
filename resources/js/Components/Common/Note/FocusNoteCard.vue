@@ -148,7 +148,11 @@ function onDelete() {
         <div class="flex items-start justify-between gap-2">
             <div class="min-w-0 flex-1 text-xs text-text-tertiary">
                 <span class="font-medium text-text-secondary">{{ note.user_name }}</span>
-                <NoteNotablePill v-if="note.notable_label" :note="note" class="ml-1.5" />
+                <NoteNotablePill
+                    v-if="note.notable_label"
+                    :note="note"
+                    class="ml-1.5"
+                    :reassignable="canEdit" />
                 <span v-if="note.visibility === 'private'" class="ml-1.5">· Private</span>
                 <span v-else class="ml-1.5">· Shared</span>
                 <span v-if="note.is_archived" class="ml-1.5">· Archived</span>
