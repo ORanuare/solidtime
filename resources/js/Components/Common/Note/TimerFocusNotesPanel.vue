@@ -11,6 +11,7 @@ import { useNotesStore } from '@/utils/useNotes';
 import { canCreateNotes } from '@/utils/permissions';
 import { useProjectsQuery } from '@/utils/useProjectsQuery';
 import { useTasksQuery } from '@/utils/useTasksQuery';
+import { sortNotesForTimerFocus } from '@/utils/timerFocusNoteSort';
 
 const { hasListScope, listProjectId, listTaskId, formProjectId, formTaskId } = useTimerNoteScope();
 const { createNote } = useNotesStore();
@@ -27,6 +28,10 @@ const listFilters = computed(() => ({
 const { notes, isLoading } = useNotesQuery(listFilters, {
     enabled: hasListScope,
 });
+
+const sortedNotes = computed(() =>
+    sortNotesForTimerFocus(notes.value, formProjectId.value, formTaskId.value)
+);
 
 const noteCount = computed(() => notes.length);
 
@@ -46,17 +51,6 @@ const taskName = computed(() => {
     }
 
     return tasks.value.find((t) => t.id === id)?.name;
-});
-
-const contextSubtitle = computed(() => {
-    const parts: string[] = [];
-    if (projectName.value) {
-        parts.push(projectName.value);
-    }
-    if (taskName.value) {
-        parts.push(taskName.value);
-    }
-    return parts.length ? parts.join(' · ') : undefined;
 });
 
 function defaultAttachTarget(): 'task' | 'project' | 'workspace' {
@@ -86,32 +80,65 @@ watch([formProjectId, formTaskId], () => {
     attachTo.value = defaultAttachTarget();
 });
 
-/** List scope (project/task) changed — re-decide default composer state after the next load. */
-watch([listProjectId, listTaskId], () => {
-    composerStateInitialized.value = false;
-});
+/** List scope (project/task) changed — re-run default: list-first when notes exist. */
+function resetComposerDefaultForNewScope() {
+    composerInitDone.value = false;
+    showComposer.value = false;
+}
+
+watch([listProjectId, listTaskId], resetComposerDefaultForNewScope);
 
 /**
- * When `hasListScope` and the user already has at least one note, the composer starts collapsed.
- * When there are no notes yet, the composer is shown (and when there is no list scope, always shown).
+ * When there is a project/task, wait for the note list, then: open composer if empty,
+ * else show list first. Without scope, the composer is the main action.
+ *
+ * Start with the composer closed so we do not show the form before the list loads, and
+ * do not "lock" the wrong state if the first run saw `!hasListScope` then scope appears.
  */
-const showComposer = ref(true);
-const composerStateInitialized = ref(false);
+const showComposer = ref(false);
+const composerInitDone = ref(false);
 
-watch([isLoading, noteCount, hasListScope], () => {
-    if (!hasListScope.value) {
-        if (!composerStateInitialized.value) {
-            composerStateInitialized.value = true;
+watch(
+    [isLoading, noteCount, hasListScope],
+    () => {
+        if (composerInitDone.value) {
+            if (
+                hasListScope.value &&
+                noteCount.value > 0 &&
+                showComposer.value &&
+                !composerBody.value.trim()
+            ) {
+                showComposer.value = false;
+            }
+            return;
+        }
+        if (hasListScope.value) {
+            if (isLoading.value) {
+                return;
+            }
+            composerInitDone.value = true;
+            showComposer.value = noteCount.value === 0;
+        } else {
+            composerInitDone.value = true;
             showComposer.value = true;
         }
+    },
+    { flush: 'post', immediate: true }
+);
+
+/** Stale empty result then cache fills (0 → n): show list, not the create form. */
+watch(noteCount, (n, previous) => {
+    if (previous === undefined) {
         return;
     }
-    if (isLoading.value) {
-        return;
-    }
-    if (!composerStateInitialized.value) {
-        composerStateInitialized.value = true;
-        showComposer.value = noteCount.value === 0;
+    if (
+        previous === 0 &&
+        n > 0 &&
+        hasListScope.value &&
+        showComposer.value &&
+        !composerBody.value.trim()
+    ) {
+        showComposer.value = false;
     }
 });
 
@@ -167,9 +194,6 @@ function hideComposer() {
         data-testid="timer_focus_notes">
         <div class="shrink-0 border-b border-default px-3 py-2">
             <h2 class="text-sm font-semibold text-text-primary">Notes</h2>
-            <p v-if="contextSubtitle" class="mt-0.5 text-xs text-text-secondary">
-                {{ contextSubtitle }}
-            </p>
         </div>
 
         <div v-if="canCreateNotes()">
@@ -249,7 +273,7 @@ function hideComposer() {
                 <template v-else>No notes yet.</template>
             </p>
             <ul v-else class="flex list-none flex-col gap-3">
-                <li v-for="n in notes" :key="n.id">
+                <li v-for="n in sortedNotes" :key="n.id">
                     <FocusNoteCard :note="n" />
                 </li>
             </ul>
