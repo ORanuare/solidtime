@@ -17,10 +17,9 @@ export function useTimerNoteScope() {
 
     const hasListScope = computed(() => hasId(projectId.value) || hasId(taskId.value));
 
+    /** Pass task when set so the API scopes to that task (+ workspace), not every task in the project. */
     const listProjectId = computed(() => (hasId(projectId.value) ? projectId.value : undefined));
-    const listTaskId = computed(() =>
-        hasId(projectId.value) ? undefined : hasId(taskId.value) ? taskId.value : undefined
-    );
+    const listTaskId = computed(() => (hasId(taskId.value) ? taskId.value : undefined));
 
     const formProjectId = computed(() => (hasId(projectId.value) ? projectId.value : undefined));
     const formTaskId = computed(() => (hasId(taskId.value) ? taskId.value : undefined));

@@ -12,6 +12,7 @@ import { canCreateNotes } from '@/utils/permissions';
 import { useProjectsQuery } from '@/utils/useProjectsQuery';
 import { useTasksQuery } from '@/utils/useTasksQuery';
 import { sortNotesForTimerFocus } from '@/utils/timerFocusNoteSort';
+import type { Note } from '@/packages/api/src';
 
 const { hasListScope, listProjectId, listTaskId, formProjectId, formTaskId } = useTimerNoteScope();
 const { createNote } = useNotesStore();
@@ -29,11 +30,43 @@ const { notes, isLoading } = useNotesQuery(listFilters, {
     enabled: hasListScope,
 });
 
+/** Hide notes tied to done tasks or archived projects (project-only API scope still returns all tasks). */
+const visibleNotesForFocus = computed(() => {
+    const allTasks = tasks.value;
+    const allProjects = projects.value;
+    return notes.value.filter((n: Note) => {
+        if (n.task_id) {
+            const task = allTasks.find((t) => t.id === n.task_id);
+            if (task?.is_done) {
+                return false;
+            }
+            if (task?.project_id) {
+                const p = allProjects.find((x) => x.id === task.project_id);
+                if (p?.is_archived) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        if (n.project_id) {
+            const p = allProjects.find((x) => x.id === n.project_id);
+            if (p?.is_archived) {
+                return false;
+            }
+        }
+        return true;
+    });
+});
+
 const sortedNotes = computed(() =>
-    sortNotesForTimerFocus(notes.value, formProjectId.value, formTaskId.value)
+    sortNotesForTimerFocus(
+        visibleNotesForFocus.value,
+        formProjectId.value,
+        formTaskId.value
+    )
 );
 
-const noteCount = computed(() => notes.length);
+const noteCount = computed(() => visibleNotesForFocus.value.length);
 
 const projectName = computed(() => {
     const id = formProjectId.value;
@@ -267,7 +300,7 @@ function hideComposer() {
         <div v-if="hasListScope" class="min-h-0 flex-1 overflow-y-auto p-3">
             <p v-if="isLoading" class="text-center text-sm text-text-secondary">Loading…</p>
             <p
-                v-else-if="!notes.length"
+                v-else-if="!sortedNotes.length"
                 class="text-center text-sm text-text-secondary">
                 <template v-if="canCreateNotes() && showComposer">
                     No notes yet. Use the composer above.
