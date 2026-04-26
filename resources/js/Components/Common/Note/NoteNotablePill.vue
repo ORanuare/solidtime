@@ -1,9 +1,22 @@
 <script setup lang="ts">
 import type { Note, Task } from '@/packages/api/src';
 import { Field, FieldLabel } from '@/packages/ui/src/field';
-import { Popover, PopoverContent, PopoverTrigger } from '@/packages/ui/src';
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/packages/ui/src';
 import PrimaryButton from '@/packages/ui/src/Buttons/PrimaryButton.vue';
-import { getNoteNotableEntityName, getNoteNotableLevel } from '@/utils/noteNotableLevel';
+import {
+    getNoteNotableEntityName,
+    getNoteNotableLevel,
+    type NoteNotableLevel,
+} from '@/utils/noteNotableLevel';
 import { NOTE_NOTABLE_LEVEL_PILL_STYLE } from '@/utils/noteNotablePillStyle';
 import { useNotesStore } from '@/utils/useNotes';
 import { useProjectsQuery } from '@/utils/useProjectsQuery';
@@ -166,10 +179,26 @@ const triggerChipClass = computed(() =>
             'cursor-pointer hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:brightness-110'
     )
 );
+
+const ATTACH_LEVELS: NoteNotableLevel[] = ['workspace', 'project', 'task'];
+
+function attachTargetOptionClass(lev: NoteNotableLevel) {
+    const style = NOTE_NOTABLE_LEVEL_PILL_STYLE[lev];
+    const selected = attachTo.value === lev;
+    return twMerge(
+        'flex min-h-[2.75rem] min-w-0 flex-1 flex-col items-center justify-center gap-1 px-1 py-2 text-center text-xs font-medium transition',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+        style.chipClass,
+        selected
+            ? 'z-[1] opacity-100 shadow-sm ring-2 ring-ring ring-offset-1 ring-offset-background'
+            : 'opacity-[0.72] hover:opacity-100',
+        'rounded-lg'
+    );
+}
 </script>
 
 <template>
-    <span :class="twMerge('inline-flex min-w-0 max-w-full items-center gap-1.5', props.class)">
+    <span :class="twMerge('inline-flex min-w-0 max-w-full items-center gap-2', props.class)">
         <Popover v-if="reassignable" v-model:open="open">
             <PopoverTrigger as-child>
                 <button
@@ -188,42 +217,63 @@ const triggerChipClass = computed(() =>
                 <p class="text-sm font-medium text-text-primary">Attach note to</p>
                 <p class="mt-1 text-xs text-text-tertiary">Workspace notes are not linked to a project or task.</p>
                 <div class="mt-3 space-y-3">
-                    <Field>
-                        <FieldLabel for="notePillAttachTo">Target</FieldLabel>
-                        <select
-                            id="notePillAttachTo"
-                            v-model="attachTo"
-                            class="block w-full rounded-md border border-default bg-card-background px-3 py-2 text-sm text-text-primary shadow-sm focus:border-transparent focus:ring-2 focus:ring-ring">
-                            <option value="workspace">Workspace</option>
-                            <option value="project">Project</option>
-                            <option value="task">Task</option>
-                        </select>
-                    </Field>
+                    <div
+                        class="flex gap-1.5"
+                        role="group"
+                        aria-label="Attach to workspace, project, or task">
+                        <button
+                            v-for="lev in ATTACH_LEVELS"
+                            :key="lev"
+                            type="button"
+                            :class="attachTargetOptionClass(lev)"
+                            :aria-pressed="attachTo === lev"
+                            @click="attachTo = lev">
+                            <component
+                                :is="NOTE_NOTABLE_LEVEL_PILL_STYLE[lev].icon"
+                                class="h-4 w-4 shrink-0"
+                                :class="NOTE_NOTABLE_LEVEL_PILL_STYLE[lev].iconClass" />
+                            <span class="leading-tight">{{
+                                NOTE_NOTABLE_LEVEL_PILL_STYLE[lev].shortLabel
+                            }}</span>
+                        </button>
+                    </div>
                     <Field v-if="attachTo === 'project'">
-                        <FieldLabel for="notePillProject">Project</FieldLabel>
-                        <select
-                            id="notePillProject"
-                            v-model="pickedProjectId"
-                            class="block w-full rounded-md border border-default bg-card-background px-3 py-2 text-sm text-text-primary shadow-sm focus:border-transparent focus:ring-2 focus:ring-ring"
-                            required>
-                            <option disabled value="">Select a project</option>
-                            <option v-for="p in projectsSortedForSelect" :key="p.id" :value="p.id">
-                                {{ p.name }}
-                            </option>
-                        </select>
+                        <FieldLabel for="note-reassign-project-select">Project</FieldLabel>
+                        <Select v-model="pickedProjectId">
+                            <SelectTrigger
+                                id="note-reassign-project-select"
+                                variant="outline"
+                                class="w-full">
+                                <SelectValue placeholder="Select a project" />
+                            </SelectTrigger>
+                            <SelectContent position="popper" side="bottom" align="start" :side-offset="4">
+                                <SelectItem
+                                    v-for="p in projectsSortedForSelect"
+                                    :key="p.id"
+                                    :value="p.id">
+                                    {{ p.name }}
+                                </SelectItem>
+                            </SelectContent>
+                        </Select>
                     </Field>
                     <Field v-if="attachTo === 'task'">
-                        <FieldLabel for="notePillTask">Task</FieldLabel>
-                        <select
-                            id="notePillTask"
-                            v-model="pickedTaskId"
-                            class="block w-full rounded-md border border-default bg-card-background px-3 py-2 text-sm text-text-primary shadow-sm focus:border-transparent focus:ring-2 focus:ring-ring"
-                            required>
-                            <option disabled value="">Select a task</option>
-                            <option v-for="t in tasksSortedForSelect" :key="t.id" :value="t.id">
-                                {{ taskOptionLabel(t) }}
-                            </option>
-                        </select>
+                        <FieldLabel for="note-reassign-task-select">Task</FieldLabel>
+                        <Select v-model="pickedTaskId">
+                            <SelectTrigger
+                                id="note-reassign-task-select"
+                                variant="outline"
+                                class="w-full">
+                                <SelectValue placeholder="Select a task" />
+                            </SelectTrigger>
+                            <SelectContent position="popper" side="bottom" align="start" :side-offset="4">
+                                <SelectItem
+                                    v-for="t in tasksSortedForSelect"
+                                    :key="t.id"
+                                    :value="t.id">
+                                    {{ taskOptionLabel(t) }}
+                                </SelectItem>
+                            </SelectContent>
+                        </Select>
                     </Field>
                 </div>
                 <div class="mt-4 flex justify-end gap-2">
