@@ -21,6 +21,7 @@ async function goToProjectsOverview(page: Page) {
 async function clearProjectTableState(page: Page) {
     await page.evaluate(() => {
         localStorage.removeItem('project-table-state');
+        localStorage.removeItem('project-table-state-v2');
     });
 }
 
@@ -62,7 +63,7 @@ test('test that creating and deleting a new project via the modal works', async 
 });
 
 // Helper to select a status filter using the new dropdown UI
-async function selectStatusFilter(page: Page, status: 'Active' | 'Archived') {
+async function selectStatusFilter(page: Page, status: 'Active' | 'Archived' | 'All') {
     // Click the Filter button to open the dropdown
     await page.getByRole('button', { name: 'Filter projects' }).click();
     // Click on Status submenu
@@ -88,31 +89,26 @@ test('test that archiving and unarchiving projects works', async ({ page, ctx })
     await expect(page.getByText(newProjectName)).toBeVisible({ timeout: 10000 });
 
     // Archive the project
-    await page.getByRole('row').first().getByRole('button').click();
+    const projectRow = page.getByRole('row').filter({ hasText: newProjectName });
+    await projectRow.getByRole('button').click();
     await page.getByRole('menuitem').getByText('Archive').first().click();
 
-    // Project should still be visible since default is "all" (no filter)
-    await expect(page.getByText(newProjectName)).toBeVisible();
-
-    // Apply Active filter - archived project should disappear
-    await selectStatusFilter(page, 'Active');
+    // Default list is active only — archived project is hidden
     await expect(page.getByText(newProjectName)).not.toBeVisible();
 
-    // Remove Active filter and apply Archived filter
-    await removeStatusFilter(page);
     await selectStatusFilter(page, 'Archived');
     await expect(page.getByText(newProjectName)).toBeVisible();
 
-    // Unarchive the project
-    await page.getByRole('row').first().getByRole('button').click();
-    await page.getByRole('menuitem').getByText('Unarchive').first().click();
-
-    // Project should disappear from Archived view
+    await selectStatusFilter(page, 'Active');
     await expect(page.getByText(newProjectName)).not.toBeVisible();
 
-    // Remove Archived filter and apply Active filter to see the project
+    await selectStatusFilter(page, 'Archived');
+    await page.getByRole('row').filter({ hasText: newProjectName }).getByRole('button').click();
+    await page.getByRole('menuitem').getByText('Unarchive').first().click();
+
+    await expect(page.getByText(newProjectName)).not.toBeVisible();
+
     await removeStatusFilter(page);
-    await selectStatusFilter(page, 'Active');
     await expect(page.getByText(newProjectName)).toBeVisible();
 });
 
@@ -526,28 +522,21 @@ test('test that filtering projects by status works', async ({ page, ctx }) => {
     await page.reload();
     await expect(page.getByText(newProjectName)).toBeVisible({ timeout: 10000 });
 
-    // Archive the project
-    await page.getByRole('row').first().getByRole('button').click();
+    await page.getByRole('row').filter({ hasText: newProjectName }).getByRole('button').click();
     await page.getByRole('menuitem').getByText('Archive').first().click();
 
-    // Project should still be visible (default is "all" - no filter)
+    await expect(page.getByText(newProjectName)).not.toBeVisible();
+
+    await selectStatusFilter(page, 'All');
     await expect(page.getByText(newProjectName)).toBeVisible();
 
-    // Apply Active filter - archived project should disappear
     await selectStatusFilter(page, 'Active');
     await expect(page.getByText(newProjectName)).not.toBeVisible();
 
-    // Remove Active filter - project should reappear (back to "all")
-    await removeStatusFilter(page);
-    await expect(page.getByText(newProjectName)).toBeVisible();
-
-    // Apply Archived filter - project should still be visible
     await selectStatusFilter(page, 'Archived');
     await expect(page.getByText(newProjectName)).toBeVisible();
 
-    // Remove Archived filter and apply Active filter - project should not be visible
     await removeStatusFilter(page);
-    await selectStatusFilter(page, 'Active');
     await expect(page.getByText(newProjectName)).not.toBeVisible();
 });
 
@@ -556,16 +545,12 @@ test('test that filter state persists after page reload', async ({ page }) => {
     await clearProjectTableState(page);
     await page.reload();
 
-    // Apply Active status filter
-    await selectStatusFilter(page, 'Active');
+    await selectStatusFilter(page, 'Archived');
 
-    // Verify the filter badge is visible
     await expect(page.getByTestId('status-filter-badge')).toBeVisible();
 
-    // Reload the page
     await page.reload();
 
-    // Verify the filter badge is still visible after reload
     await expect(page.getByTestId('status-filter-badge')).toBeVisible();
 });
 
@@ -840,6 +825,8 @@ test('test that project context menu archive archives the project', async ({ pag
     const projectName = 'CtxArchiveProject ' + Math.floor(1 + Math.random() * 10000);
     await createProjectViaApi(ctx, { name: projectName });
     await goToProjectsOverview(page);
+    await clearProjectTableState(page);
+    await page.reload();
 
     const row = page.getByRole('row').filter({ hasText: projectName }).first();
     await expect(row).toBeVisible();
@@ -854,8 +841,7 @@ test('test that project context menu archive archives the project', async ({ pag
         ),
         page.getByRole('menuitem', { name: 'Archive' }).click(),
     ]);
-    // After archiving, the project stays visible (default filter is 'all') but status changes to 'Archived'
-    await expect(row).toContainText('Archived');
+    await expect(page.getByTestId('project_table')).not.toContainText(projectName);
 });
 
 test('test that project context menu delete deletes the project', async ({ page, ctx }) => {
