@@ -3,11 +3,11 @@ import type { Note, Task } from '@/packages/api/src';
 import { Field, FieldLabel } from '@/packages/ui/src/field';
 import { Popover, PopoverContent, PopoverTrigger } from '@/packages/ui/src';
 import PrimaryButton from '@/packages/ui/src/Buttons/PrimaryButton.vue';
-import { getNoteNotableEntityName, getNoteNotableLevel, type NoteNotableLevel } from '@/utils/noteNotableLevel';
+import { getNoteNotableEntityName, getNoteNotableLevel } from '@/utils/noteNotableLevel';
+import { NOTE_NOTABLE_LEVEL_PILL_STYLE } from '@/utils/noteNotablePillStyle';
 import { useNotesStore } from '@/utils/useNotes';
 import { useProjectsQuery } from '@/utils/useProjectsQuery';
 import { useTasksQuery } from '@/utils/useTasksQuery';
-import { BuildingOffice2Icon, FolderIcon, ListBulletIcon } from '@heroicons/vue/16/solid';
 import { computed, ref, watch } from 'vue';
 import { twMerge } from 'tailwind-merge';
 
@@ -142,34 +142,7 @@ async function onSaveReassign() {
     }
 }
 
-const levelVisual: Record<
-    NoteNotableLevel,
-    { icon: typeof BuildingOffice2Icon; shortLabel: string; chipClass: string; iconClass: string }
-> = {
-    workspace: {
-        icon: BuildingOffice2Icon,
-        shortLabel: 'Workspace',
-        chipClass:
-            'border-violet-500/35 bg-violet-500/10 text-violet-800 dark:border-violet-400/30 dark:bg-violet-500/15 dark:text-violet-100',
-        iconClass: 'text-violet-600 dark:text-violet-300',
-    },
-    project: {
-        icon: FolderIcon,
-        shortLabel: 'Project',
-        chipClass:
-            'border-sky-500/40 bg-sky-500/10 text-sky-900 dark:border-sky-400/35 dark:bg-sky-500/15 dark:text-sky-100',
-        iconClass: 'text-sky-600 dark:text-sky-300',
-    },
-    task: {
-        icon: ListBulletIcon,
-        shortLabel: 'Task',
-        chipClass:
-            'border-emerald-500/40 bg-emerald-500/10 text-emerald-900 dark:border-emerald-400/35 dark:bg-emerald-500/15 dark:text-emerald-100',
-        iconClass: 'text-emerald-600 dark:text-emerald-300',
-    },
-};
-
-const levelStyle = computed(() => levelVisual[level.value]);
+const levelStyle = computed(() => NOTE_NOTABLE_LEVEL_PILL_STYLE[level.value]);
 
 const sizeClasses = computed(() => {
     if (props.size === 'sm') {
