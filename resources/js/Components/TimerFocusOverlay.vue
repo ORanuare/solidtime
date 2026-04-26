@@ -5,13 +5,20 @@ import OrganizationSwitcher from '@/Components/OrganizationSwitcher.vue';
 import TimeTracker from '@/Components/TimeTracker.vue';
 import TimerFocusNotesPanel from '@/Components/Common/Note/TimerFocusNotesPanel.vue';
 import { Button } from '@/packages/ui/src/Buttons';
+import { formatDuration } from '@/packages/ui/src/utils/time';
 import { useTimerFocus } from '@/utils/useTimerFocus';
+import { useTimerFocusTodayWorked } from '@/utils/useTimerFocusTodayWorked';
 import { useCommandPalette } from '@/utils/useCommandPalette';
 import { onKeyStroke } from '@vueuse/core';
 import { canCreateNotes, canViewNotes } from '@/utils/permissions';
 
 const { isTimerFocusOpen, transformOrigin, close } = useTimerFocus();
+const { totalSeconds, isLoading: todayWorkedLoading } = useTimerFocusTodayWorked(isTimerFocusOpen);
 const { openPalette, isOpen: paletteIsOpen } = useCommandPalette();
+
+const todayWorkedDisplay = computed(() =>
+    formatDuration(todayWorkedLoading.value ? 0 : totalSeconds.value)
+);
 
 onKeyStroke('Escape', (e) => {
     if (!isTimerFocusOpen.value || paletteIsOpen.value) {
@@ -47,7 +54,7 @@ const showNotesColumn = computed(() => canViewNotes() || canCreateNotes());
                         <XMarkIcon class="h-4 w-4 text-icon-default" />
                     </Button>
                     <span class="text-sm font-medium text-text-primary">Focus</span>
-                    <div class="flex min-w-0 flex-1 items-center justify-end gap-1">
+                    <div class="flex min-w-0 flex-1 items-center justify-end gap-2">
                         <OrganizationSwitcher />
                         <Button
                             variant="ghost"
@@ -62,8 +69,23 @@ const showNotesColumn = computed(() => canViewNotes() || canCreateNotes());
                 <div
                     class="flex min-h-0 flex-1 flex-col lg:flex-row">
                     <div
-                        class="flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-y-auto px-4 py-6">
-                        <TimeTracker variant="focus" />
+                        class="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto px-4 py-6">
+                        <div
+                            class="absolute right-4 top-4 z-10 flex shrink-0 flex-col items-end gap-0 sm:right-6 sm:top-6"
+                            data-testid="timer_focus_today_worked"
+                            :aria-label="`Time worked today, ${todayWorkedDisplay}`">
+                            <span
+                                class="text-xs font-medium uppercase leading-none tracking-wide text-text-tertiary"
+                                >Today</span
+                            >
+                            <span
+                                class="font-semibold tabular-nums text-xl leading-none tracking-tight text-text-primary sm:text-2xl"
+                                >{{ todayWorkedDisplay }}</span
+                            >
+                        </div>
+                        <div class="flex min-h-0 flex-1 items-center justify-center">
+                            <TimeTracker variant="focus" />
+                        </div>
                     </div>
                     <aside
                         v-if="showNotesColumn"
