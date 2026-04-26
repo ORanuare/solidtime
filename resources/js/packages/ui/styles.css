@@ -4,7 +4,7 @@
  * used by both the main solidtime app and the desktop app.
  *
  * Font-face declarations are intentionally omitted here as they differ between apps:
- * - Main app uses 'Inter'
+ * - Main app uses 'Inter Variable' (@fontsource-variable/inter)
  * - Desktop app uses 'Outfit'
  * Each app should include their own font-face declarations.
  */

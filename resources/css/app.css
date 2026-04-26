@@ -1,14 +1,5 @@
 /* Import shared solidtime styles from UI package */
 @import '../js/packages/ui/styles.css';
 
-/* Main app specific styles - Inter font */
-@font-face {
-    font-family: 'Inter';
-    src:
-        url('/fonts/InterVariable.woff2') format('woff2'),
-        url('/fonts/InterVariable.ttf') format('truetype');
-    font-weight: 100 900;
-    font-style: normal;
-    font-display: swap;
-    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
-}
+/* Main app: Inter variable font (bundled via Vite; avoids missing /public/fonts assets). */
+@import '@fontsource-variable/inter/index.css';

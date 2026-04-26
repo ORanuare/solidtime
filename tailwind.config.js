@@ -20,7 +20,7 @@ export default {
         extend: {
             ...solidtimeTheme,
             fontFamily: {
-                sans: ['Inter', ...defaultTheme.fontFamily.sans],
+                sans: ['Inter Variable', ...defaultTheme.fontFamily.sans],
             },
         },
     },
