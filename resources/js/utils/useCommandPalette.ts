@@ -204,6 +204,31 @@ export function useCommandPalette() {
         showTagsSelector.value = true;
     }
 
+    function applyProjectToCurrentTimeEntry(project: Project) {
+        currentTimeEntry.value.project_id = project.id;
+        const tid = currentTimeEntry.value.task_id;
+        if (tid) {
+            const task = tasks.value.find((t) => t.id === tid);
+            if (!task || task.project_id !== project.id) {
+                currentTimeEntry.value.task_id = null;
+            }
+        }
+        currentTimeEntry.value.billable = project.is_billable;
+    }
+
+    function applyTaskToCurrentTimeEntry(task: Task) {
+        if (task.project_id) {
+            currentTimeEntry.value.project_id = task.project_id;
+        }
+        currentTimeEntry.value.task_id = task.id;
+        const project = projects.value.find(
+            (p) => p.id === currentTimeEntry.value.project_id
+        );
+        if (project) {
+            currentTimeEntry.value.billable = project.is_billable;
+        }
+    }
+
     async function toggleBillable() {
         closePaletteAfterAction();
         currentTimeEntry.value.billable = !currentTimeEntry.value.billable;
@@ -217,6 +242,22 @@ export function useCommandPalette() {
             .utc()
             .format();
         await updateTimer();
+    }
+
+    async function applyProjectToTimerFromPalette(project: Project) {
+        closePaletteAfterAction();
+        applyProjectToCurrentTimeEntry(project);
+        if (isActive.value) {
+            await updateTimer();
+        }
+    }
+
+    async function applyTaskToTimerFromPalette(task: Task) {
+        closePaletteAfterAction();
+        applyTaskToCurrentTimeEntry(task);
+        if (isActive.value) {
+            await updateTimer();
+        }
     }
 
     // Create actions
@@ -281,6 +322,8 @@ export function useCommandPalette() {
                 stopTimer,
                 openCreateTimeEntryModal,
                 continueLastEntry,
+                openProjectSelector,
+                openTaskSelector,
                 openTimerFocus: () => {
                     closePaletteAfterAction();
                     openTimerFocusMode();
@@ -399,11 +442,8 @@ export function useCommandPalette() {
                         id: `entity-project-${p.id}`,
                         label: p.name,
                         icon: ENTITY_ICONS.project,
-                        keywords: ['project'],
-                        action: () => {
-                            closePaletteAfterAction();
-                            router.visit(route('projects.show', { project: p.id }));
-                        },
+                        keywords: ['project', 'track', 'timer', 'set'],
+                        action: () => applyProjectToTimerFromPalette(p),
                         entityType: 'project',
                         color: p.color,
                         badgeClass: ENTITY_BADGE_CLASSES.project,
@@ -438,20 +478,25 @@ export function useCommandPalette() {
                 .filter((t: Task) => t.name.toLowerCase().includes(query))
                 .slice(0, maxPerType)
                 .map(
-                    (t: Task): EntitySearchResult => ({
-                        id: `entity-task-${t.id}`,
-                        label: t.name,
-                        icon: ENTITY_ICONS.task,
-                        keywords: ['task'],
-                        action: () => {
-                            closePaletteAfterAction();
-                            if (t.project_id) {
-                                router.visit(route('projects.show', { project: t.project_id }));
-                            }
-                        },
-                        entityType: 'task',
-                        badgeClass: ENTITY_BADGE_CLASSES.task,
-                    })
+                    (t: Task): EntitySearchResult => {
+                        const project = projects.value.find((p) => p.id === t.project_id);
+                        const label = project ? `${project.name} · ${t.name}` : t.name;
+                        return {
+                            id: `entity-task-${t.id}`,
+                            label,
+                            icon: ENTITY_ICONS.task,
+                            keywords: [
+                                'task',
+                                'track',
+                                'timer',
+                                t.name,
+                                project?.name ?? '',
+                            ].filter((k) => k.length > 0),
+                            action: () => applyTaskToTimerFromPalette(t),
+                            entityType: 'task',
+                            badgeClass: ENTITY_BADGE_CLASSES.task,
+                        };
+                    }
                 );
             results.push(...matching);
         }

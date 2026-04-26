@@ -246,6 +246,9 @@ export function createTimerCommands(
         openCreateTimeEntryModal: () => void;
         continueLastEntry: () => Promise<void>;
         openTimerFocus?: () => void;
+        /** When the timer is idle, open the same project picker modal as the active-timer command. */
+        openProjectSelector?: () => void;
+        openTaskSelector?: () => void;
     },
     conditions: {
         isActive: () => boolean;
@@ -293,6 +296,34 @@ export function createTimerCommands(
             condition: () => !conditions.isActive() && conditions.hasTimeEntries(),
             priority: GROUP_PRIORITIES.timer + 4,
         },
+        ...(timerActions.openProjectSelector
+            ? [
+                  {
+                      id: 'timer-choose-project-idle',
+                      label: 'Set Project',
+                      icon: FolderIcon,
+                      keywords: ['project', 'change project', 'select project', 'choose project'],
+                      group: 'timer' as const,
+                      action: timerActions.openProjectSelector,
+                      condition: () => !conditions.isActive(),
+                      priority: GROUP_PRIORITIES.timer + 6,
+                  },
+              ]
+            : []),
+        ...(timerActions.openTaskSelector
+            ? [
+                  {
+                      id: 'timer-choose-task-idle',
+                      label: 'Set Task',
+                      icon: ClipboardDocumentListIcon,
+                      keywords: ['task', 'change task', 'select task', 'choose task'],
+                      group: 'timer' as const,
+                      action: timerActions.openTaskSelector,
+                      condition: () => !conditions.isActive(),
+                      priority: GROUP_PRIORITIES.timer + 5,
+                  },
+              ]
+            : []),
         ...(timerActions.openTimerFocus
             ? [
                   {

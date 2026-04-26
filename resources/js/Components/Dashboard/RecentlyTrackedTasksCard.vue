@@ -8,6 +8,7 @@ import { PlusCircleIcon } from '@heroicons/vue/24/solid';
 import { getCurrentMembershipId, getCurrentOrganizationId } from '@/utils/useUser';
 import { api } from '@/packages/api/src';
 import { LoadingSpinner } from '@/packages/ui/src';
+import { dedupeRecentTimeEntries } from '@/utils/recentTimeEntries';
 
 // Get the organization ID using the utility function
 const organizationId = computed(() => getCurrentOrganizationId());
@@ -42,28 +43,9 @@ const latestTasks = computed(() => {
     return timeEntriesResponse.value.data;
 });
 
-const filteredLatestTasks = computed(() => {
-    // do not include running time entries
-    const finishedTimeEntries = latestTasks.value.filter((item) => item.end !== null);
-
-    // filter out duplicates based on description, task, project, tags and billable
-    return finishedTimeEntries
-        .filter((item, index, self) => {
-            return (
-                index ===
-                self.findIndex(
-                    (t) =>
-                        t.description === item.description &&
-                        t.task_id === item.task_id &&
-                        t.project_id === item.project_id &&
-                        t.tags.length === item.tags.length &&
-                        t.tags.every((tag) => item.tags.includes(tag)) &&
-                        t.billable === item.billable
-                )
-            );
-        })
-        .slice(0, 4);
-});
+const filteredLatestTasks = computed(() =>
+    dedupeRecentTimeEntries(latestTasks.value, { maxItems: 4, onlyFinished: true })
+);
 
 // Listen for dashboard refresh events
 window.addEventListener('dashboard:refresh', () => {

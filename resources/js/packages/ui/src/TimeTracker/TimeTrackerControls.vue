@@ -28,6 +28,12 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from '@/packages/ui/src/tooltip';
+import ProjectBadge from '@/packages/ui/src/Project/ProjectBadge.vue';
+import {
+    dedupeRecentTimeEntries,
+    dedupeTimeEntriesByContext,
+    timeEntryMatchesSearchText,
+} from '@/utils/recentTimeEntries';
 
 const currentTimeEntry = defineModel<TimeEntry>('currentTimeEntry', {
     required: true,
@@ -95,6 +101,14 @@ function setCurrentTimeEntry(timeEntry: TimeEntry) {
     currentTimeEntry.value.billable = timeEntry.billable;
 }
 
+/** Quick-pick: fill context only (does not start the timer). */
+function applyRecentTimeEntryContext(timeEntry: TimeEntry) {
+    setCurrentTimeEntry(timeEntry);
+    if (props.isActive) {
+        emit('updateTimeEntry');
+    }
+}
+
 function startTimerIfNotActive() {
     if (highlightedDropdownEntryId.value) {
         const timeEntry = filteredRecentlyTrackedTimeEntries.value.find(
@@ -152,35 +166,52 @@ function updateTimeEntryDescription() {
     }
 }
 
+const searchContext = computed(() => ({
+    projects: props.projects,
+    tasks: props.tasks,
+    clients: props.clients,
+}));
+
+const dedupedFinishedTimeEntries = computed(() =>
+    dedupeTimeEntriesByContext(props.timeEntries, true)
+);
+
 const filteredRecentlyTrackedTimeEntries = computed(() => {
-    // do not include running time entries
-    const finishedTimeEntries = props.timeEntries.filter((item) => item.end !== null);
-
-    // filter out duplicates based on description, task, project, tags and billable
-    const nonDuplicateTimeEntries = finishedTimeEntries.filter((item, index, self) => {
-        return (
-            index ===
-            self.findIndex(
-                (t) =>
-                    t.description === item.description &&
-                    t.task_id === item.task_id &&
-                    t.project_id === item.project_id &&
-                    t.tags.length === item.tags.length &&
-                    t.tags.every((tag) => item.tags.includes(tag)) &&
-                    t.billable === item.billable
-            )
-        );
-    });
-
-    // filter time entries based on current description
-    return nonDuplicateTimeEntries
-        .filter((item) => {
-            return item.description
-                ?.toLowerCase()
-                ?.includes(tempDescription.value?.toLowerCase()?.trim() || '');
-        })
+    const q = tempDescription.value?.trim() ?? '';
+    return dedupedFinishedTimeEntries.value
+        .filter((item) => timeEntryMatchesSearchText(item, q, searchContext.value))
         .slice(0, 5);
 });
+
+const recentQuickPickEntries = computed(() => {
+    if (props.layout !== 'focus') {
+        return [] as TimeEntry[];
+    }
+    return dedupeRecentTimeEntries(props.timeEntries, {
+        maxItems: 4,
+        onlyFinished: true,
+        quickPick: true,
+    });
+});
+
+function recentChipLabel(entry: TimeEntry): string {
+    const project = props.projects.find((p) => p.id === entry.project_id);
+    const task = props.tasks.find((t) => t.id === entry.task_id);
+    if (project && task) {
+        return `${project.name} › ${task.name}`;
+    }
+    if (project) {
+        return project.name;
+    }
+    if (task) {
+        return task.name;
+    }
+    const d = entry.description?.trim();
+    if (d) {
+        return d.length > 48 ? `${d.slice(0, 45)}…` : d;
+    }
+    return 'Recent';
+}
 
 const showDropdown = ref(false);
 const { focused } = useFocus(currentTimeEntryDescriptionInput);
@@ -353,71 +384,100 @@ function onOpenTimerFocusClick(e: MouseEvent) {
                     </TooltipProvider>
                 </div>
             </div>
+            <div
+                v-if="recentQuickPickEntries.length > 0"
+                class="flex w-full flex-wrap gap-1.5 border-t border-card-background-separator px-3 py-2">
+                <TooltipProvider
+                    v-for="entry in recentQuickPickEntries"
+                    :key="`chip-focus-${entry.id}`">
+                    <Tooltip>
+                        <TooltipTrigger as-child>
+                            <button
+                                type="button"
+                                class="min-w-0 max-w-full rounded-md text-left ring-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                @click="applyRecentTimeEntryContext(entry)">
+                                <ProjectBadge
+                                    class="min-w-0 max-w-[min(12rem,100%)]"
+                                    size="base"
+                                    :color="projects.find((p) => p.id === entry.project_id)?.color">
+                                    <span class="block truncate text-xs font-medium text-text-primary">
+                                        {{ recentChipLabel(entry) }}
+                                    </span>
+                                </ProjectBadge>
+                            </button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            <p class="max-w-sm">{{ recentChipLabel(entry) }}</p>
+                        </TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
+            </div>
         </div>
     </div>
     <div v-else class="flex items-center relative @container" data-testid="dashboard_timer">
         <div
-            class="flex flex-col @2xl:flex-row w-full justify-between rounded-lg bg-card-background border-card-border border transition shadow-card">
-            <div class="flex flex-1 items-center relative">
-                <input
-                    ref="currentTimeEntryDescriptionInput"
-                    v-model="tempDescription"
-                    placeholder="What are you working on?"
-                    data-testid="time_entry_description"
-                    class="w-full rounded-l-lg py-4 sm:py-2.5 px-3.5 border-b border-b-card-background-separator @2xl:px-4 text-base text-text-primary bg-transparent border-none placeholder-text-secondary focus:ring-0 transition"
-                    type="text"
-                    @keydown.enter="startTimerIfNotActive"
-                    @keydown.esc="showDropdown = false"
-                    @blur="updateTimeEntryDescription" />
-                <div class="@2xl:hidden pr-3 shrink-0 flex items-center gap-1">
-                    <TooltipProvider v-if="openTimerFocus">
-                        <Tooltip>
-                            <TooltipTrigger as-child>
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    class="h-9 w-9 shrink-0"
-                                    data-testid="timer_focus_enter"
-                                    aria-label="Open timer focus mode"
-                                    @click="onOpenTimerFocusClick">
-                                    <ArrowsPointingOutIcon class="h-4 w-4 text-icon-default" />
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Focus mode</TooltipContent>
-                        </Tooltip>
-                    </TooltipProvider>
-                    <TimeTrackerStartStop
-                        :active="isActive"
-                        @changed="onToggleButtonPress"></TimeTrackerStartStop>
-                </div>
-                <div
-                    v-if="showDropdown && filteredRecentlyTrackedTimeEntries.length > 0"
-                    ref="floating"
-                    class="z-[105] w-[min(640px,100vw-2rem)]"
-                    :style="floatingStyles">
+            class="flex w-full min-w-0 flex-col rounded-lg border border-card-border bg-card-background shadow-card transition">
+            <div class="flex w-full min-w-0 flex-col @2xl:flex-row @2xl:justify-between">
+                <div class="flex min-w-0 flex-1 items-center relative">
+                    <input
+                        ref="currentTimeEntryDescriptionInput"
+                        v-model="tempDescription"
+                        placeholder="What are you working on?"
+                        data-testid="time_entry_description"
+                        class="w-full border-none border-b border-b-card-background-separator bg-transparent py-4 px-3.5 text-base text-text-primary placeholder-text-secondary transition focus:outline-none focus:ring-0 sm:py-2.5 @2xl:rounded-l-lg @2xl:border-b-0 @2xl:px-4 @2xl:py-2.5"
+                        type="text"
+                        @keydown.enter="startTimerIfNotActive"
+                        @keydown.esc="showDropdown = false"
+                        @blur="updateTimeEntryDescription" />
+                    <div class="flex shrink-0 items-center gap-1 pr-3 @2xl:hidden">
+                        <TooltipProvider v-if="openTimerFocus">
+                            <Tooltip>
+                                <TooltipTrigger as-child>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        class="h-9 w-9 shrink-0"
+                                        data-testid="timer_focus_enter"
+                                        aria-label="Open timer focus mode"
+                                        @click="onOpenTimerFocusClick">
+                                        <ArrowsPointingOutIcon class="h-4 w-4 text-icon-default" />
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Focus mode</TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                        <TimeTrackerStartStop
+                            :active="isActive"
+                            @changed="onToggleButtonPress"></TimeTrackerStartStop>
+                    </div>
                     <div
-                        class="rounded-lg w-full border border-card-border overflow-hidden shadow-dropdown bg-card-background">
+                        v-if="showDropdown && filteredRecentlyTrackedTimeEntries.length > 0"
+                        ref="floating"
+                        class="z-[105] w-[min(640px,100vw-2rem)]"
+                        :style="floatingStyles">
                         <div
-                            class="text-text-tertiary text-xs font-semibold border-b border-border-tertiary px-2 py-1.5">
-                            Recently Tracked Time Entries
-                        </div>
-                        <div class="text-text-secondary py-1 px-1.5">
-                            <TimeTrackerRecentlyTrackedEntry
-                                v-for="timeEntry in filteredRecentlyTrackedTimeEntries"
-                                :key="timeEntry.id"
-                                :time-entry="timeEntry"
-                                :highlighted="highlightedDropdownEntryId === timeEntry.id"
-                                :projects="projects"
-                                :tasks="tasks"
-                                @mousedown="setAndStartTimer(timeEntry)"
-                                @mouseenter="
-                                    highlightedDropdownEntryId = timeEntry.id
-                                "></TimeTrackerRecentlyTrackedEntry>
+                            class="rounded-lg w-full border border-card-border overflow-hidden shadow-dropdown bg-card-background">
+                            <div
+                                class="text-text-tertiary text-xs font-semibold border-b border-border-tertiary px-2 py-1.5">
+                                Recently Tracked Time Entries
+                            </div>
+                            <div class="text-text-secondary py-1 px-1.5">
+                                <TimeTrackerRecentlyTrackedEntry
+                                    v-for="timeEntry in filteredRecentlyTrackedTimeEntries"
+                                    :key="timeEntry.id"
+                                    :time-entry="timeEntry"
+                                    :highlighted="highlightedDropdownEntryId === timeEntry.id"
+                                    :projects="projects"
+                                    :tasks="tasks"
+                                    @mousedown="setAndStartTimer(timeEntry)"
+                                    @mouseenter="
+                                        highlightedDropdownEntryId = timeEntry.id
+                                    "></TimeTrackerRecentlyTrackedEntry>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
-            <div class="flex items-center justify-between pl-2 shrink min-w-0">
+                <div class="flex min-w-0 shrink items-center justify-between pl-2">
                 <div class="flex items-center w-[130px] @2xl:w-auto shrink min-w-0">
                     <TimeTrackerProjectTaskDropdown
                         v-model:project="currentTimeEntry.project_id"
@@ -475,6 +535,7 @@ function onOpenTimerFocusClick(e: MouseEvent) {
                         @start-timer="emit('startTimer')"
                         @create-time-entry="emit('createTimeEntry')"
                         @keydown.enter="startTimerIfNotActive"></TimeTrackerRangeSelector>
+                </div>
                 </div>
             </div>
         </div>
