@@ -13,6 +13,7 @@ import {
     ChevronUpIcon,
     TrashIcon,
 } from '@heroicons/vue/20/solid';
+import NoteNotablePill from '@/Components/Common/Note/NoteNotablePill.vue';
 
 const props = defineProps<{
     note: Note;
@@ -147,7 +148,7 @@ function onDelete() {
         <div class="flex items-start justify-between gap-2">
             <div class="min-w-0 flex-1 text-xs text-text-tertiary">
                 <span class="font-medium text-text-secondary">{{ note.user_name }}</span>
-                <span v-if="note.notable_label" class="ml-1.5">· {{ note.notable_label }}</span>
+                <NoteNotablePill v-if="note.notable_label" :note="note" class="ml-1.5" />
                 <span v-if="note.visibility === 'private'" class="ml-1.5">· Private</span>
                 <span v-else class="ml-1.5">· Shared</span>
                 <span v-if="note.is_archived" class="ml-1.5">· Archived</span>

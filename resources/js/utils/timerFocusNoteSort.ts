@@ -1,14 +1,5 @@
 import type { Note } from '@/packages/api/src';
-
-function isWorkspaceNote(n: Note): boolean {
-    if (n.notable_label === 'Workspace') {
-        return true;
-    }
-    if (n.notable_type == null && n.notable_id == null) {
-        return true;
-    }
-    return false;
-}
+import { isWorkspaceNote } from '@/utils/noteNotableLevel';
 
 function hasTaskId(n: Note): boolean {
     return Boolean(n.task_id && n.task_id !== '');

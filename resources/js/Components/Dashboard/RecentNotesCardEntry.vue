@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Note } from '@/packages/api/src';
+import NoteNotablePill from '@/Components/Common/Note/NoteNotablePill.vue';
 import { getNotePreviewLine } from '@/utils/notePreview';
 
 defineProps<{
@@ -12,9 +13,8 @@ defineProps<{
         <p class="text-sm font-medium min-w-0 text-ellipsis overflow-hidden text-text-primary">
             {{ getNotePreviewLine(note.body) }}
         </p>
-        <p
-            class="text-xs text-text-tertiary text-ellipsis whitespace-nowrap max-w-full overflow-hidden mt-0.5">
-            {{ note.notable_label }}
-        </p>
+        <div class="mt-0.5 min-w-0 max-w-full overflow-hidden">
+            <NoteNotablePill v-if="note.notable_label" :note="note" size="sm" />
+        </div>
     </div>
 </template>
