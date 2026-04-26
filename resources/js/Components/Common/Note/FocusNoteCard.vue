@@ -145,17 +145,25 @@ function onDelete() {
     <div
         class="rounded-lg border border-default bg-card-background p-3 shadow-sm"
         :data-note-id="note.id">
-        <div class="flex items-start justify-between gap-2">
-            <div class="min-w-0 flex-1 text-xs text-text-tertiary">
-                <span class="font-medium text-text-secondary">{{ note.user_name }}</span>
+        <div class="flex items-center justify-between gap-3">
+            <div
+                class="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1 text-xs leading-5 text-text-tertiary">
+                <span class="min-w-0 truncate font-medium text-text-secondary">
+                    {{ note.user_name }}
+                </span>
+                <span
+                    class="hidden h-3.5 w-px shrink-0 bg-default-background-separator sm:block"
+                    aria-hidden="true" />
                 <NoteNotablePill
                     v-if="note.notable_label"
                     :note="note"
-                    class="ml-1.5"
+                    class="min-w-0"
                     :reassignable="canEdit" />
-                <span v-if="note.visibility === 'private'" class="ml-1.5">· Private</span>
-                <span v-else class="ml-1.5">· Shared</span>
-                <span v-if="note.is_archived" class="ml-1.5">· Archived</span>
+                <span v-if="note.visibility === 'private'" class="shrink-0 whitespace-nowrap">
+                    · Private
+                </span>
+                <span v-else class="shrink-0 whitespace-nowrap">· Shared</span>
+                <span v-if="note.is_archived" class="shrink-0 whitespace-nowrap">· Archived</span>
             </div>
             <div class="flex shrink-0 items-center gap-0.5">
                 <span
