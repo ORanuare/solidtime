@@ -9,6 +9,24 @@ import { getCurrentMembershipId, getCurrentOrganizationId } from '@/utils/useUse
 import { useCurrentTimeEntryStore } from '@/utils/useCurrentTimeEntry';
 
 /**
+ * Duration in seconds for a single entry, using live `now` when the entry has no end.
+ * Matches the per-entry branch in {@link sumSecondsForStartDay}.
+ */
+export function timerFocusEntryDurationSeconds(
+    entry: TimeEntry,
+    now: Ref<ReturnType<typeof dayjs> | null>
+): number {
+    if (entry.end !== null) {
+        return Math.max(
+            0,
+            getDayJsInstance()(entry.end).diff(getDayJsInstance()(entry.start), 'second')
+        );
+    }
+    const endPoint = now.value ?? dayjs().utc();
+    return Math.max(0, endPoint.diff(getDayJsInstance()(entry.start), 'second'));
+}
+
+/**
  * Sums time entry seconds for a local calendar day, matching FullCalendar
  * `dailyTotals`: full duration is attributed to the entry's local start date
  * (no split at midnight for overnight runs).
@@ -23,14 +41,9 @@ function sumSecondsForStartDay(
         if (getLocalizedDateFromTimestamp(entry.start) !== dayKey) {
             continue;
         }
-        if (entry.end !== null) {
-            total += getDayJsInstance()(entry.end).diff(getDayJsInstance()(entry.start), 'second');
-        } else {
-            const endPoint = now.value ?? dayjs().utc();
-            total += endPoint.diff(getDayJsInstance()(entry.start), 'second');
-        }
+        total += timerFocusEntryDurationSeconds(entry, now);
     }
-    return Math.max(0, total);
+    return total;
 }
 
 export function useTimerFocusTodayWorked(isTimerFocusOpen: Ref<boolean>) {
@@ -77,8 +90,21 @@ export function useTimerFocusTodayWorked(isTimerFocusOpen: Ref<boolean>) {
         sumSecondsForStartDay(data.value?.data ?? [], localDateString.value, now)
     );
 
+    const todayEntries = computed(() => {
+        const dayKey = localDateString.value;
+        const all = data.value?.data ?? [];
+        const filtered = all.filter(
+            (e) => getLocalizedDateFromTimestamp(e.start) === dayKey
+        );
+        return [...filtered].sort(
+            (a, b) =>
+                getDayJsInstance()(b.start).valueOf() - getDayJsInstance()(a.start).valueOf()
+        );
+    });
+
     return {
         totalSeconds,
         isLoading,
+        todayEntries,
     };
 }

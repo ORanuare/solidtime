@@ -221,6 +221,24 @@ const blockRefocus = ref(false);
 const timerTask = computed(
     () => props.tasks.find((t) => t.id === currentTimeEntry.value.task_id) ?? null
 );
+const timerProject = computed(
+    () => props.projects.find((p) => p.id === currentTimeEntry.value.project_id) ?? null
+);
+/** Project for color dot: explicit project on entry, else task’s project when only task is set. */
+const timerProjectForContext = computed(() => {
+    if (timerProject.value) {
+        return timerProject.value;
+    }
+    const tid = currentTimeEntry.value.task_id;
+    if (!tid) {
+        return null;
+    }
+    const task = props.tasks.find((t) => t.id === tid);
+    if (!task?.project_id) {
+        return null;
+    }
+    return props.projects.find((p) => p.id === task.project_id) ?? null;
+});
 const showStopAndComplete = computed(
     () =>
         props.isActive &&
@@ -555,6 +573,33 @@ function onOpenTimerFocusClick(e: MouseEvent) {
                 @start-timer="emit('startTimer')"
                 @create-time-entry="emit('createTimeEntry')"
                 @keydown.enter="startTimerIfNotActive"></TimeTrackerRangeSelector>
+            <div
+                class="flex max-w-[min(320px,calc(100vw-2rem))] min-w-[200px] flex-col items-center gap-1 px-2 text-center"
+                data-testid="timer_focus_context">
+                <div
+                    v-if="timerProject || timerTask"
+                    class="flex max-w-full items-center justify-center gap-1.5 text-sm font-medium text-text-primary sm:text-base">
+                    <span
+                        v-if="timerProjectForContext"
+                        class="h-2.5 w-2.5 shrink-0 rounded-full ring-1 ring-black/10 dark:ring-white/15"
+                        :style="{
+                            backgroundColor:
+                                timerProjectForContext.color ?? 'var(--theme-color-icon-default)',
+                        }"
+                        aria-hidden="true" />
+                    <span v-if="timerProject" class="min-w-0 truncate">{{ timerProject.name }}</span>
+                    <ChevronRightIcon
+                        v-if="timerProject && timerTask"
+                        class="h-4 w-4 shrink-0 text-text-secondary" />
+                    <span v-if="timerTask" class="min-w-0 truncate">{{ timerTask.name }}</span>
+                </div>
+                <p v-else class="text-sm text-text-tertiary">Add a project or task</p>
+                <p
+                    v-if="tempDescription.trim()"
+                    class="w-full max-w-full truncate text-sm text-text-secondary">
+                    {{ tempDescription.trim() }}
+                </p>
+            </div>
             <div class="flex flex-wrap items-center justify-center gap-4 sm:gap-5">
                 <TimeTrackerStartStop
                     :active="isActive"
