@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import NoteMarkdownEditor from '@/Components/Common/Note/NoteMarkdownEditor.vue';
 import NoteMarkdownView from '@/Components/Common/Note/NoteMarkdownView.vue';
 import { getNotePreviewLine } from '@/utils/notePreview';
@@ -23,7 +23,10 @@ const currentUserId = getCurrentUserId();
 
 const localBody = ref(props.note.body);
 const expanded = ref(false);
+const isEditingBody = ref(false);
 const saveStatus = ref<'idle' | 'saving' | 'saved'>('idle');
+const bodyPreviewRef = ref<HTMLElement | null>(null);
+const bodyEditorRef = ref<{ focus: () => void } | null>(null);
 let savedClearTimer: ReturnType<typeof setTimeout> | null = null;
 
 watch(
@@ -35,6 +38,8 @@ watch(
 
 const canEdit = computed(() => canUpdateNotes() && props.note.user_id === currentUserId);
 const canDelete = computed(() => canDeleteNotes() && props.note.user_id === currentUserId);
+
+const bodyPreviewEmpty = computed(() => !localBody.value.trim());
 
 let saveDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -77,6 +82,51 @@ onBeforeUnmount(() => {
         clearTimeout(savedClearTimer);
     }
 });
+
+function onEditorFocusOut(ev: FocusEvent) {
+    const el = ev.currentTarget as HTMLElement;
+    const next = ev.relatedTarget as Node | null;
+    if (next && el.contains(next)) {
+        return;
+    }
+    isEditingBody.value = false;
+}
+
+function onEditorEscape(e: KeyboardEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    isEditingBody.value = false;
+    void nextTick(() => {
+        bodyPreviewRef.value?.focus();
+    });
+}
+
+function enterEditFromPreview(e: { target: EventTarget | null }) {
+    const t = e.target as HTMLElement;
+    if (t.closest('a[href]')) {
+        return;
+    }
+    isEditingBody.value = true;
+    void nextTick(() => {
+        bodyEditorRef.value?.focus();
+    });
+}
+
+function onPreviewClick(e: MouseEvent) {
+    enterEditFromPreview(e);
+}
+
+function onPreviewKeydown(e: KeyboardEvent) {
+    if (e.key !== 'Enter' && e.key !== ' ') {
+        return;
+    }
+    const t = e.target as HTMLElement;
+    if (t.closest('a[href]')) {
+        return;
+    }
+    e.preventDefault();
+    enterEditFromPreview(e);
+}
 
 async function onArchive() {
     await updateNote({
@@ -137,11 +187,28 @@ function onDelete() {
             </div>
         </div>
 
-        <div v-if="canEdit" class="mt-2">
+        <div v-if="canEdit && !isEditingBody" class="mt-2">
+            <div
+                ref="bodyPreviewRef"
+                class="w-full cursor-pointer select-text rounded-md border border-transparent p-0.5 text-left text-sm text-text-primary transition-colors hover:border-default hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                role="button"
+                tabindex="0"
+                :aria-label="bodyPreviewEmpty ? 'Write markdown (open editor)' : 'Edit note (open editor)'"
+                data-testid="focus_note_body_preview"
+                @click="onPreviewClick"
+                @keydown="onPreviewKeydown">
+                <p v-if="bodyPreviewEmpty" class="py-1 text-left text-text-tertiary">Click to write markdown…</p>
+                <NoteMarkdownView v-else :source="localBody" />
+            </div>
+        </div>
+        <div
+            v-else-if="canEdit"
+            class="mt-2"
+            @focusout="onEditorFocusOut"
+            @keydown.esc.capture="onEditorEscape">
             <NoteMarkdownEditor
+                ref="bodyEditorRef"
                 v-model="localBody"
-                :show-toolbar="false"
-                compact
                 placeholder-text="Write markdown…" />
         </div>
         <div v-else class="mt-2">
