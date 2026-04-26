@@ -20,6 +20,7 @@ import { autoUpdate, flip, limitShift, offset, shift, useFloating } from '@float
 import TimeTrackerRecentlyTrackedEntry from '@/packages/ui/src/TimeTracker/TimeTrackerRecentlyTrackedEntry.vue';
 import { useSelectEvents } from '@/packages/ui/src/utils/select';
 import { ArrowsPointingOutIcon, ClipboardDocumentListIcon } from '@heroicons/vue/20/solid';
+import { ChevronRightIcon } from '@heroicons/vue/16/solid';
 import { twMerge } from 'tailwind-merge';
 import { Button } from '@/packages/ui/src/Buttons';
 import {
@@ -143,7 +144,7 @@ const blockRefocus = ref(false);
 function onToggleButtonPress(newState: boolean) {
     if (newState) {
         emit('startTimer');
-        if (!blockRefocus.value) {
+        if (!blockRefocus.value && props.layout !== 'focus') {
             currentTimeEntryDescriptionInput.value?.focus();
         }
     } else {
@@ -194,6 +195,14 @@ const recentQuickPickEntries = computed(() => {
     });
 });
 
+const recentQuickPickRows = computed(() =>
+    recentQuickPickEntries.value.map((entry) => ({
+        entry,
+        project: props.projects.find((p) => p.id === entry.project_id),
+        task: props.tasks.find((t) => t.id === entry.task_id),
+    }))
+);
+
 function recentChipLabel(entry: TimeEntry): string {
     const project = props.projects.find((p) => p.id === entry.project_id);
     const task = props.tasks.find((t) => t.id === entry.task_id);
@@ -212,6 +221,22 @@ function recentChipLabel(entry: TimeEntry): string {
     }
     return 'Recent';
 }
+
+function isBlankId(id: string | null | undefined): boolean {
+    return id == null || id === '';
+}
+
+/** Whether a quick-pick entry matches the timer's current project/task (for focus row highlight). */
+function quickPickMatchesCurrentContext(entry: TimeEntry): boolean {
+    const c = currentTimeEntry.value;
+    const sameProject =
+        (isBlankId(entry.project_id) && isBlankId(c.project_id)) ||
+        entry.project_id === c.project_id;
+    const sameTask =
+        (isBlankId(entry.task_id) && isBlankId(c.task_id)) || entry.task_id === c.task_id;
+    return sameProject && sameTask;
+}
+
 
 const showDropdown = ref(false);
 const { focused } = useFocus(currentTimeEntryDescriptionInput);
@@ -334,25 +359,81 @@ function onOpenTimerFocusClick(e: MouseEvent) {
                 </div>
             </div>
             <div
-                class="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 border-t border-card-background-separator">
-                <div class="flex items-center min-w-0 w-full sm:flex-1 sm:w-auto">
-                    <TimeTrackerProjectTaskDropdown
-                        v-model:project="currentTimeEntry.project_id"
-                        v-model:task="currentTimeEntry.task_id"
-                        variant="outline"
-                        :create-client
-                        :can-create-project
-                        :clients
-                        :create-project
-                        :currency="currency"
-                        :organization-billable-rate="organizationBillableRate"
-                        :projects="projects"
-                        :tasks="tasks"
-                        :enable-estimated-time="enableEstimatedTime"
-                        @changed="updateProject"></TimeTrackerProjectTaskDropdown>
+                class="flex flex-col gap-3 p-3 lg:flex-row lg:items-center lg:justify-between lg:gap-4 border-t border-card-background-separator">
+                <div class="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                    <div class="flex min-w-0 shrink-0 items-center">
+                        <TimeTrackerProjectTaskDropdown
+                            v-model:project="currentTimeEntry.project_id"
+                            v-model:task="currentTimeEntry.task_id"
+                            trigger-variant="chevronPill"
+                            variant="outline"
+                            align="start"
+                            :create-client
+                            :can-create-project
+                            :clients
+                            :create-project
+                            :currency="currency"
+                            :organization-billable-rate="organizationBillableRate"
+                            :projects="projects"
+                            :tasks="tasks"
+                            :enable-estimated-time="enableEstimatedTime"
+                            @changed="updateProject"></TimeTrackerProjectTaskDropdown>
+                    </div>
+                    <template v-if="recentQuickPickRows.length > 0">
+                        <div class="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+                            <TooltipProvider
+                                v-for="row in recentQuickPickRows"
+                                :key="`chip-focus-${row.entry.id}`">
+                                <Tooltip>
+                                    <TooltipTrigger as-child>
+                                        <button
+                                            type="button"
+                                            :class="
+                                                twMerge(
+                                                    'min-w-0 max-w-full rounded-md text-left ring-0 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                                                    quickPickMatchesCurrentContext(row.entry) &&
+                                                        'bg-card-background-active'
+                                                )
+                                            "
+                                            @click="applyRecentTimeEntryContext(row.entry)">
+                                            <ProjectBadge
+                                                class="min-w-0 max-w-[min(12rem,100%)]"
+                                                size="base"
+                                                :name="row.project?.name"
+                                                :color="row.project?.color">
+                                                <div
+                                                    v-if="row.project"
+                                                    class="flex min-w-0 items-center space-x-0.5 lg:space-x-1">
+                                                    <span class="shrink-0 text-xs font-medium text-text-primary">
+                                                        {{ row.project.name }}
+                                                    </span>
+                                                    <ChevronRightIcon
+                                                        v-if="row.task"
+                                                        class="h-4 w-4 shrink-0 text-text-secondary"></ChevronRightIcon>
+                                                    <span
+                                                        v-if="row.task"
+                                                        class="min-w-0 truncate text-xs font-medium text-text-primary">
+                                                        {{ row.task.name }}
+                                                    </span>
+                                                </div>
+                                                <div
+                                                    v-else
+                                                    class="min-w-0 truncate text-xs font-medium text-text-primary">
+                                                    {{ recentChipLabel(row.entry) }}
+                                                </div>
+                                            </ProjectBadge>
+                                        </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p class="max-w-sm">{{ recentChipLabel(row.entry) }}</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                        </div>
+                    </template>
                 </div>
                 <div
-                    class="flex flex-wrap items-center gap-1 sm:gap-2 justify-end sm:justify-start shrink-0">
+                    class="flex flex-wrap items-center gap-1 sm:gap-2 lg:justify-end shrink-0">
                     <TimeTrackerTagDropdown
                         v-model="currentTimeEntry.tags"
                         :create-tag
@@ -383,34 +464,6 @@ function onOpenTimerFocusClick(e: MouseEvent) {
                         </Tooltip>
                     </TooltipProvider>
                 </div>
-            </div>
-            <div
-                v-if="recentQuickPickEntries.length > 0"
-                class="flex w-full flex-wrap gap-1.5 border-t border-card-background-separator px-3 py-2">
-                <TooltipProvider
-                    v-for="entry in recentQuickPickEntries"
-                    :key="`chip-focus-${entry.id}`">
-                    <Tooltip>
-                        <TooltipTrigger as-child>
-                            <button
-                                type="button"
-                                class="min-w-0 max-w-full rounded-md text-left ring-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                                @click="applyRecentTimeEntryContext(entry)">
-                                <ProjectBadge
-                                    class="min-w-0 max-w-[min(12rem,100%)]"
-                                    size="base"
-                                    :color="projects.find((p) => p.id === entry.project_id)?.color">
-                                    <span class="block truncate text-xs font-medium text-text-primary">
-                                        {{ recentChipLabel(entry) }}
-                                    </span>
-                                </ProjectBadge>
-                            </button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                            <p class="max-w-sm">{{ recentChipLabel(entry) }}</p>
-                        </TooltipContent>
-                    </Tooltip>
-                </TooltipProvider>
             </div>
         </div>
     </div>

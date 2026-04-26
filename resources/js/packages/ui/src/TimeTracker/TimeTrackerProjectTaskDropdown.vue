@@ -65,6 +65,8 @@ const props = withDefaults(
         variant?: 'input' | 'ghost' | 'outline';
         align?: 'center' | 'end' | 'start';
         size?: 'default' | 'xs' | 'sm' | 'lg' | 'icon';
+        /** Timer focus: bordered chevron only; opens the same project/task panel. */
+        triggerVariant?: 'default' | 'chevronPill';
     }>(),
     {
         emptyPlaceholder: 'No Project',
@@ -72,6 +74,7 @@ const props = withDefaults(
         variant: 'ghost',
         align: 'center',
         size: 'sm',
+        triggerVariant: 'default',
     }
 );
 
@@ -533,6 +536,22 @@ const showCreateProject = ref(false);
         <template #trigger>
             <div class="flex items-center gap-1">
                 <Button
+                    v-if="triggerVariant === 'chevronPill'"
+                    type="button"
+                    :variant="props.variant"
+                    :size="props.size"
+                    :class="
+                        twMerge(
+                            'inline-flex h-7 w-auto shrink-0 select-none self-center justify-center border border-input-border px-1.5 text-text-secondary',
+                            props.class
+                        )
+                    "
+                    aria-label="Choose project and task">
+                    <ChevronRightIcon class="h-4 w-4 shrink-0" />
+                </Button>
+                <Button
+                    v-else
+                    type="button"
                     :variant="props.variant"
                     :size="props.size"
                     :class="twMerge('w-full justify-start overflow-hidden', props.class)">
@@ -546,7 +565,7 @@ const showCreateProject = ref(false);
                     </template>
                 </Button>
                 <button
-                    v-if="allowReset && project !== null"
+                    v-if="allowReset && project !== null && triggerVariant !== 'chevronPill'"
                     type="button"
                     data-testid="project_reset_button"
                     class="p-1 rounded hover:bg-quaternary text-text-tertiary hover:text-text-primary"

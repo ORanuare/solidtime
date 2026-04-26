@@ -1,14 +1,17 @@
 <script setup lang="ts">
-import { PlusIcon, XMarkIcon } from '@heroicons/vue/20/solid';
+import { PlusIcon } from '@heroicons/vue/20/solid';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '..';
 
-const props = defineProps<{
-    hasActiveTimer: boolean;
-}>();
+const props = withDefaults(
+    defineProps<{
+        /** Set false in timer focus mode where manual entry is not offered. */
+        showManualEntry?: boolean;
+    }>(),
+    { showManualEntry: true }
+);
 
 const emit = defineEmits<{
     manualEntry: [];
-    discard: [];
 }>();
 </script>
 
@@ -34,17 +37,11 @@ const emit = defineEmits<{
         </DropdownMenuTrigger>
         <DropdownMenuContent class="min-w-[150px]" align="end">
             <DropdownMenuItem
+                v-if="props.showManualEntry"
                 class="flex items-center space-x-3 cursor-pointer"
                 @click="emit('manualEntry')">
                 <PlusIcon class="w-5" />
                 <span>Manual time entry</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem
-                v-if="props.hasActiveTimer"
-                class="flex items-center space-x-3 cursor-pointer text-destructive focus:text-destructive"
-                @click="emit('discard')">
-                <XMarkIcon class="w-5" />
-                <span>Discard</span>
             </DropdownMenuItem>
         </DropdownMenuContent>
     </DropdownMenu>

@@ -35,7 +35,6 @@ import { getOrganizationCurrencyString } from '@/utils/money';
 import { isAllowedToPerformPremiumAction } from '@/utils/billing';
 import { canCreateNotes, canCreateProjects, canViewNotes } from '@/utils/permissions';
 import TimerNotesModal from '@/Components/Common/Note/TimerNotesModal.vue';
-import { useNotificationsStore } from '@/utils/notification';
 import { useTimeEntriesMutations } from '@/utils/useTimeEntriesMutations';
 import { useTimeEntriesInfiniteQuery } from '@/utils/useTimeEntriesInfiniteQuery';
 import { useTimerFocus } from '@/utils/useTimerFocus';
@@ -80,7 +79,7 @@ function openTimerNotes() {
     showTimerNotesModal.value = true;
 }
 
-const { createTimeEntry: createTimeEntryMutation, deleteTimeEntry } = useTimeEntriesMutations();
+const { createTimeEntry: createTimeEntryMutation } = useTimeEntriesMutations();
 const { data: timeEntriesData } = useTimeEntriesInfiniteQuery();
 const timeEntries = computed(() => timeEntriesData.value?.pages.flatMap((page) => page.data) || []);
 
@@ -150,20 +149,6 @@ async function createTimeEntryFromCurrentEntry() {
     const { start, end, description, project_id, task_id, billable, tags } = currentTimeEntry.value;
     await createTimeEntry({ start, end, description, project_id, task_id, billable, tags });
     currentTimeEntryStore.$reset();
-}
-
-const { handleApiRequestNotifications } = useNotificationsStore();
-
-async function discardCurrentTimeEntry() {
-    if (currentTimeEntry.value.id) {
-        await handleApiRequestNotifications(
-            () => deleteTimeEntry(currentTimeEntry.value.id),
-            'Time entry discarded successfully',
-            'Failed to discard time entry'
-        );
-        await currentTimeEntryStore.fetchCurrentTimeEntry();
-        emit('change');
-    }
 }
 
 const { tags } = useTagsQuery();
@@ -254,11 +239,9 @@ const noteContextTaskName = computed(() => {
                         @create-time-entry="createTimeEntryFromCurrentEntry"
                         @add-note="openTimerNotes"></TimeTrackerControls>
                 </div>
-                <div class="shrink-0">
+                <div v-if="variant === 'default'" class="shrink-0">
                     <TimeTrackerMoreOptionsDropdown
-                        :has-active-timer="isActive"
-                        @manual-entry="showManualTimeEntryModal = true"
-                        @discard="discardCurrentTimeEntry"></TimeTrackerMoreOptionsDropdown>
+                        @manual-entry="showManualTimeEntryModal = true"></TimeTrackerMoreOptionsDropdown>
                 </div>
             </div>
         </div>
