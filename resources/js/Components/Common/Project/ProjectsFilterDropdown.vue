@@ -22,10 +22,15 @@ export interface ProjectFilters {
     clientIds: string[];
 }
 
-const props = defineProps<{
-    filters: ProjectFilters;
-    clients: Client[];
-}>();
+const props = withDefaults(
+    defineProps<{
+        filters: ProjectFilters;
+        clients: Client[];
+        /** When false, hide the client submenu (e.g. client detail page). */
+        showClientFilter?: boolean;
+    }>(),
+    { showClientFilter: true }
+);
 
 const emit = defineEmits<{
     'update:filters': [filters: ProjectFilters];
@@ -34,6 +39,7 @@ const emit = defineEmits<{
 const statusOptions = [
     { id: 'active' as const, name: 'Active' },
     { id: 'archived' as const, name: 'Archived' },
+    { id: 'all' as const, name: 'All' },
 ];
 
 const open = ref(false);
@@ -69,7 +75,7 @@ function toggleNoClient() {
 }
 
 const hasActiveFilters = computed(() => {
-    return props.filters.status !== 'all' || props.filters.clientIds.length > 0;
+    return props.filters.status !== 'active' || props.filters.clientIds.length > 0;
 });
 </script>
 
@@ -103,7 +109,7 @@ const hasActiveFilters = computed(() => {
             </DropdownMenuSub>
 
             <!-- Client Filter -->
-            <DropdownMenuSub v-if="clients.length > 0">
+            <DropdownMenuSub v-if="showClientFilter && clients.length > 0">
                 <DropdownMenuSubTrigger class="gap-2">
                     <UserGroupIcon class="h-4 w-4 text-icon-default" />
                     <span>Client</span>

@@ -18,6 +18,7 @@ const emit = defineEmits<{
 const statusOptions = [
     { id: 'active' as const, name: 'Active' },
     { id: 'archived' as const, name: 'Archived' },
+    { id: 'all' as const, name: 'All' },
 ];
 
 const label = computed(() => {

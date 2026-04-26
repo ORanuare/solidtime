@@ -40,13 +40,13 @@ interface ProjectTableState {
 }
 
 const tableState = useStorage<ProjectTableState>(
-    'project-table-state',
+    'project-table-state-v2',
     {
         sortColumn: 'name',
         sortDirection: 'asc',
         filters: {
             clientIds: [],
-            status: 'all',
+            status: 'active',
         },
     },
     undefined,
@@ -88,7 +88,7 @@ const filteredProjects = computed(() => {
 
 // Helper functions for active filters
 function removeStatusFilter() {
-    tableState.value.filters.status = 'all';
+    tableState.value.filters.status = 'active';
 }
 
 function removeClientFilter() {
@@ -144,7 +144,7 @@ const showBillableRate = computed(() => {
 
                 <!-- Active Filters -->
                 <ProjectStatusFilterBadge
-                    v-if="tableState.filters.status !== 'all'"
+                    v-if="tableState.filters.status !== 'active'"
                     data-testid="status-filter-badge"
                     :value="tableState.filters.status"
                     @remove="removeStatusFilter"
