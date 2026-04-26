@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import TimeTrackerTagDropdown from '@/packages/ui/src/TimeTracker/TimeTrackerTagDropdown.vue';
 import TimeTrackerStartStop from '@/packages/ui/src/TimeTrackerStartStop.vue';
+import TimeTrackerIconCircleButton from '@/packages/ui/src/TimeTrackerIconCircleButton.vue';
 import TimeTrackerRangeSelector from '@/packages/ui/src/TimeTracker/TimeTrackerRangeSelector.vue';
 import BillableToggleButton from '@/packages/ui/src/Input/BillableToggleButton.vue';
 import TimeTrackerProjectTaskDropdown from '@/packages/ui/src/TimeTracker/TimeTrackerProjectTaskDropdown.vue';
@@ -30,7 +31,7 @@ import {
 } from '@heroicons/vue/20/solid';
 import { ChevronRightIcon } from '@heroicons/vue/16/solid';
 import { twMerge } from 'tailwind-merge';
-import { Button } from '@/packages/ui/src/Buttons';
+import { Button, buttonVariants } from '@/packages/ui/src/Buttons';
 import {
     Tooltip,
     TooltipContent,
@@ -52,6 +53,15 @@ import {
     timeEntryContextKeyForFocusPicker,
     timeEntryMatchesSearchText,
 } from '@/utils/recentTimeEntries';
+import { canUpdateTasks } from '@/utils/permissions';
+import AlertDialog from '@/Components/ui/alert-dialog/AlertDialog.vue';
+import AlertDialogAction from '@/Components/ui/alert-dialog/AlertDialogAction.vue';
+import AlertDialogCancel from '@/Components/ui/alert-dialog/AlertDialogCancel.vue';
+import AlertDialogContent from '@/Components/ui/alert-dialog/AlertDialogContent.vue';
+import AlertDialogDescription from '@/Components/ui/alert-dialog/AlertDialogDescription.vue';
+import AlertDialogFooter from '@/Components/ui/alert-dialog/AlertDialogFooter.vue';
+import AlertDialogHeader from '@/Components/ui/alert-dialog/AlertDialogHeader.vue';
+import AlertDialogTitle from '@/Components/ui/alert-dialog/AlertDialogTitle.vue';
 
 const currentTimeEntry = defineModel<TimeEntry>('currentTimeEntry', {
     required: true,
@@ -91,6 +101,7 @@ const props = withDefaults(
 const emit = defineEmits<{
     startTimer: [];
     stopTimer: [];
+    stopTimerAndComplete: [];
     updateTimeEntry: [];
     startLiveTimer: [];
     stopLiveTimer: [];
@@ -207,6 +218,17 @@ function setBillableDefaultForProject() {
 
 const blockRefocus = ref(false);
 
+const timerTask = computed(
+    () => props.tasks.find((t) => t.id === currentTimeEntry.value.task_id) ?? null
+);
+const showStopAndComplete = computed(
+    () =>
+        props.isActive &&
+        timerTask.value != null &&
+        !timerTask.value.is_done &&
+        canUpdateTasks()
+);
+
 function onToggleButtonPress(newState: boolean) {
     if (newState) {
         emit('startTimer');
@@ -216,6 +238,12 @@ function onToggleButtonPress(newState: boolean) {
     } else {
         emit('stopTimer');
     }
+}
+
+const stopAndCompleteDialogOpen = ref(false);
+
+function onStopAndCompleteConfirmed() {
+    emit('stopTimerAndComplete');
 }
 
 const tempDescription = ref(currentTimeEntry.value.description);
@@ -260,6 +288,7 @@ type FocusQuickPickRow = {
 /**
  * Focus bar: recent project+task pairs first, then every open task per active project,
  * then a project-only chip when a project has no open tasks.
+ * Recent chips omit entries whose task is marked done (open-task rows use `!t.is_done` already).
  */
 const focusQuickPickRows = computed(() => {
     if (props.layout !== 'focus') {
@@ -270,12 +299,18 @@ const focusQuickPickRows = computed(() => {
     const seenKeys = new Set<string>();
 
     for (const entry of dedupeTimeEntriesByProjectTask(props.timeEntries, true)) {
+        if (entry.task_id) {
+            const t = props.tasks.find((x) => x.id === entry.task_id);
+            if (t?.is_done) {
+                continue;
+            }
+        }
         const ctxKey = timeEntryContextKeyForFocusPicker(entry);
         seenKeys.add(ctxKey);
         rows.push({
             entry,
             project: props.projects.find((p) => p.id === entry.project_id),
-            task: props.tasks.find((t) => t.id === entry.task_id),
+            task: props.tasks.find((k) => k.id === entry.task_id),
             key: `recent:${ctxKey}`,
         });
     }
@@ -520,10 +555,24 @@ function onOpenTimerFocusClick(e: MouseEvent) {
                 @start-timer="emit('startTimer')"
                 @create-time-entry="emit('createTimeEntry')"
                 @keydown.enter="startTimerIfNotActive"></TimeTrackerRangeSelector>
-            <TimeTrackerStartStop
-                :active="isActive"
-                size="large"
-                @changed="onToggleButtonPress"></TimeTrackerStartStop>
+            <div class="flex flex-wrap items-center justify-center gap-4 sm:gap-5">
+                <TimeTrackerStartStop
+                    :active="isActive"
+                    size="large"
+                    @changed="onToggleButtonPress"></TimeTrackerStartStop>
+                <TooltipProvider v-if="showStopAndComplete">
+                    <Tooltip>
+                        <TooltipTrigger as-child>
+                            <TimeTrackerIconCircleButton
+                                data-testid="timer_stop_and_complete"
+                                size="large"
+                                aria-label="Stop timer and mark task complete"
+                                @click="stopAndCompleteDialogOpen = true" />
+                        </TooltipTrigger>
+                        <TooltipContent>Stop and mark task complete (asks confirmation)</TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
+            </div>
         </div>
         <div
             class="flex flex-col w-full rounded-lg bg-card-background border-card-border border transition shadow-card overflow-visible">
@@ -740,7 +789,7 @@ function onOpenTimerFocusClick(e: MouseEvent) {
                         @keydown.enter="startTimerIfNotActive"
                         @keydown.esc="showDropdown = false"
                         @blur="updateTimeEntryDescription" />
-                    <div class="flex shrink-0 items-center gap-1 pr-3 @2xl:hidden">
+                    <div class="flex shrink-0 items-center gap-1.5 pr-3 @2xl:hidden">
                         <TooltipProvider v-if="openTimerFocus">
                             <Tooltip>
                                 <TooltipTrigger as-child>
@@ -757,9 +806,23 @@ function onOpenTimerFocusClick(e: MouseEvent) {
                                 <TooltipContent>Focus mode</TooltipContent>
                             </Tooltip>
                         </TooltipProvider>
-                        <TimeTrackerStartStop
-                            :active="isActive"
-                            @changed="onToggleButtonPress"></TimeTrackerStartStop>
+                        <div class="flex shrink-0 items-center gap-2.5 sm:gap-3">
+                            <TimeTrackerStartStop
+                                :active="isActive"
+                                @changed="onToggleButtonPress"></TimeTrackerStartStop>
+                            <TooltipProvider v-if="showStopAndComplete">
+                                <Tooltip>
+                                    <TooltipTrigger as-child>
+                                        <TimeTrackerIconCircleButton
+                                            data-testid="timer_stop_and_complete"
+                                            size="base"
+                                            aria-label="Stop timer and mark task complete"
+                                            @click="stopAndCompleteDialogOpen = true" />
+                                    </TooltipTrigger>
+                                    <TooltipContent>Stop and mark task complete (asks confirmation)</TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                        </div>
                     </div>
                     <div
                         v-if="showDropdown && filteredRecentlyTrackedTimeEntries.length > 0"
@@ -880,7 +943,7 @@ function onOpenTimerFocusClick(e: MouseEvent) {
                 </div>
             </div>
         </div>
-        <div class="pl-2 @2xl:pl-4 pr-3 hidden @2xl:flex @2xl:items-center @2xl:gap-1">
+        <div class="pl-2 @2xl:pl-4 pr-3 hidden @2xl:flex @2xl:items-center @2xl:gap-2">
             <TooltipProvider v-if="openTimerFocus">
                 <Tooltip>
                     <TooltipTrigger as-child>
@@ -897,12 +960,45 @@ function onOpenTimerFocusClick(e: MouseEvent) {
                     <TooltipContent>Focus mode</TooltipContent>
                 </Tooltip>
             </TooltipProvider>
-            <TimeTrackerStartStop
-                :active="isActive"
-                size="large"
-                @changed="onToggleButtonPress"></TimeTrackerStartStop>
+            <div class="flex shrink-0 items-center gap-3 sm:gap-4">
+                <TimeTrackerStartStop
+                    :active="isActive"
+                    size="large"
+                    @changed="onToggleButtonPress"></TimeTrackerStartStop>
+                <TooltipProvider v-if="showStopAndComplete">
+                    <Tooltip>
+                        <TooltipTrigger as-child>
+                            <TimeTrackerIconCircleButton
+                                data-testid="timer_stop_and_complete"
+                                size="large"
+                                aria-label="Stop timer and mark task complete"
+                                @click="stopAndCompleteDialogOpen = true" />
+                        </TooltipTrigger>
+                        <TooltipContent>Stop and mark task complete (asks confirmation)</TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
+            </div>
         </div>
     </div>
+    <AlertDialog v-model:open="stopAndCompleteDialogOpen">
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>Stop timer and mark task complete?</AlertDialogTitle>
+                <AlertDialogDescription>
+                    <template v-if="timerTask">
+                        This will stop the timer and mark “{{ timerTask.name }}” as done.
+                    </template>
+                    <template v-else> This will stop the timer and mark the task as done. </template>
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                    :class="buttonVariants({ variant: 'success' })"
+                    @click="onStopAndCompleteConfirmed">Stop and complete</AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
     <ProjectCreateModal
         v-model:show="showQuickProjectCreate"
         :create-client="createClient"

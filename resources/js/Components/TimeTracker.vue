@@ -105,6 +105,18 @@ function updateTimeEntry() {
     }
 }
 
+async function stopTimerAndComplete() {
+    const taskId = currentTimeEntry.value.task_id;
+    if (!taskId) {
+        await setActiveState(false);
+        return;
+    }
+    const task = tasks.value.find((t) => t.id === taskId);
+    await currentTimeEntryStore.stopTimerAndComplete(
+        task && !task.is_done ? { id: task.id, name: task.name } : null
+    );
+}
+
 const timerFocus = useTimerFocus();
 
 function openTimerFocus(anchor?: HTMLElement) {
@@ -236,6 +248,7 @@ const noteContextTaskName = computed(() => {
                         @stop-live-timer="stopLiveTimer"
                         @start-timer="setActiveState(true)"
                         @stop-timer="setActiveState(false)"
+                        @stop-timer-and-complete="stopTimerAndComplete"
                         @update-time-entry="updateTimeEntry"
                         @create-time-entry="createTimeEntryFromCurrentEntry"
                         @add-note="openTimerNotes"></TimeTrackerControls>

@@ -1,48 +1,12 @@
 <script setup lang="ts">
-import { cva, type VariantProps } from 'class-variance-authority';
+import {
+    timeTrackerButtonIconSizeClass,
+    timeTrackerButtonVariants,
+    type TimeTrackerButtonVariantProps,
+} from './timeTrackerButtonVariants';
 import { cn } from './utils/cn';
 
-const timeTrackerVariants = cva(
-    'flex items-center justify-center transition focus:outline-0 rounded-full',
-    {
-        variants: {
-            variant: {
-                primary:
-                    'text-white ring-accent-200/10 focus-visible:ring-ring focus-visible:ring-2 ring-4 sm:ring-[6px]',
-                secondary:
-                    'bg-quaternary text-text-tertiary hover:text-text-primary focus:ring-2 focus:ring-border-tertiary',
-            },
-            size: {
-                small: 'w-6 h-6',
-                base: 'w-8 h-8',
-                large: 'w-11 h-11 hover:scale-110',
-            },
-            active: {
-                true: '',
-                false: '',
-            },
-        },
-        compoundVariants: [
-            {
-                variant: 'primary',
-                active: true,
-                class: 'bg-red-400/80 hover:bg-red-500/80 focus:bg-red-500/80',
-            },
-            {
-                variant: 'primary',
-                active: false,
-                class: 'bg-accent-300/70 hover:bg-accent-400/70 focus:bg-accent-700',
-            },
-        ],
-        defaultVariants: {
-            variant: 'primary',
-            size: 'base',
-            active: false,
-        },
-    }
-);
-
-type TimeTrackerVariants = VariantProps<typeof timeTrackerVariants>;
+type TimeTrackerVariants = TimeTrackerButtonVariantProps;
 
 const emit = defineEmits(['changed']);
 
@@ -59,12 +23,6 @@ const props = withDefaults(
     }
 );
 
-const iconClass = {
-    small: 'w-2.5 h-2.5',
-    base: 'w-3 h-3',
-    large: 'w-4 h-4',
-};
-
 function toggleState() {
     emit('changed', !props.active);
 }
@@ -73,12 +31,12 @@ function toggleState() {
 <template>
     <button
         data-testid="timer_button"
-        :class="cn(timeTrackerVariants({ variant, size, active }))"
+        :class="cn(timeTrackerButtonVariants({ variant, size, active }))"
         @click="toggleState">
         <Transition name="fade" mode="out-in">
             <svg
                 v-if="props.active"
-                :class="iconClass[size ?? 'base']"
+                :class="timeTrackerButtonIconSizeClass[size ?? 'base']"
                 viewBox="0 0 14 14"
                 fill="none"
                 xmlns="http://www.w3.org/2000/svg">
@@ -90,7 +48,7 @@ function toggleState() {
             </svg>
             <svg
                 v-else
-                :class="iconClass[size ?? 'base']"
+                :class="timeTrackerButtonIconSizeClass[size ?? 'base']"
                 viewBox="0 0 7 8"
                 fill="none"
                 xmlns="http://www.w3.org/2000/svg">

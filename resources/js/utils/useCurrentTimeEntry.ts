@@ -13,6 +13,7 @@ import {
 import { useLocalStorage } from '@vueuse/core';
 import { useNotificationsStore } from '@/utils/notification';
 import { useQueryClient } from '@tanstack/vue-query';
+import { useTasksStore } from '@/utils/useTasks';
 
 dayjs.extend(utc);
 
@@ -220,6 +221,18 @@ export const useCurrentTimeEntryStore = defineStore('currentTimeEntry', () => {
         queryClient.invalidateQueries({ queryKey: ['timeEntries'] });
     }
 
+    async function stopTimerAndComplete(task: { id: string; name: string } | null) {
+        stopLiveTimer();
+        await stopTimer();
+        queryClient.invalidateQueries({ queryKey: ['timeEntries'] });
+        if (task) {
+            await useTasksStore().updateTask(task.id, {
+                name: task.name,
+                is_done: true,
+            });
+        }
+    }
+
     return {
         currentTimeEntry,
         fetchCurrentTimeEntry,
@@ -229,6 +242,7 @@ export const useCurrentTimeEntryStore = defineStore('currentTimeEntry', () => {
         stopLiveTimer,
         now,
         setActiveState,
+        stopTimerAndComplete,
         $reset,
     };
 });

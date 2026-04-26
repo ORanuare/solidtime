@@ -8,6 +8,9 @@ export const buttonVariants = cva(
         variants: {
             variant: {
                 default: 'bg-primary text-primary-foreground shadow hover:bg-primary/90',
+                /** Success / complete (e.g. “stop and mark done”) — distinct from default primary in dark UI */
+                success:
+                    'bg-emerald-600 text-white shadow-sm hover:bg-emerald-500/95 focus-visible:ring-2 focus-visible:ring-emerald-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:bg-emerald-500 dark:hover:bg-emerald-400/90',
                 destructive:
                     'bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90',
                 outline:
