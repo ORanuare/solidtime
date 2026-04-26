@@ -21,6 +21,16 @@ abstract class TestCase extends BaseTestCase
 {
     use CreatesApplication;
 
+    /**
+     * @var list<string>
+     *
+     * @see \Illuminate\Foundation\Testing\RefreshDatabase
+     * Roll back transactions (and in-memory state) on the pgsql_test connection, never the app DB.
+     */
+    protected $connectionsToTransact = [
+        'pgsql_test',
+    ];
+
     protected bool $mockBillingContract = true;
 
     protected function setUp(): void
