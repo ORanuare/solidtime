@@ -64,19 +64,9 @@ export const useCurrentTimeEntryStore = defineStore('currentTimeEntry', () => {
         const organizationId = getCurrentOrganizationId();
         if (organizationId) {
             try {
-                // No running timer: API returns 404. Use validateStatus so we don't log a
-                // "failed" network request in devtools; treat 404 as "no active entry."
-                const response = await axios.get<{ data: TimeEntry }>(
-                    '/api/v1/users/me/time-entries/active',
-                    { validateStatus: (status) => status === 200 || status === 404 }
+                const response = await axios.get<{ data: TimeEntry | null }>(
+                    '/api/v1/users/me/time-entries/active'
                 );
-                if (response.status === 404) {
-                    if (currentTimeEntry.value.id !== '') {
-                        currentTimeEntry.value = { ...emptyTimeEntry };
-                        stopLiveTimer();
-                    }
-                    return;
-                }
                 const timeEntriesResponse = response.data;
                 if (timeEntriesResponse?.data) {
                     currentTimeEntry.value = timeEntriesResponse.data;

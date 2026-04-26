@@ -5,10 +5,8 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Resources\V1\TimeEntry\TimeEntryResource;
-use App\Models\Organization;
 use App\Models\TimeEntry;
-use App\Models\User;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Log;
 
@@ -21,7 +19,7 @@ class UserTimeEntryController extends Controller
      *
      * @operationId getMyActiveTimeEntry
      */
-    public function myActive(): JsonResource
+    public function myActive(): JsonResource|JsonResponse
     {
         $user = $this->user();
 
@@ -41,8 +39,8 @@ class UserTimeEntryController extends Controller
 
         if ($activeTimeEntry !== null) {
             return new TimeEntryResource($activeTimeEntry);
-        } else {
-            throw new ModelNotFoundException('No active time entry');
         }
+
+        return response()->json(['data' => null]);
     }
 }

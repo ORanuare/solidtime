@@ -6287,14 +6287,21 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "`TimeEntryResource`",
+                        "description": "Active time entry, or `data: null` when none is running.",
                         "content": {
                             "application/json": {
                                 "schema": {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/components/schemas/TimeEntryResource"
+                                            "anyOf": [
+                                                {
+                                                    "$ref": "#/components/schemas/TimeEntryResource"
+                                                },
+                                                {
+                                                    "type": "null"
+                                                }
+                                            ]
                                         }
                                     },
                                     "required": [
@@ -6303,9 +6310,6 @@
                                 }
                             }
                         }
-                    },
-                    "404": {
-                        "$ref": "#/components/responses/ModelNotFoundException"
                     },
                     "403": {
                         "$ref": "#/components/responses/AuthorizationException"

@@ -4389,7 +4389,9 @@ Please note that the access token is only shown in this response and cannot be r
         alias: 'getMyActiveTimeEntry',
         description: `This endpoint is independent of organization.`,
         requestFormat: 'json',
-        response: z.object({ data: TimeEntryResource }).passthrough(),
+        response: z
+            .object({ data: TimeEntryResource.nullable() })
+            .passthrough(),
         errors: [
             {
                 status: 401,
@@ -4399,11 +4401,6 @@ Please note that the access token is only shown in this response and cannot be r
             {
                 status: 403,
                 description: `Authorization error`,
-                schema: z.object({ message: z.string() }).passthrough(),
-            },
-            {
-                status: 404,
-                description: `Not found`,
                 schema: z.object({ message: z.string() }).passthrough(),
             },
         ],
