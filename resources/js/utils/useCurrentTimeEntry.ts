@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
+import axios from 'axios';
 import { api } from '@/packages/api/src';
 import type { TimeEntry } from '@/packages/api/src';
 import dayjs, { Dayjs } from 'dayjs';
@@ -63,30 +64,35 @@ export const useCurrentTimeEntryStore = defineStore('currentTimeEntry', () => {
         const organizationId = getCurrentOrganizationId();
         if (organizationId) {
             try {
-                const timeEntriesResponse = await api.getMyActiveTimeEntry({});
+                // No running timer: API returns 404. Use validateStatus so we don't log a
+                // "failed" network request in devtools; treat 404 as "no active entry."
+                const response = await axios.get<{ data: TimeEntry }>(
+                    '/api/v1/users/me/time-entries/active',
+                    { validateStatus: (status) => status === 200 || status === 404 }
+                );
+                if (response.status === 404) {
+                    if (currentTimeEntry.value.id !== '') {
+                        currentTimeEntry.value = { ...emptyTimeEntry };
+                        stopLiveTimer();
+                    }
+                    return;
+                }
+                const timeEntriesResponse = response.data;
                 if (timeEntriesResponse?.data) {
-                    if (timeEntriesResponse.data) {
-                        currentTimeEntry.value = timeEntriesResponse.data;
-                        if (
-                            currentTimeEntry.value.start !== '' &&
-                            currentTimeEntry.value.end === null
-                        ) {
-                            startLiveTimer();
-                        }
-                    } else {
-                        // No active time entry on server
-                        // Only reset if we had a previously started timer (has an ID)
-                        // Don't reset if user is preparing a new time entry (no ID yet)
-                        if (currentTimeEntry.value.id !== '') {
-                            currentTimeEntry.value = { ...emptyTimeEntry };
-                            stopLiveTimer();
-                        }
+                    currentTimeEntry.value = timeEntriesResponse.data;
+                    if (
+                        currentTimeEntry.value.start !== '' &&
+                        currentTimeEntry.value.end === null
+                    ) {
+                        startLiveTimer();
+                    }
+                } else {
+                    if (currentTimeEntry.value.id !== '') {
+                        currentTimeEntry.value = { ...emptyTimeEntry };
+                        stopLiveTimer();
                     }
                 }
             } catch {
-                // API error (e.g., 404 when no active time entry)
-                // Only reset if we had a previously started timer (has an ID)
-                // Don't reset if user is preparing a new time entry (no ID yet)
                 if (currentTimeEntry.value.id !== '') {
                     currentTimeEntry.value = { ...emptyTimeEntry };
                     stopLiveTimer();
