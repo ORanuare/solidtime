@@ -146,6 +146,7 @@ class NoteController extends Controller
     {
         $this->checkPermission($organization, 'notes:update', $note);
         $this->assertAuthor($note);
+        $user = $this->user();
 
         if ($request->has('body')) {
             $note->body = $request->input('body');
@@ -155,6 +156,24 @@ class NoteController extends Controller
         }
         if ($request->has('is_archived')) {
             $note->archived_at = $request->getIsArchived() ? Carbon::now() : null;
+        }
+        if ($request->boolean('reassign')) {
+            if ($request->filled('task_id')) {
+                $task = Task::query()
+                    ->whereBelongsTo($organization, 'organization')
+                    ->findOrFail($request->input('task_id'));
+                $this->assertUserCanAccessProject($organization, $user, $task->project);
+                $note->notable()->associate($task);
+            } elseif ($request->filled('project_id')) {
+                $project = Project::query()
+                    ->whereBelongsTo($organization, 'organization')
+                    ->findOrFail($request->input('project_id'));
+                $this->assertUserCanAccessProject($organization, $user, $project);
+                $note->notable()->associate($project);
+            } else {
+                $note->notable_type = null;
+                $note->notable_id = null;
+            }
         }
         $note->save();
         $note->load(['user', 'notable']);

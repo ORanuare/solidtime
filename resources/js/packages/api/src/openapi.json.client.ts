@@ -127,6 +127,9 @@ const NoteUpdateRequest = z
         body: z.string().min(1),
         visibility: z.enum(['private', 'shared']),
         is_archived: z.boolean(),
+        reassign: z.boolean(),
+        task_id: z.union([z.string(), z.null()]),
+        project_id: z.union([z.string(), z.null()]),
     })
     .partial()
     .passthrough();

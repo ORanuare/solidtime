@@ -443,4 +443,85 @@ class NoteEndpointTest extends ApiEndpointTestAbstract
         $note->refresh();
         $this->assertNull($note->archived_at);
     }
+
+    public function test_update_reassign_attaches_a_workspace_note_to_a_project(): void
+    {
+        $data = $this->createUserWithPermission([
+            'notes:view',
+            'notes:create',
+            'notes:update',
+            'projects:view:all',
+        ]);
+        $project = Project::factory()->forOrganization($data->organization)->create();
+        $note = Note::factory()
+            ->forOrganization($data->organization)
+            ->author($data->user)
+            ->shared()
+            ->create(['body' => 'Workspace scratch']);
+        Passport::actingAs($data->user);
+
+        $response = $this->putJson(route('api.v1.notes.update', [
+            $data->organization->getKey(),
+            $note->getKey(),
+        ]), [
+            'reassign' => true,
+            'project_id' => $project->getKey(),
+        ]);
+
+        $response->assertStatus(200);
+        $response->assertJsonPath('data.notable_type', 'project');
+        $response->assertJsonPath('data.project_id', $project->getKey());
+        $response->assertJsonPath('data.task_id', '');
+    }
+
+    public function test_update_reassign_makes_a_note_workspace_level(): void
+    {
+        $data = $this->createUserWithPermission([
+            'notes:view',
+            'notes:create',
+            'notes:update',
+            'projects:view:all',
+        ]);
+        $project = Project::factory()->forOrganization($data->organization)->create();
+        $note = Note::factory()
+            ->forOrganization($data->organization)
+            ->author($data->user)
+            ->shared()
+            ->create(['body' => 'On project']);
+        $note->notable()->associate($project);
+        $note->save();
+        Passport::actingAs($data->user);
+
+        $response = $this->putJson(route('api.v1.notes.update', [
+            $data->organization->getKey(),
+            $note->getKey(),
+        ]), [
+            'reassign' => true,
+        ]);
+
+        $response->assertStatus(200);
+        $response->assertJsonPath('data.notable_type', null);
+        $response->assertJsonPath('data.notable_label', 'Workspace');
+    }
+
+    public function test_update_reject_assignment_fields_without_reassign_flag(): void
+    {
+        $data = $this->createUserWithPermission(['notes:view', 'notes:create', 'notes:update', 'projects:view:all']);
+        $project = Project::factory()->forOrganization($data->organization)->create();
+        $note = Note::factory()
+            ->forOrganization($data->organization)
+            ->author($data->user)
+            ->shared()
+            ->create(['body' => 'x']);
+        Passport::actingAs($data->user);
+
+        $response = $this->putJson(route('api.v1.notes.update', [
+            $data->organization->getKey(),
+            $note->getKey(),
+        ]), [
+            'project_id' => $project->getKey(),
+        ]);
+
+        $response->assertStatus(422);
+    }
 }

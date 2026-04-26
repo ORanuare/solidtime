@@ -7421,6 +7421,24 @@
                     },
                     "is_archived": {
                         "type": "boolean"
+                    },
+                    "reassign": {
+                        "type": "boolean",
+                        "description": "When true, set note target using task_id, project_id, or leave both empty for a workspace note."
+                    },
+                    "task_id": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "uuid"
+                    },
+                    "project_id": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "uuid"
                     }
                 },
                 "title": "NoteUpdateRequest"
