@@ -17,15 +17,10 @@ class NoteUpdateRequest extends BaseFormRequest
     public function rules(): array
     {
         return [
-            'title' => [
-                'sometimes',
-                'string',
-                'min:1',
-                'max:500',
-            ],
             'body' => [
                 'sometimes',
                 'string',
+                'min:1',
             ],
             'visibility' => [
                 'sometimes',

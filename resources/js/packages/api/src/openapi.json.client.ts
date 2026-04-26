@@ -100,7 +100,6 @@ const visibility = z.union([z.enum(['private', 'shared']), z.null()]).optional()
 const NoteResource = z
     .object({
         id: z.string(),
-        title: z.string(),
         body: z.string(),
         visibility: z.string(),
         is_archived: z.string(),
@@ -117,8 +116,7 @@ const NoteResource = z
     .passthrough();
 const NoteStoreRequest = z
     .object({
-        title: z.string().min(1).max(500),
-        body: z.string(),
+        body: z.string().min(1),
         visibility: z.enum(['private', 'shared']),
         task_id: z.union([z.string(), z.null()]).optional(),
         project_id: z.union([z.string(), z.null()]).optional(),
@@ -126,8 +124,7 @@ const NoteStoreRequest = z
     .passthrough();
 const NoteUpdateRequest = z
     .object({
-        title: z.string().min(1).max(500),
-        body: z.string(),
+        body: z.string().min(1),
         visibility: z.enum(['private', 'shared']),
         is_archived: z.boolean(),
     })

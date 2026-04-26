@@ -16,6 +16,7 @@ import { ChevronDownIcon, ChevronUpIcon } from '@heroicons/vue/20/solid';
 import NoteTableHeading from '@/Components/Common/Note/NoteTableHeading.vue';
 import TableRow from '@/Components/TableRow.vue';
 import { formatDateTimeLocalized } from '@/packages/ui/src/utils/time';
+import { getNotePreviewLine } from '@/utils/notePreview';
 import { useOrganizationQuery } from '@/utils/useOrganizationQuery';
 
 const props = withDefaults(
@@ -152,8 +153,10 @@ defineExpose({ openCreate });
                             <div
                                 class="min-w-0 pl-4 sm:pl-6 lg:pl-8 3xl:pl-12 pr-3 py-4 text-sm text-text-primary flex items-center">
                                 <div class="min-w-0 w-full">
-                                    <p class="font-medium leading-tight truncate" :title="n.title">
-                                        {{ n.title }}
+                                    <p
+                                        class="font-medium leading-tight truncate"
+                                        :title="getNotePreviewLine(n.body)">
+                                        {{ getNotePreviewLine(n.body) }}
                                     </p>
                                     <p class="text-xs text-text-tertiary leading-tight mt-0.5 truncate">
                                         {{ n.user_name }}

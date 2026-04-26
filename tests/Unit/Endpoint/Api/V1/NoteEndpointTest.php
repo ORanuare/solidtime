@@ -37,7 +37,6 @@ class NoteEndpointTest extends ApiEndpointTestAbstract
         Passport::actingAs($data->user);
 
         $response = $this->postJson(route('api.v1.notes.store', [$data->organization->getKey()]), [
-            'title' => 'Inbox',
             'body' => 'Hello **world**',
             'visibility' => NoteVisibility::Shared->value,
         ]);
@@ -45,11 +44,11 @@ class NoteEndpointTest extends ApiEndpointTestAbstract
         $response->assertStatus(201);
         $response->assertJson(fn (AssertableJson $json) => $json
             ->has('data')
-            ->where('data.title', 'Inbox')
+            ->where('data.body', 'Hello **world**')
             ->where('data.visibility', 'shared')
             ->where('data.notable_type', null));
         $this->assertDatabaseHas('notes', [
-            'title' => 'Inbox',
+            'body' => 'Hello **world**',
             'organization_id' => $data->organization->getKey(),
             'user_id' => $data->user->getKey(),
         ]);
@@ -70,13 +69,13 @@ class NoteEndpointTest extends ApiEndpointTestAbstract
             ->forOrganization($data->organization)
             ->author($data->user)
             ->shared()
-            ->create(['title' => 'Workspace scratch']);
+            ->create(['body' => 'Workspace scratch']);
 
         $projectNote = Note::factory()
             ->forOrganization($data->organization)
             ->author($data->user)
             ->shared()
-            ->create(['title' => 'On project']);
+            ->create(['body' => 'On project']);
         $projectNote->notable()->associate($project);
         $projectNote->save();
 
@@ -84,7 +83,7 @@ class NoteEndpointTest extends ApiEndpointTestAbstract
             ->forOrganization($data->organization)
             ->author($data->user)
             ->shared()
-            ->create(['title' => 'On task']);
+            ->create(['body' => 'On task']);
         $taskNote->notable()->associate($task);
         $taskNote->save();
 
@@ -117,13 +116,13 @@ class NoteEndpointTest extends ApiEndpointTestAbstract
             ->forOrganization($data->organization)
             ->author($data->user)
             ->shared()
-            ->create(['title' => 'Workspace']);
+            ->create(['body' => 'Workspace']);
 
         $taskNote = Note::factory()
             ->forOrganization($data->organization)
             ->author($data->user)
             ->shared()
-            ->create(['title' => 'Task only']);
+            ->create(['body' => 'Task only']);
         $taskNote->notable()->associate($task);
         $taskNote->save();
 
@@ -132,7 +131,7 @@ class NoteEndpointTest extends ApiEndpointTestAbstract
             ->forOrganization($data->organization)
             ->author($data->user)
             ->shared()
-            ->create(['title' => 'Other task']);
+            ->create(['body' => 'Other task']);
         $otherTaskNote->notable()->associate($otherTask);
         $otherTaskNote->save();
 
@@ -165,7 +164,6 @@ class NoteEndpointTest extends ApiEndpointTestAbstract
         Passport::actingAs($data->user);
 
         $response = $this->postJson(route('api.v1.notes.store', [$data->organization->getKey()]), [
-            'title' => 'Nope',
             'body' => 'x',
             'visibility' => NoteVisibility::Shared->value,
             'task_id' => $task->getKey(),
@@ -195,7 +193,7 @@ class NoteEndpointTest extends ApiEndpointTestAbstract
             ->author($data->user)
             ->private()
             ->create([
-                'title' => 'Alice private',
+                'body' => 'Alice private',
             ]);
 
         Note::factory()
@@ -203,7 +201,7 @@ class NoteEndpointTest extends ApiEndpointTestAbstract
             ->author($bob)
             ->private()
             ->create([
-                'title' => 'Bob private',
+                'body' => 'Bob private',
             ]);
 
         Passport::actingAs($data->user);
@@ -236,13 +234,12 @@ class NoteEndpointTest extends ApiEndpointTestAbstract
             ->author($bob)
             ->shared()
             ->create([
-                'title' => 'Bob note',
-                'body' => 'x',
+                'body' => 'Bob note',
             ]);
 
         Passport::actingAs($data->user);
         $response = $this->putJson(route('api.v1.notes.update', [$data->organization->getKey(), $note->getKey()]), [
-            'title' => 'Hacked',
+            'body' => 'Hacked',
         ]);
 
         $response->assertForbidden();
@@ -255,13 +252,13 @@ class NoteEndpointTest extends ApiEndpointTestAbstract
             ->forOrganization($data->organization)
             ->author($data->user)
             ->shared()
-            ->create(['title' => 'Active note']);
+            ->create(['body' => 'Active note']);
         Note::factory()
             ->forOrganization($data->organization)
             ->author($data->user)
             ->shared()
             ->archived()
-            ->create(['title' => 'Archived note']);
+            ->create(['body' => 'Archived note']);
         Passport::actingAs($data->user);
 
         $response = $this->getJson(route('api.v1.notes.index', [$data->organization->getKey()]));
@@ -279,13 +276,13 @@ class NoteEndpointTest extends ApiEndpointTestAbstract
             ->forOrganization($data->organization)
             ->author($data->user)
             ->shared()
-            ->create(['title' => 'Active note']);
+            ->create(['body' => 'Active note']);
         $archived = Note::factory()
             ->forOrganization($data->organization)
             ->author($data->user)
             ->shared()
             ->archived()
-            ->create(['title' => 'Archived note']);
+            ->create(['body' => 'Archived note']);
         Passport::actingAs($data->user);
 
         $response = $this->getJson(route('api.v1.notes.index', [
@@ -306,13 +303,13 @@ class NoteEndpointTest extends ApiEndpointTestAbstract
             ->forOrganization($data->organization)
             ->author($data->user)
             ->shared()
-            ->create(['title' => 'Active note']);
+            ->create(['body' => 'Active note']);
         $archived = Note::factory()
             ->forOrganization($data->organization)
             ->author($data->user)
             ->shared()
             ->archived()
-            ->create(['title' => 'Archived note']);
+            ->create(['body' => 'Archived note']);
         Passport::actingAs($data->user);
 
         $response = $this->getJson(route('api.v1.notes.index', [
@@ -333,7 +330,7 @@ class NoteEndpointTest extends ApiEndpointTestAbstract
             ->forOrganization($data->organization)
             ->author($data->user)
             ->shared()
-            ->create(['title' => 'To archive', 'body' => 'x']);
+            ->create(['body' => "To archive\nx"]);
         Passport::actingAs($data->user);
 
         $response = $this->putJson(route('api.v1.notes.update', [
@@ -357,7 +354,7 @@ class NoteEndpointTest extends ApiEndpointTestAbstract
             ->author($data->user)
             ->shared()
             ->archived()
-            ->create(['title' => 'Was archived', 'body' => 'x']);
+            ->create(['body' => "Was archived\nx"]);
         Passport::actingAs($data->user);
 
         $response = $this->putJson(route('api.v1.notes.update', [

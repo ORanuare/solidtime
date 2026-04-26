@@ -80,10 +80,7 @@ class NoteController extends Controller
 
         if ($request->filled('search')) {
             $search = $request->input('search');
-            $query->where(function (Builder $q) use ($search): void {
-                $q->where('title', 'like', '%'.$search.'%')
-                    ->orWhere('body', 'like', '%'.$search.'%');
-            });
+            $query->where('body', 'like', '%'.$search.'%');
         }
 
         $filterArchived = $request->getFilterArchived();
@@ -128,7 +125,6 @@ class NoteController extends Controller
         }
 
         $note = new Note;
-        $note->title = $request->input('title');
         $note->body = $request->input('body');
         $note->visibility = NoteVisibility::from($request->input('visibility'));
         $note->user()->associate($user);
@@ -157,9 +153,6 @@ class NoteController extends Controller
         $this->checkPermission($organization, 'notes:update', $note);
         $this->assertAuthor($note);
 
-        if ($request->has('title')) {
-            $note->title = $request->input('title');
-        }
         if ($request->has('body')) {
             $note->body = $request->input('body');
         }

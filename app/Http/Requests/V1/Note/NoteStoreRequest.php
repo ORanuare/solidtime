@@ -25,15 +25,10 @@ class NoteStoreRequest extends BaseFormRequest
     public function rules(): array
     {
         return [
-            'title' => [
-                'required',
-                'string',
-                'min:1',
-                'max:500',
-            ],
             'body' => [
                 'required',
                 'string',
+                'min:1',
             ],
             'visibility' => [
                 'required',

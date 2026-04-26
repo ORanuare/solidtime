@@ -22,7 +22,6 @@ use OwenIt\Auditing\Contracts\Auditable as AuditableContract;
  * @property string $user_id
  * @property string|null $notable_type
  * @property string|null $notable_id
- * @property string $title
  * @property string $body
  * @property NoteVisibility $visibility
  * @property-read bool $is_archived
@@ -46,7 +45,6 @@ class Note extends Model implements AuditableContract
      * @var list<string>
      */
     protected $fillable = [
-        'title',
         'body',
         'visibility',
     ];
@@ -55,7 +53,6 @@ class Note extends Model implements AuditableContract
      * @var array<string, string>
      */
     protected $casts = [
-        'title' => 'string',
         'body' => 'string',
         'visibility' => NoteVisibility::class,
         'archived_at' => 'datetime',

@@ -2,7 +2,6 @@
 import DialogModal from '@/packages/ui/src/DialogModal.vue';
 import PrimaryButton from '@/packages/ui/src/Buttons/PrimaryButton.vue';
 import SecondaryButton from '@/packages/ui/src/Buttons/SecondaryButton.vue';
-import TextInput from '@/packages/ui/src/Input/TextInput.vue';
 import { Field, FieldGroup, FieldLabel } from '@/packages/ui/src/field';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/packages/ui/src/tabs';
 import { useNotesStore } from '@/utils/useNotes';
@@ -39,7 +38,6 @@ const props = withDefaults(
 
 const { createNote, updateNote } = useNotesStore();
 const saving = ref(false);
-const title = ref('');
 const body = ref('');
 const visibility = ref<'private' | 'shared'>('private');
 
@@ -50,13 +48,12 @@ const attachTo = ref<'task' | 'project' | 'workspace'>('workspace');
 const pickedProjectId = ref('');
 const pickedTaskId = ref('');
 
-const titleInput = ref<HTMLInputElement | null>(null);
+const bodyEditor = ref<{ focus: () => void } | null>(null);
 
 const noteContentTab = ref<'write' | 'preview'>('write');
 const bodyIsEmpty = computed(() => !body.value.trim());
 
 function resetForCreate() {
-    title.value = '';
     body.value = '';
     visibility.value = 'private';
 }
@@ -153,7 +150,6 @@ watch(
         if (open) {
             noteContentTab.value = 'write';
             if (props.note) {
-                title.value = props.note.title;
                 body.value = props.note.body;
                 visibility.value = props.note.visibility as 'private' | 'shared';
             } else {
@@ -162,7 +158,7 @@ watch(
                 attachTo.value = defaultAttachTarget();
             }
             nextTick(() => {
-                titleInput.value?.focus();
+                bodyEditor.value?.focus();
             });
         }
     },
@@ -179,7 +175,6 @@ async function submit() {
             await updateNote({
                 noteId: props.note.id,
                 body: {
-                    title: title.value,
                     body: body.value,
                     visibility: visibility.value,
                 },
@@ -191,21 +186,18 @@ async function submit() {
                 }
                 if (attachTo.value === 'project') {
                     await createNote({
-                        title: title.value,
                         body: body.value,
                         visibility: visibility.value,
                         project_id: pickedProjectId.value,
                     });
                 } else if (attachTo.value === 'task') {
                     await createNote({
-                        title: title.value,
                         body: body.value,
                         visibility: visibility.value,
                         task_id: pickedTaskId.value,
                     });
                 } else {
                     await createNote({
-                        title: title.value,
                         body: body.value,
                         visibility: visibility.value,
                     });
@@ -216,21 +208,18 @@ async function submit() {
 
                 if (useTask) {
                     await createNote({
-                        title: title.value,
                         body: body.value,
                         visibility: visibility.value,
                         task_id: props.taskId,
                     });
                 } else if (useProject) {
                     await createNote({
-                        title: title.value,
                         body: body.value,
                         visibility: visibility.value,
                         project_id: props.projectId,
                     });
                 } else {
                     await createNote({
-                        title: title.value,
                         body: body.value,
                         visibility: visibility.value,
                     });
@@ -314,17 +303,6 @@ async function submit() {
                     <span class="font-medium text-text-primary">Project: {{ projectName || 'selected project' }}</span>
                 </p>
                 <Field>
-                    <FieldLabel for="noteTitle">Title</FieldLabel>
-                    <TextInput
-                        id="noteTitle"
-                        ref="titleInput"
-                        v-model="title"
-                        type="text"
-                        class="block w-full"
-                        required
-                        autocomplete="off" />
-                </Field>
-                <Field>
                     <FieldLabel for="noteBody" class="mb-2">Content (Markdown)</FieldLabel>
                     <Tabs v-model="noteContentTab" class="w-full">
                         <TabsList class="flex w-full max-w-sm gap-0.5 sm:gap-1">
@@ -340,7 +318,10 @@ async function submit() {
                             </TabsTrigger>
                         </TabsList>
                         <TabsContent value="write" class="mt-2 p-0">
-                            <NoteMarkdownEditor v-model="body" data-testid="note-body-editor" />
+                            <NoteMarkdownEditor
+                                ref="bodyEditor"
+                                v-model="body"
+                                data-testid="note-body-editor" />
                         </TabsContent>
                         <TabsContent value="preview" class="mt-2">
                             <div

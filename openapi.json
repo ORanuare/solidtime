@@ -7288,9 +7288,6 @@
                     "id": {
                         "type": "string"
                     },
-                    "title": {
-                        "type": "string"
-                    },
                     "body": {
                         "type": "string"
                     },
@@ -7352,7 +7349,6 @@
                 },
                 "required": [
                     "id",
-                    "title",
                     "body",
                     "visibility",
                     "is_archived",
@@ -7371,13 +7367,9 @@
             "NoteStoreRequest": {
                 "type": "object",
                 "properties": {
-                    "title": {
-                        "type": "string",
-                        "minLength": 1,
-                        "maxLength": 500
-                    },
                     "body": {
-                        "type": "string"
+                        "type": "string",
+                        "minLength": 1
                     },
                     "visibility": {
                         "type": "string",
@@ -7402,7 +7394,6 @@
                     }
                 },
                 "required": [
-                    "title",
                     "body",
                     "visibility"
                 ],
@@ -7411,13 +7402,9 @@
             "NoteUpdateRequest": {
                 "type": "object",
                 "properties": {
-                    "title": {
-                        "type": "string",
-                        "minLength": 1,
-                        "maxLength": 500
-                    },
                     "body": {
-                        "type": "string"
+                        "type": "string",
+                        "minLength": 1
                     },
                     "visibility": {
                         "type": "string",

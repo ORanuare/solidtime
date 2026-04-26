@@ -29,7 +29,6 @@ class NoteFactory extends Factory
             'user_id' => User::factory(),
             'notable_type' => null,
             'notable_id' => null,
-            'title' => $this->faker->sentence(4),
             'body' => $this->faker->paragraph(),
             'visibility' => NoteVisibility::Shared,
             'archived_at' => null,
