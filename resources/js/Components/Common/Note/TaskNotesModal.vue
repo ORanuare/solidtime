@@ -19,7 +19,6 @@ defineProps<{
         </template>
         <template #content>
             <Card class="p-3 sm:p-4 lg:p-5">
-                <!-- task_id only: index request prohibits project_id and task_id together -->
                 <NoteList :task-id="task.id" />
             </Card>
         </template>

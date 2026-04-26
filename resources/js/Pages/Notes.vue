@@ -32,11 +32,14 @@ watch(
 
 const visibilityFilter = ref<'private' | 'shared' | ''>('');
 const archivedStatusFilter = ref<'false' | 'true' | 'all'>('false');
+/** Match Projects list: hide notes for archived projects unless viewing Archived or All. */
+const projectArchiveFilter = ref<'active' | 'archived' | 'all'>('active');
 
 const listProps = computed(() => ({
     search: debouncedSearch.value.trim() || undefined,
     visibilityFilter: visibilityFilter.value,
     archivedFilter: archivedStatusFilter.value,
+    workspaceProjectArchiveFilter: projectArchiveFilter.value,
 }));
 
 const showCreate = ref(false);
@@ -60,7 +63,7 @@ const { tasks } = useTasksQuery();
         </MainContainer>
         <MainContainer class="pt-6">
             <FieldGroup class="mb-6 max-w-4xl">
-                <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div class="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                     <Field>
                         <FieldLabel for="noteSearch">Search</FieldLabel>
                         <TextInput
@@ -90,6 +93,17 @@ const { tasks } = useTasksQuery();
                             class="block w-full rounded-md border border-default bg-card-background text-text-primary text-sm py-2 px-3 shadow-sm focus:ring-2 focus:ring-ring focus:border-transparent">
                             <option value="false">Active</option>
                             <option value="true">Archived</option>
+                            <option value="all">All</option>
+                        </select>
+                    </Field>
+                    <Field>
+                        <FieldLabel for="noteProjectStatus">Project</FieldLabel>
+                        <select
+                            id="noteProjectStatus"
+                            v-model="projectArchiveFilter"
+                            class="block w-full rounded-md border border-default bg-card-background text-text-primary text-sm py-2 px-3 shadow-sm focus:ring-2 focus:ring-ring focus:border-transparent">
+                            <option value="active">Active</option>
+                            <option value="archived">Archived</option>
                             <option value="all">All</option>
                         </select>
                     </Field>

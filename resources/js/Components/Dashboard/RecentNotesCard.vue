@@ -7,8 +7,11 @@ import { ClipboardDocumentListIcon } from '@heroicons/vue/20/solid';
 import { getCurrentOrganizationId } from '@/utils/useUser';
 import { api } from '@/packages/api/src';
 import { LoadingSpinner } from '@/packages/ui/src';
+import { useProjectsQuery } from '@/utils/useProjectsQuery';
+import { filterNotesByWorkspaceProjectArchive } from '@/utils/filterNotesByWorkspaceProjectArchive';
 
 const organizationId = computed(() => getCurrentOrganizationId());
+const { projects } = useProjectsQuery();
 const DASHBOARD_NOTE_ROWS = 5;
 
 const { data: notesResponse, isLoading } = useQuery({
@@ -26,7 +29,12 @@ const recentNotes = computed(() => {
     if (!notesResponse.value?.data) {
         return [];
     }
-    return notesResponse.value.data.slice(0, DASHBOARD_NOTE_ROWS);
+    const withoutArchivedProjectNotes = filterNotesByWorkspaceProjectArchive(
+        notesResponse.value.data,
+        'active',
+        projects.value
+    );
+    return withoutArchivedProjectNotes.slice(0, DASHBOARD_NOTE_ROWS);
 });
 </script>
 

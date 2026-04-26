@@ -21,6 +21,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
     addSubTask: [parentId: string];
+    filterNotesByTask: [task: Task];
 }>();
 
 const organization = inject<ComputedRef<Organization>>('organization');
@@ -44,6 +45,13 @@ const showTaskActions = computed(
 );
 
 const notesCount = computed(() => props.task.notes_count ?? 0);
+
+function onNotesColumnActivate() {
+    if (!canViewNotes()) {
+        return;
+    }
+    emit('filterNotesByTask', props.task);
+}
 </script>
 
 <template>
@@ -62,22 +70,50 @@ const notesCount = computed(() => props.task.notes_count ?? 0);
                 {{ task.name }}
             </span>
         </div>
-        <div
-            class="whitespace-nowrap px-1 py-4 flex items-center justify-center gap-1"
+        <button
+            v-if="canViewNotes()"
+            type="button"
+            class="group whitespace-nowrap px-1 py-4 flex items-center justify-center gap-1 rounded-md w-full h-full -my-1 text-left hover:bg-white/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            :title="'Filter project notes for this task'"
             :aria-label="
                 notesCount > 0
-                    ? `${notesCount} ${notesCount === 1 ? 'note' : 'notes'} on this task`
-                    : 'No notes on this task'
-            ">
-            <template v-if="notesCount > 0">
+                    ? `Filter notes by this task (${notesCount} ${notesCount === 1 ? 'note' : 'notes'})`
+                    : 'Filter notes by this task (no notes yet)'
+            "
+            @click="onNotesColumnActivate">
+            <span
+                class="inline-flex items-center justify-center gap-1 transition-opacity"
+                :class="
+                    notesCount === 0
+                        ? 'opacity-50 group-hover:opacity-100'
+                        : ''
+                ">
                 <ClipboardDocumentListIcon
                     class="h-5 w-5 shrink-0 text-icon-default"
                     aria-hidden="true" />
                 <span class="min-w-[1.25ch] text-center text-sm font-medium tabular-nums text-text-primary">
                     {{ notesCount }}
                 </span>
-            </template>
-            <span v-else class="text-text-tertiary text-xs select-none" aria-hidden="true">—</span>
+            </span>
+        </button>
+        <div
+            v-else
+            class="whitespace-nowrap px-1 py-4 flex items-center justify-center gap-1"
+            :aria-label="
+                notesCount > 0
+                    ? `${notesCount} ${notesCount === 1 ? 'note' : 'notes'} on this task`
+                    : 'No notes on this task'
+            ">
+            <span
+                class="inline-flex items-center justify-center gap-1"
+                :class="notesCount === 0 ? 'opacity-50' : ''">
+                <ClipboardDocumentListIcon
+                    class="h-5 w-5 shrink-0 text-icon-default"
+                    aria-hidden="true" />
+                <span class="min-w-[1.25ch] text-center text-sm font-medium tabular-nums text-text-primary">
+                    {{ notesCount }}
+                </span>
+            </span>
         </div>
         <div
             class="whitespace-nowrap px-3 py-4 text-sm text-text-secondary flex space-x-1 items-center font-medium">

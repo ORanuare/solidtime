@@ -53,6 +53,11 @@ const taskName = computed(() => {
     return tasks.value.find((t) => t.id === id)?.name;
 });
 
+const attachSelectTaskLabel = computed(() => (taskName.value ? `Task — ${taskName.value}` : 'Task'));
+const attachSelectProjectLabel = computed(() =>
+    projectName.value ? `Project — ${projectName.value}` : 'Project'
+);
+
 function defaultAttachTarget(): 'task' | 'project' | 'workspace' {
     if (formTaskId.value && formProjectId.value) {
         return 'task';
@@ -223,8 +228,8 @@ function hideComposer() {
                         id="focusNoteAttach"
                         v-model="attachTo"
                         class="block w-full rounded-md border border-default bg-card-background py-1.5 px-2 text-sm text-text-primary shadow-sm focus:ring-2 focus:ring-ring">
-                        <option value="task">Task — {{ taskName || 'current' }}</option>
-                        <option value="project">Project — {{ projectName || 'current' }}</option>
+                        <option value="task">{{ attachSelectTaskLabel }}</option>
+                        <option value="project">{{ attachSelectProjectLabel }}</option>
                         <option value="workspace">Workspace</option>
                     </select>
                 </div>

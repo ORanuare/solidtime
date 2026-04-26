@@ -23,10 +23,8 @@ function hasId(v: string | null | undefined): boolean {
 const hasListScope = computed(() => hasId(props.projectId) || hasId(props.taskId));
 
 /**
- * Notes index allows only one of project_id or task_id.
- * When the timer has a project, list by project so notes attached to the project or any task in it
- * (and matches how users switch "Attach to" in the form) all appear together.
- * Task-only when there is no project.
+ * When the timer has a project, list by project so notes on the project or any task in it
+ * (matching "Attach to" in the form) appear together. Task-only when there is no project.
  */
 const listProjectId = computed(() => (hasId(props.projectId) ? props.projectId : undefined));
 const listTaskId = computed(() =>

@@ -80,10 +80,27 @@ function resetPickedAttachment() {
     pickedTaskId.value = '';
 }
 
-/** Time tracker: choose between current task, current project, or workspace. */
-const showContextAttachSelect = computed(
+/**
+ * Any create flow with a project in scope: timer (project + task) or project page.
+ * User can always switch between task / project / workspace; if only the project is fixed,
+ * choosing Task opens a list of that project’s tasks.
+ */
+const showContextAttachField = computed(
+    () => !props.allowPickAnyAttachment && !props.note && Boolean(props.projectId)
+);
+
+const hasFixedTaskFromContext = computed(() => Boolean(props.taskId) && Boolean(props.projectId));
+
+const showProjectTaskPicker = computed(
     () =>
-        !props.allowPickAnyAttachment && !props.note && Boolean(props.taskId) && Boolean(props.projectId)
+        showContextAttachField.value && !hasFixedTaskFromContext.value && attachTo.value === 'task'
+);
+
+const contextAttachTaskOptionLabel = computed(() =>
+    props.taskName ? `Task — ${props.taskName}` : 'Task'
+);
+const contextAttachProjectOptionLabel = computed(() =>
+    props.projectName ? `Project — ${props.projectName}` : 'Project'
 );
 
 /** General notes: choose workspace, then pick a project or task from lists. */
@@ -122,16 +139,18 @@ const createSubmitBlocked = computed(() => {
     if (props.note) {
         return false;
     }
-    if (!props.allowPickAnyAttachment) {
+    if (props.allowPickAnyAttachment) {
+        if (attachTo.value === 'project' && !pickedProjectId.value) {
+            return true;
+        }
+        if (attachTo.value === 'task' && !pickedTaskId.value) {
+            return true;
+        }
         return false;
     }
-    if (attachTo.value === 'project' && !pickedProjectId.value) {
+    if (showProjectTaskPicker.value && !pickedTaskId.value) {
         return true;
     }
-    if (attachTo.value === 'task' && !pickedTaskId.value) {
-        return true;
-    }
-
     return false;
 });
 
@@ -203,20 +222,34 @@ async function submit() {
                     });
                 }
             } else {
-                const useTask = attachTo.value === 'task' && props.taskId;
-                const useProject = attachTo.value === 'project' && props.projectId;
-
-                if (useTask) {
+                if (props.projectId) {
+                    if (attachTo.value === 'task') {
+                        const taskIdToUse = props.taskId || pickedTaskId.value;
+                        if (!taskIdToUse) {
+                            return;
+                        }
+                        await createNote({
+                            body: body.value,
+                            visibility: visibility.value,
+                            task_id: taskIdToUse,
+                        });
+                    } else if (attachTo.value === 'project') {
+                        await createNote({
+                            body: body.value,
+                            visibility: visibility.value,
+                            project_id: props.projectId,
+                        });
+                    } else {
+                        await createNote({
+                            body: body.value,
+                            visibility: visibility.value,
+                        });
+                    }
+                } else if (props.taskId) {
                     await createNote({
                         body: body.value,
                         visibility: visibility.value,
                         task_id: props.taskId,
-                    });
-                } else if (useProject) {
-                    await createNote({
-                        body: body.value,
-                        visibility: visibility.value,
-                        project_id: props.projectId,
                     });
                 } else {
                     await createNote({
@@ -279,28 +312,45 @@ async function submit() {
                         </select>
                     </Field>
                 </template>
-                <Field v-else-if="!note && showContextAttachSelect">
-                    <FieldLabel for="noteAttachTo">Attach to</FieldLabel>
-                    <select
-                        id="noteAttachTo"
-                        v-model="attachTo"
-                        class="block w-full rounded-md border border-default bg-card-background text-text-primary text-sm py-2 px-3 shadow-sm focus:ring-2 focus:ring-ring focus:border-transparent">
-                        <option value="task">Task — {{ taskName || 'current task' }}</option>
-                        <option value="project">Project — {{ projectName || 'current project' }}</option>
-                        <option value="workspace">Workspace (not linked to a project or task)</option>
-                    </select>
-                </Field>
+                <template v-else-if="!note && showContextAttachField">
+                    <Field>
+                        <FieldLabel for="noteAttachTo">Attach to</FieldLabel>
+                        <select
+                            id="noteAttachTo"
+                            v-model="attachTo"
+                            class="block w-full rounded-md border border-default bg-card-background text-text-primary text-sm py-2 px-3 shadow-sm focus:ring-2 focus:ring-ring focus:border-transparent">
+                            <template v-if="hasFixedTaskFromContext">
+                                <option value="task">{{ contextAttachTaskOptionLabel }}</option>
+                                <option value="project">{{ contextAttachProjectOptionLabel }}</option>
+                            </template>
+                            <template v-else>
+                                <option value="project">{{ contextAttachProjectOptionLabel }}</option>
+                                <option value="task">Task</option>
+                            </template>
+                            <option value="workspace">Workspace (not linked to a project or task)</option>
+                        </select>
+                    </Field>
+                    <Field v-if="showProjectTaskPicker">
+                        <FieldLabel for="noteContextProjectTask">Task</FieldLabel>
+                        <select
+                            id="noteContextProjectTask"
+                            v-model="pickedTaskId"
+                            class="block w-full rounded-md border border-default bg-card-background text-text-primary text-sm py-2 px-3 shadow-sm focus:ring-2 focus:ring-ring focus:border-transparent"
+                            required>
+                            <option disabled value="">{{ 'Select a task' }}</option>
+                            <option v-for="t in tasks" :key="t.id" :value="t.id">
+                                {{ t.name }}
+                            </option>
+                        </select>
+                    </Field>
+                </template>
                 <p
                     v-else-if="!note && !allowPickAnyAttachment && taskId && !projectId"
                     class="text-sm text-text-secondary -mb-1">
                     <span class="text-text-tertiary">Attached to </span>
-                    <span class="font-medium text-text-primary">Task: {{ taskName || 'selected task' }}</span>
-                </p>
-                <p
-                    v-else-if="!note && !allowPickAnyAttachment && projectId && !taskId"
-                    class="text-sm text-text-secondary -mb-1">
-                    <span class="text-text-tertiary">Attached to </span>
-                    <span class="font-medium text-text-primary">Project: {{ projectName || 'selected project' }}</span>
+                    <span class="font-medium text-text-primary"
+                        >Task: {{ taskName || '—' }}</span
+                    >
                 </p>
                 <Field>
                     <FieldLabel for="noteBody" class="mb-2">Content (Markdown)</FieldLabel>

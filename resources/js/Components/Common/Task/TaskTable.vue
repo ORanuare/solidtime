@@ -15,6 +15,10 @@ const props = defineProps<{
     tasks: Task[];
 }>();
 
+const emit = defineEmits<{
+    filterNotesByTask: [task: Task];
+}>();
+
 const createTask = ref(false);
 const createTaskParentId = ref<string | null>(null);
 
@@ -69,7 +73,8 @@ watch(createTask, (show) => {
                     <TaskTableRow
                         :task="task"
                         :depth="depth"
-                        @add-sub-task="openCreateSubTask"></TaskTableRow>
+                        @add-sub-task="openCreateSubTask"
+                        @filter-notes-by-task="emit('filterNotesByTask', $event)"></TaskTableRow>
                 </template>
             </div>
         </div>

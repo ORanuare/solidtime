@@ -11,6 +11,7 @@ import {
     PencilSquareIcon,
     ClipboardDocumentIcon,
     UserGroupIcon,
+    XMarkIcon,
 } from '@heroicons/vue/20/solid';
 
 import { Link } from '@inertiajs/vue3';
@@ -37,6 +38,7 @@ import { formatCents } from '../packages/ui/src/utils/money';
 import { getOrganizationCurrencyString } from '../utils/money';
 import { useOrganizationQuery } from '@/utils/useOrganizationQuery';
 import { getCurrentOrganizationId } from '@/utils/useUser';
+import type { Task } from '@/packages/api/src';
 
 const { projects } = useProjectsQuery();
 
@@ -53,8 +55,49 @@ const { projectMembers } = canViewProjectMembers()
     ? useProjectMembersQuery(projectId)
     : { projectMembers: computed(() => []) };
 
+const activeTab = ref<'active' | 'done'>('active');
+const { tasks } = useTasksQuery();
+
 const showEditProjectModal = ref(false);
 const projectNotesListRef = ref<{ openCreate: () => void } | null>(null);
+const notesFilterTaskId = ref<string | null>(null);
+
+const notesFilterTaskName = computed(() => {
+    if (!notesFilterTaskId.value) {
+        return '';
+    }
+    return tasks.value.find((t) => t.id === notesFilterTaskId.value)?.name ?? '';
+});
+
+/**
+ * When the task tab is "Active", don't apply a filter to a completed task (notes for that task
+ * only while viewing "Done" tasks). When switching to Done, the same selection applies again.
+ */
+const effectiveNotesFilterTaskId = computed(() => {
+    if (!notesFilterTaskId.value) {
+        return undefined;
+    }
+    const t = tasks.value.find((x) => x.id === notesFilterTaskId.value);
+    if (!t) {
+        return undefined;
+    }
+    if (t.is_done && activeTab.value === 'active') {
+        return undefined;
+    }
+    return notesFilterTaskId.value;
+});
+
+function onFilterNotesByTask(task: Task) {
+    if (notesFilterTaskId.value === task.id) {
+        notesFilterTaskId.value = null;
+    } else {
+        notesFilterTaskId.value = task.id;
+    }
+}
+
+function clearNotesTaskFilter() {
+    notesFilterTaskId.value = null;
+}
 
 const billableRateFormatted = computed(() => {
     if (project.value?.billable_rate) {
@@ -94,10 +137,6 @@ const fixedPriceFormatted = computed(() => {
     }
     return null;
 });
-
-const activeTab = ref<'active' | 'done'>('active');
-
-const { tasks } = useTasksQuery();
 
 const shownTasks = computed(() => {
     return tasks.value.filter((task) => {
@@ -202,25 +241,47 @@ const shownTasks = computed(() => {
                     </template>
                 </CardTitle>
                 <Card>
-                    <TaskTable :tasks="shownTasks" :project-id="projectId"></TaskTable>
+                    <TaskTable
+                        :tasks="shownTasks"
+                        :project-id="projectId"
+                        @filter-notes-by-task="onFilterNotesByTask" />
                 </Card>
             </div>
         </MainContainer>
         <MainContainer v-if="canViewNotes()" class="pt-6" :class="canViewProjectMembers() ? '' : 'pb-8'">
             <CardTitle title="Notes" :icon="ClipboardDocumentIcon">
                 <template #actions>
-                    <SecondaryButton
-                        v-if="canCreateNotes()"
-                        :icon="PlusIcon"
-                        @click="projectNotesListRef?.openCreate()">
-                        New note
-                    </SecondaryButton>
+                    <div class="flex flex-wrap items-center justify-end gap-2">
+                        <div
+                            v-if="effectiveNotesFilterTaskId"
+                            class="inline-flex max-w-full items-center gap-1.5 rounded-md border border-border-secondary bg-tertiary pl-2.5 pr-1 py-1 text-sm text-text-primary dark:bg-secondary">
+                            <span class="text-text-tertiary shrink-0">Task</span>
+                            <span class="min-w-0 truncate font-medium" :title="notesFilterTaskName">
+                                {{ notesFilterTaskName || '…' }}
+                            </span>
+                            <button
+                                type="button"
+                                class="shrink-0 rounded p-1 text-text-secondary hover:bg-white/5 hover:text-text-primary"
+                                aria-label="Show all project notes"
+                                @click="clearNotesTaskFilter">
+                                <XMarkIcon class="h-4 w-4" />
+                            </button>
+                        </div>
+                        <SecondaryButton
+                            v-if="canCreateNotes()"
+                            :icon="PlusIcon"
+                            @click="projectNotesListRef?.openCreate()">
+                            New note
+                        </SecondaryButton>
+                    </div>
                 </template>
             </CardTitle>
             <Card class="mt-3">
                 <NoteList
                     ref="projectNotesListRef"
                     :project-id="projectId"
+                    :task-id="effectiveNotesFilterTaskId"
+                    :project-tasks-tab="activeTab"
                     :show-top-create-action="false" />
             </Card>
         </MainContainer>
