@@ -7,6 +7,7 @@ namespace App\Http\Resources\V1\Invitation;
 use App\Http\Resources\V1\BaseResource;
 use App\Models\OrganizationInvitation;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\URL;
 
 /**
  * @property OrganizationInvitation $resource
@@ -27,6 +28,10 @@ class InvitationResource extends BaseResource
             'email' => $this->resource->email,
             /** @var string $role Role */
             'role' => $this->resource->role,
+            /** @var string $accept_url Signed URL to accept the invitation (same as in the invitation email) */
+            'accept_url' => URL::signedRoute('team-invitations.accept', [
+                'invitation' => $this->resource,
+            ]),
         ];
     }
 }

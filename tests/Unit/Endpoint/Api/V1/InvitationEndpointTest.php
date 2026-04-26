@@ -11,6 +11,7 @@ use App\Models\Member;
 use App\Models\OrganizationInvitation;
 use App\Models\User;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\URL;
 use Laravel\Passport\Passport;
 use PHPUnit\Framework\Attributes\UsesClass;
 
@@ -50,6 +51,9 @@ class InvitationEndpointTest extends ApiEndpointTestAbstract
                     'id' => $invitation1->getKey(),
                     'email' => $invitation1->email,
                     'role' => $invitation1->role,
+                    'accept_url' => URL::signedRoute('team-invitations.accept', [
+                        'invitation' => $invitation1,
+                    ]),
                 ],
             ],
         ]);

@@ -7177,12 +7177,18 @@
                     "role": {
                         "type": "string",
                         "description": "Role"
+                    },
+                    "accept_url": {
+                        "type": "string",
+                        "format": "uri",
+                        "description": "Signed URL to accept the invitation (same as in the invitation email)"
                     }
                 },
                 "required": [
                     "id",
                     "email",
-                    "role"
+                    "role",
+                    "accept_url"
                 ],
                 "title": "InvitationResource"
             },

@@ -71,7 +71,7 @@ const ClientUpdateRequest = z
     .passthrough();
 const ImportRequest = z.object({ type: z.string(), data: z.string() }).passthrough();
 const InvitationResource = z
-    .object({ id: z.string(), email: z.string(), role: z.string() })
+    .object({ id: z.string(), email: z.string(), role: z.string(), accept_url: z.string() })
     .passthrough();
 const InvitationStoreRequest = z
     .object({ email: z.string().email(), role: z.enum(['admin', 'manager', 'employee']) })
