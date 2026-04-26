@@ -13,7 +13,11 @@ import { Field, FieldGroup, FieldLabel } from '@/packages/ui/src/field';
 import { Button } from '@/packages/ui/src/Buttons';
 import { ChevronDown } from 'lucide-vue-next';
 import { FolderIcon } from '@heroicons/vue/20/solid';
-import type { CreateTaskBody } from '@/packages/api/src';
+import type { CreateTaskBody, Task } from '@/packages/api/src';
+
+const emit = defineEmits<{
+    created: [task: Task];
+}>();
 
 const { createTask } = useTasksStore();
 const show = defineModel('show', { default: false });
@@ -52,17 +56,28 @@ watch(
 );
 
 async function submit() {
+    if (saving.value || !taskName.value.trim()) {
+        return;
+    }
     const body: CreateTaskBody = {
-        name: taskName.value,
+        name: taskName.value.trim(),
         project_id: taskProjectId.value,
         estimated_time: estimatedTime.value,
     };
     if (props.parentTaskId) {
         body.parent_task_id = props.parentTaskId;
     }
-    await createTask(body);
-    show.value = false;
-    taskName.value = '';
+    saving.value = true;
+    try {
+        const result = await createTask(body);
+        if (result?.data) {
+            emit('created', result.data);
+            show.value = false;
+            taskName.value = '';
+        }
+    } finally {
+        saving.value = false;
+    }
 }
 
 const taskNameInput = ref<HTMLInputElement | null>(null);

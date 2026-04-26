@@ -29,19 +29,21 @@ export const useTasksStore = defineStore('tasks', () => {
 
     async function createTask(task: CreateTaskBody) {
         const organizationId = getCurrentOrganizationId();
-        if (organizationId) {
-            await handleApiRequestNotifications(
-                () =>
-                    api.createTask(task, {
-                        params: {
-                            organization: organizationId,
-                        },
-                    }),
-                'Task created successfully',
-                'Failed to create task'
-            );
-            queryClient.invalidateQueries({ queryKey: ['tasks'] });
+        if (!organizationId) {
+            return undefined;
         }
+        const result = await handleApiRequestNotifications(
+            () =>
+                api.createTask(task, {
+                    params: {
+                        organization: organizationId,
+                    },
+                }),
+            'Task created successfully',
+            'Failed to create task'
+        );
+        queryClient.invalidateQueries({ queryKey: ['tasks'] });
+        return result;
     }
 
     async function deleteTask(taskId: string) {

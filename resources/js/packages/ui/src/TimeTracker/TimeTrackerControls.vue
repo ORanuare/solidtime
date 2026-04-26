@@ -7,19 +7,27 @@ import TimeTrackerProjectTaskDropdown from '@/packages/ui/src/TimeTracker/TimeTr
 import type {
     CreateClientBody,
     CreateProjectBody,
+    Client,
     Project,
     Tag,
     Task,
     TimeEntry,
-    Client,
 } from '@/packages/api/src';
 import { computed, nextTick, ref, watch } from 'vue';
 import type { Dayjs } from 'dayjs';
-import { useFocus } from '@vueuse/core';
+import { useFocus, useResizeObserver } from '@vueuse/core';
 import { autoUpdate, flip, limitShift, offset, shift, useFloating } from '@floating-ui/vue';
 import TimeTrackerRecentlyTrackedEntry from '@/packages/ui/src/TimeTracker/TimeTrackerRecentlyTrackedEntry.vue';
 import { useSelectEvents } from '@/packages/ui/src/utils/select';
-import { ArrowsPointingOutIcon, ClipboardDocumentListIcon } from '@heroicons/vue/20/solid';
+import {
+    ArrowsPointingOutIcon,
+    ChevronLeftIcon,
+    ChevronRightIcon as ChevronRightIconSolid,
+    ClipboardDocumentListIcon,
+    FolderIcon,
+    PlusIcon,
+    QueueListIcon,
+} from '@heroicons/vue/20/solid';
 import { ChevronRightIcon } from '@heroicons/vue/16/solid';
 import { twMerge } from 'tailwind-merge';
 import { Button } from '@/packages/ui/src/Buttons';
@@ -30,9 +38,18 @@ import {
     TooltipTrigger,
 } from '@/packages/ui/src/tooltip';
 import ProjectBadge from '@/packages/ui/src/Project/ProjectBadge.vue';
+import ProjectCreateModal from '@/packages/ui/src/Project/ProjectCreateModal.vue';
+import TaskCreateModal from '@/Components/Common/Task/TaskCreateModal.vue';
 import {
-    dedupeRecentTimeEntries,
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/packages/ui/src/dropdown-menu';
+import {
     dedupeTimeEntriesByContext,
+    dedupeTimeEntriesByProjectTask,
+    timeEntryContextKeyForFocusPicker,
     timeEntryMatchesSearchText,
 } from '@/utils/recentTimeEntries';
 
@@ -58,6 +75,7 @@ const props = withDefaults(
         organizationBillableRate: number | null;
         enableEstimatedTime: boolean;
         canCreateProject: boolean;
+        canCreateTask?: boolean;
         /**
          * Show notes beside tag / billable; parent opens notes list (with create) or workspace note form.
          */
@@ -67,7 +85,7 @@ const props = withDefaults(
         /** When set, shows focus shortcut beside start/stop (omit on timer focus page). */
         openTimerFocus?: (anchor?: HTMLElement) => void;
     }>(),
-    { canAddNote: false, layout: 'default' }
+    { canAddNote: false, layout: 'default', canCreateTask: false }
 );
 
 const emit = defineEmits<{
@@ -83,6 +101,54 @@ const emit = defineEmits<{
 function updateProject() {
     setBillableDefaultForProject();
     emit('updateTimeEntry');
+}
+
+async function quickCreateProject(body: CreateProjectBody) {
+    const p = await props.createProject(body);
+    if (p) {
+        setBillableDefaultForProject();
+        if (props.isActive) {
+            emit('updateTimeEntry');
+        }
+    }
+    return p;
+}
+
+const showQuickProjectCreate = ref(false);
+const showQuickTaskCreate = ref(false);
+const quickTaskCreateProjectId = ref('');
+
+const quickTaskCreateDefaultProjectId = computed(() => {
+    const id = currentTimeEntry.value.project_id;
+    if (id != null && id !== '') {
+        return id;
+    }
+    const active = props.projects.filter((p) => !p.is_archived);
+    return active[0]?.id ?? props.projects[0]?.id ?? '';
+});
+
+const canShowQuickCreateMenu = computed(
+    () =>
+        props.canCreateProject ||
+        (props.canCreateTask && quickTaskCreateDefaultProjectId.value !== '')
+);
+
+function openQuickTaskCreateModal() {
+    const pid = quickTaskCreateDefaultProjectId.value;
+    if (!pid) {
+        return;
+    }
+    quickTaskCreateProjectId.value = pid;
+    showQuickTaskCreate.value = true;
+}
+
+function onQuickTaskCreated(task: Task) {
+    currentTimeEntry.value.project_id = task.project_id;
+    currentTimeEntry.value.task_id = task.id;
+    setBillableDefaultForProject();
+    if (props.isActive) {
+        emit('updateTimeEntry');
+    }
 }
 
 function setAndStartTimer(timeEntry: TimeEntry) {
@@ -184,23 +250,117 @@ const filteredRecentlyTrackedTimeEntries = computed(() => {
         .slice(0, 5);
 });
 
-const recentQuickPickEntries = computed(() => {
+type FocusQuickPickRow = {
+    entry: TimeEntry | null;
+    project: Project | undefined;
+    task: Task | undefined;
+    key: string;
+};
+
+/**
+ * Focus bar: recent project+task pairs first, then every open task per active project,
+ * then a project-only chip when a project has no open tasks.
+ */
+const focusQuickPickRows = computed(() => {
     if (props.layout !== 'focus') {
-        return [] as TimeEntry[];
+        return [] as FocusQuickPickRow[];
     }
-    return dedupeRecentTimeEntries(props.timeEntries, {
-        maxItems: 4,
-        onlyFinished: true,
-        quickPick: true,
-    });
+
+    const rows: FocusQuickPickRow[] = [];
+    const seenKeys = new Set<string>();
+
+    for (const entry of dedupeTimeEntriesByProjectTask(props.timeEntries, true)) {
+        const ctxKey = timeEntryContextKeyForFocusPicker(entry);
+        seenKeys.add(ctxKey);
+        rows.push({
+            entry,
+            project: props.projects.find((p) => p.id === entry.project_id),
+            task: props.tasks.find((t) => t.id === entry.task_id),
+            key: `recent:${ctxKey}`,
+        });
+    }
+
+    const activeProjects = [...props.projects]
+        .filter((p) => !p.is_archived)
+        .sort((a, b) => a.name.localeCompare(b.name));
+
+    for (const p of activeProjects) {
+        const openTasks = props.tasks
+            .filter((t) => t.project_id === p.id && !t.is_done)
+            .sort((a, b) => a.name.localeCompare(b.name));
+
+        if (openTasks.length > 0) {
+            for (const task of openTasks) {
+                const ctxKey = timeEntryContextKeyForFocusPicker({
+                    id: task.id,
+                    project_id: p.id,
+                    task_id: task.id,
+                });
+                if (seenKeys.has(ctxKey)) {
+                    continue;
+                }
+                seenKeys.add(ctxKey);
+                rows.push({
+                    entry: null,
+                    project: p,
+                    task,
+                    key: `t:${task.id}`,
+                });
+            }
+        } else {
+            const ctxKey = timeEntryContextKeyForFocusPicker({
+                id: p.id,
+                project_id: p.id,
+                task_id: null,
+            });
+            if (seenKeys.has(ctxKey)) {
+                continue;
+            }
+            seenKeys.add(ctxKey);
+            rows.push({
+                entry: null,
+                project: p,
+                task: undefined,
+                key: `p:${p.id}`,
+            });
+        }
+    }
+
+    return rows;
 });
 
-const recentQuickPickRows = computed(() =>
-    recentQuickPickEntries.value.map((entry) => ({
-        entry,
-        project: props.projects.find((p) => p.id === entry.project_id),
-        task: props.tasks.find((t) => t.id === entry.task_id),
-    }))
+const FOCUS_QUICK_PICK_SCROLL_STEP_PX = 200;
+
+const focusQuickPickScrollEl = ref<HTMLElement | null>(null);
+const canScrollFocusQuickPickLeft = ref(false);
+const canScrollFocusQuickPickRight = ref(false);
+
+function updateFocusQuickPickScrollArrows() {
+    const el = focusQuickPickScrollEl.value;
+    if (!el) {
+        canScrollFocusQuickPickLeft.value = false;
+        canScrollFocusQuickPickRight.value = false;
+        return;
+    }
+    const { scrollLeft, scrollWidth, clientWidth } = el;
+    const maxScroll = Math.max(0, scrollWidth - clientWidth);
+    const epsilon = 2;
+    canScrollFocusQuickPickLeft.value = scrollLeft > epsilon;
+    canScrollFocusQuickPickRight.value = maxScroll > epsilon && scrollLeft < maxScroll - epsilon;
+}
+
+function scrollFocusQuickPick(delta: number) {
+    focusQuickPickScrollEl.value?.scrollBy({ left: delta, behavior: 'smooth' });
+}
+
+useResizeObserver(focusQuickPickScrollEl, () => {
+    updateFocusQuickPickScrollArrows();
+});
+
+watch(
+    () => focusQuickPickRows.value,
+    () => nextTick(() => updateFocusQuickPickScrollArrows()),
+    { deep: true }
 );
 
 function recentChipLabel(entry: TimeEntry): string {
@@ -237,6 +397,53 @@ function quickPickMatchesCurrentContext(entry: TimeEntry): boolean {
     return sameProject && sameTask;
 }
 
+function focusQuickPickRowMatchesCurrent(row: FocusQuickPickRow): boolean {
+    if (row.entry) {
+        return quickPickMatchesCurrentContext(row.entry);
+    }
+    const c = currentTimeEntry.value;
+    if (row.task && row.project) {
+        return c.project_id === row.project.id && c.task_id === row.task.id;
+    }
+    if (row.project) {
+        return c.project_id === row.project.id && isBlankId(c.task_id);
+    }
+    return false;
+}
+
+function focusQuickPickTooltip(row: FocusQuickPickRow): string {
+    if (row.entry) {
+        return recentChipLabel(row.entry);
+    }
+    if (row.project && row.task) {
+        return `${row.project.name} › ${row.task.name}`;
+    }
+    return row.project?.name ?? '';
+}
+
+function applyFocusQuickPickRow(row: FocusQuickPickRow) {
+    if (row.entry) {
+        applyRecentTimeEntryContext(row.entry);
+        return;
+    }
+    if (row.project && row.task) {
+        currentTimeEntry.value.project_id = row.project.id;
+        currentTimeEntry.value.task_id = row.task.id;
+        setBillableDefaultForProject();
+        if (props.isActive) {
+            emit('updateTimeEntry');
+        }
+        return;
+    }
+    if (row.project) {
+        currentTimeEntry.value.project_id = row.project.id;
+        currentTimeEntry.value.task_id = null;
+        setBillableDefaultForProject();
+        if (props.isActive) {
+            emit('updateTimeEntry');
+        }
+    }
+}
 
 const showDropdown = ref(false);
 const { focused } = useFocus(currentTimeEntryDescriptionInput);
@@ -361,7 +568,7 @@ function onOpenTimerFocusClick(e: MouseEvent) {
             <div
                 class="flex flex-col gap-3 p-3 lg:flex-row lg:items-center lg:justify-between lg:gap-4 border-t border-card-background-separator">
                 <div class="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-                    <div class="flex min-w-0 shrink-0 items-center">
+                    <div class="flex min-w-0 shrink-0 items-center gap-1">
                         <TimeTrackerProjectTaskDropdown
                             v-model:project="currentTimeEntry.project_id"
                             v-model:task="currentTimeEntry.task_id"
@@ -378,57 +585,108 @@ function onOpenTimerFocusClick(e: MouseEvent) {
                             :tasks="tasks"
                             :enable-estimated-time="enableEstimatedTime"
                             @changed="updateProject"></TimeTrackerProjectTaskDropdown>
+                        <DropdownMenu v-if="canShowQuickCreateMenu">
+                            <DropdownMenuTrigger as-child>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    class="inline-flex h-7 w-7 shrink-0 select-none items-center justify-center border border-input-border p-0 text-text-secondary"
+                                    data-testid="timer_quick_create_menu"
+                                    aria-label="Create project or task">
+                                    <PlusIcon class="h-4 w-4" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start" class="min-w-[11rem]">
+                                <DropdownMenuItem
+                                    v-if="canCreateProject"
+                                    class="flex cursor-pointer items-center gap-2"
+                                    @click="showQuickProjectCreate = true">
+                                    <FolderIcon class="h-4 w-4 shrink-0" />
+                                    <span>New project</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                    v-if="canCreateTask && quickTaskCreateDefaultProjectId"
+                                    class="flex cursor-pointer items-center gap-2"
+                                    @click="openQuickTaskCreateModal">
+                                    <QueueListIcon class="h-4 w-4 shrink-0" />
+                                    <span>New task</span>
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                     </div>
-                    <template v-if="recentQuickPickRows.length > 0">
-                        <div class="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
-                            <TooltipProvider
-                                v-for="row in recentQuickPickRows"
-                                :key="`chip-focus-${row.entry.id}`">
-                                <Tooltip>
-                                    <TooltipTrigger as-child>
-                                        <button
-                                            type="button"
-                                            :class="
-                                                twMerge(
-                                                    'min-w-0 max-w-full rounded-md text-left ring-0 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                                                    quickPickMatchesCurrentContext(row.entry) &&
-                                                        'bg-card-background-active'
-                                                )
-                                            "
-                                            @click="applyRecentTimeEntryContext(row.entry)">
-                                            <ProjectBadge
-                                                class="min-w-0 max-w-[min(12rem,100%)]"
-                                                size="base"
-                                                :name="row.project?.name"
-                                                :color="row.project?.color">
-                                                <div
-                                                    v-if="row.project"
-                                                    class="flex min-w-0 items-center space-x-0.5 lg:space-x-1">
-                                                    <span class="shrink-0 text-xs font-medium text-text-primary">
-                                                        {{ row.project.name }}
-                                                    </span>
-                                                    <ChevronRightIcon
-                                                        v-if="row.task"
-                                                        class="h-4 w-4 shrink-0 text-text-secondary"></ChevronRightIcon>
-                                                    <span
-                                                        v-if="row.task"
+                    <template v-if="focusQuickPickRows.length > 0">
+                        <div class="relative min-w-0 flex-1">
+                            <button
+                                v-show="canScrollFocusQuickPickLeft"
+                                type="button"
+                                class="absolute left-1 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-card-border/40 bg-card-background/75 text-text-primary shadow-sm backdrop-blur-sm transition hover:bg-card-background/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                aria-label="Scroll quick picks left"
+                                @click="scrollFocusQuickPick(-FOCUS_QUICK_PICK_SCROLL_STEP_PX)">
+                                <ChevronLeftIcon class="h-5 w-5 opacity-90" />
+                            </button>
+                            <button
+                                v-show="canScrollFocusQuickPickRight"
+                                type="button"
+                                class="absolute right-1 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-card-border/40 bg-card-background/75 text-text-primary shadow-sm backdrop-blur-sm transition hover:bg-card-background/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                aria-label="Scroll quick picks right"
+                                @click="scrollFocusQuickPick(FOCUS_QUICK_PICK_SCROLL_STEP_PX)">
+                                <ChevronRightIconSolid class="h-5 w-5 opacity-90" />
+                            </button>
+                            <div
+                                ref="focusQuickPickScrollEl"
+                                class="flex min-w-0 flex-nowrap items-center gap-1.5 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                                @scroll.passive="updateFocusQuickPickScrollArrows">
+                                <TooltipProvider
+                                    v-for="row in focusQuickPickRows"
+                                    :key="`chip-focus-${row.key}`">
+                                    <Tooltip>
+                                        <TooltipTrigger as-child>
+                                            <button
+                                                type="button"
+                                                :class="
+                                                    twMerge(
+                                                        'shrink-0 max-w-[min(12rem,100%)] rounded-md border border-transparent text-left ring-0 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                                                        focusQuickPickRowMatchesCurrent(row) &&
+                                                            'border-accent-300/50 bg-accent-50 shadow-sm dark:border-accent-400/60 dark:bg-accent-300/25 dark:shadow-[0_0_0_1px_rgba(var(--color-accent-400),0.22)]'
+                                                    )
+                                                "
+                                                @click="applyFocusQuickPickRow(row)">
+                                                <ProjectBadge
+                                                    class="min-w-0 max-w-full"
+                                                    size="base"
+                                                    :name="row.project?.name"
+                                                    :color="row.project?.color">
+                                                    <div
+                                                        v-if="row.project"
+                                                        class="flex min-w-0 items-center space-x-0.5 lg:space-x-1">
+                                                        <span
+                                                            class="shrink-0 text-xs font-medium text-text-primary">
+                                                            {{ row.project.name }}
+                                                        </span>
+                                                        <ChevronRightIcon
+                                                            v-if="row.task"
+                                                            class="h-4 w-4 shrink-0 text-text-secondary"></ChevronRightIcon>
+                                                        <span
+                                                            v-if="row.task"
+                                                            class="min-w-0 truncate text-xs font-medium text-text-primary">
+                                                            {{ row.task.name }}
+                                                        </span>
+                                                    </div>
+                                                    <div
+                                                        v-else-if="row.entry"
                                                         class="min-w-0 truncate text-xs font-medium text-text-primary">
-                                                        {{ row.task.name }}
-                                                    </span>
-                                                </div>
-                                                <div
-                                                    v-else
-                                                    class="min-w-0 truncate text-xs font-medium text-text-primary">
-                                                    {{ recentChipLabel(row.entry) }}
-                                                </div>
-                                            </ProjectBadge>
-                                        </button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                        <p class="max-w-sm">{{ recentChipLabel(row.entry) }}</p>
-                                    </TooltipContent>
-                                </Tooltip>
-                            </TooltipProvider>
+                                                        {{ recentChipLabel(row.entry) }}
+                                                    </div>
+                                                </ProjectBadge>
+                                            </button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            <p class="max-w-sm">{{ focusQuickPickTooltip(row) }}</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
+                            </div>
                         </div>
                     </template>
                 </div>
@@ -531,11 +789,12 @@ function onOpenTimerFocusClick(e: MouseEvent) {
                     </div>
                 </div>
                 <div class="flex min-w-0 shrink items-center justify-between pl-2">
-                <div class="flex items-center w-[130px] @2xl:w-auto shrink min-w-0">
+                <div class="flex w-[130px] min-w-0 shrink items-center gap-1 @2xl:w-auto">
                     <TimeTrackerProjectTaskDropdown
                         v-model:project="currentTimeEntry.project_id"
                         v-model:task="currentTimeEntry.task_id"
                         variant="outline"
+                        class="min-w-0 flex-1"
                         :create-client
                         :can-create-project
                         :clients
@@ -546,6 +805,35 @@ function onOpenTimerFocusClick(e: MouseEvent) {
                         :tasks="tasks"
                         :enable-estimated-time="enableEstimatedTime"
                         @changed="updateProject"></TimeTrackerProjectTaskDropdown>
+                    <DropdownMenu v-if="canShowQuickCreateMenu">
+                        <DropdownMenuTrigger as-child>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                class="h-9 w-9 shrink-0 p-0 text-text-secondary"
+                                data-testid="timer_quick_create_menu"
+                                aria-label="Create project or task">
+                                <PlusIcon class="h-5 w-5" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start" class="min-w-[11rem]">
+                            <DropdownMenuItem
+                                v-if="canCreateProject"
+                                class="flex cursor-pointer items-center gap-2"
+                                @click="showQuickProjectCreate = true">
+                                <FolderIcon class="h-4 w-4 shrink-0" />
+                                <span>New project</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                                v-if="canCreateTask && quickTaskCreateDefaultProjectId"
+                                class="flex cursor-pointer items-center gap-2"
+                                @click="openQuickTaskCreateModal">
+                                <QueueListIcon class="h-4 w-4 shrink-0" />
+                                <span>New task</span>
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </div>
                 <div class="flex items-center space-x-0 @4xl:space-x-2 px-2 @4xl:px-4 shrink-0">
                     <TimeTrackerTagDropdown
@@ -615,6 +903,18 @@ function onOpenTimerFocusClick(e: MouseEvent) {
                 @changed="onToggleButtonPress"></TimeTrackerStartStop>
         </div>
     </div>
+    <ProjectCreateModal
+        v-model:show="showQuickProjectCreate"
+        :create-client="createClient"
+        :enable-estimated-time="enableEstimatedTime"
+        :organization-billable-rate="organizationBillableRate"
+        :currency="currency"
+        :clients="clients"
+        :create-project="quickCreateProject"></ProjectCreateModal>
+    <TaskCreateModal
+        v-model:show="showQuickTaskCreate"
+        :project-id="quickTaskCreateProjectId"
+        @created="onQuickTaskCreated"></TaskCreateModal>
 </template>
 
 <style scoped></style>

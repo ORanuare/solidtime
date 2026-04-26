@@ -11,8 +11,7 @@ import type {
     Client,
 } from '@/packages/api/src';
 
-import { PlusIcon, PlusCircleIcon, MinusIcon, XMarkIcon } from '@heroicons/vue/16/solid';
-import ProjectCreateModal from '@/packages/ui/src/Project/ProjectCreateModal.vue';
+import { MinusIcon, XMarkIcon } from '@heroicons/vue/16/solid';
 import { twMerge } from 'tailwind-merge';
 import { Button } from '@/packages/ui/src/Buttons';
 import { orderTasksWithSubTasks, type TaskWithDepth } from '@/utils/taskHierarchy';
@@ -518,21 +517,10 @@ function resetProject() {
     emit('changed', project.value, task.value);
 }
 
-const showCreateProject = ref(false);
 </script>
 
 <template>
-    <template v-if="projects.length === 0 && canCreateProject">
-        <Button
-            :variant="props.variant"
-            :size="props.size"
-            :class="twMerge('w-full justify-start', props.class)"
-            @click="showCreateProject = true">
-            <PlusIcon class="w-4" />
-            <span class="truncate">Add new project</span>
-        </Button>
-    </template>
-    <Dropdown v-else v-model="open" :close-on-content-click="false" :align="props.align">
+    <Dropdown v-model="open" :close-on-content-click="false" :align="props.align">
         <template #trigger>
             <div class="flex items-center gap-1">
                 <Button
@@ -679,31 +667,9 @@ const showCreateProject = ref(false);
                         </template>
                     </template>
                 </div>
-                <div v-if="canCreateProject" class="hover:bg-card-background-active rounded-b-lg">
-                    <button
-                        class="text-text-primary w-full flex space-x-3 items-center px-4 py-3 text-xs font-semibold border-t border-card-background-separator"
-                        @click="
-                            open = false;
-                            showCreateProject = true;
-                        ">
-                        <PlusCircleIcon
-                            class="w-5 flex-shrink-0 text-icon-default"></PlusCircleIcon>
-                        <span>Create new Project</span>
-                    </button>
-                </div>
             </UseFocusTrap>
         </template>
     </Dropdown>
-    <ProjectCreateModal
-        v-if="showCreateProject"
-        v-model:show="showCreateProject"
-        :create-client
-        :enable-estimated-time="enableEstimatedTime"
-        :organization-billable-rate="organizationBillableRate"
-        :currency="currency"
-        :clients="clients"
-        :create-project
-        :initial-project-name="searchValue"></ProjectCreateModal>
 </template>
 
 <style scoped></style>

@@ -47,6 +47,37 @@ export function dedupeTimeEntriesByQuickPickUniqueness(entries: TimeEntry[]): Ti
     return out;
 }
 
+/** Stable key for project + task in the focus quick-pick row (entry id when neither is set). */
+export function timeEntryContextKeyForFocusPicker(
+    e: Pick<TimeEntry, 'id' | 'project_id' | 'task_id'>
+): string {
+    const p = e.project_id ?? '';
+    const t = e.task_id ?? '';
+    if (p === '' && t === '') {
+        return `e:${e.id}`;
+    }
+    return `${p}|${t}`;
+}
+
+/** One finished entry per distinct project+task (or per entry when no project/task). */
+export function dedupeTimeEntriesByProjectTask(
+    entries: TimeEntry[],
+    onlyFinished = true
+): TimeEntry[] {
+    const list = onlyFinished ? entries.filter((e) => e.end !== null) : [...entries];
+    const seen = new Set<string>();
+    const out: TimeEntry[] = [];
+    for (const e of list) {
+        const key = timeEntryContextKeyForFocusPicker(e);
+        if (seen.has(key)) {
+            continue;
+        }
+        seen.add(key);
+        out.push(e);
+    }
+    return out;
+}
+
 /**
  * Deduplicate and take the first N (e.g. dashboard card, quick-pick chips).
  * Use `quickPick: true` for the inline timer chip row (dedupe by project, not full context).

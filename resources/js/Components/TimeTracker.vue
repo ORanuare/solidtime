@@ -33,7 +33,7 @@ import TimeEntryCreateModal from '@/packages/ui/src/TimeEntry/TimeEntryCreateMod
 import { useClientsStore } from '@/utils/useClients';
 import { getOrganizationCurrencyString } from '@/utils/money';
 import { isAllowedToPerformPremiumAction } from '@/utils/billing';
-import { canCreateNotes, canCreateProjects, canViewNotes } from '@/utils/permissions';
+import { canCreateNotes, canCreateProjects, canCreateTasks, canViewNotes } from '@/utils/permissions';
 import TimerNotesModal from '@/Components/Common/Note/TimerNotesModal.vue';
 import { useTimeEntriesMutations } from '@/utils/useTimeEntriesMutations';
 import { useTimeEntriesInfiniteQuery } from '@/utils/useTimeEntriesInfiniteQuery';
@@ -220,6 +220,7 @@ const noteContextTaskName = computed(() => {
                         :create-project
                         :enable-estimated-time="isAllowedToPerformPremiumAction()"
                         :can-create-project="canCreateProjects()"
+                        :can-create-task="canCreateTasks()"
                         :can-add-note="canAccessTimerNotes && variant !== 'focus'"
                         :organization-billable-rate="organization?.billable_rate ?? null"
                         :create-client
