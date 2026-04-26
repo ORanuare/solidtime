@@ -62,7 +62,10 @@ async function resendInvitation() {
         </div>
         <div
             class="relative whitespace-nowrap flex items-center pl-3 text-right text-sm font-medium pr-4 sm:pr-6 lg:pr-8 3xl:pr-12">
-            <InvitationMoreOptionsDropdown @delete="deleteInvitation" @resend="resendInvitation" />
+            <InvitationMoreOptionsDropdown
+                :accept-url="invitation.accept_url"
+                @delete="deleteInvitation"
+                @resend="resendInvitation" />
         </div>
     </TableRow>
 </template>

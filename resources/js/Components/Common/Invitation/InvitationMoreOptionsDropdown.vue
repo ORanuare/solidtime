@@ -1,16 +1,30 @@
 <script setup lang="ts">
-import { TrashIcon, ArrowPathIcon } from '@heroicons/vue/20/solid';
+import { TrashIcon, ArrowPathIcon, ClipboardDocumentIcon } from '@heroicons/vue/20/solid';
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/packages/ui/src';
+import { useClipboard } from '@vueuse/core';
+import { useNotificationsStore } from '@/utils/notification';
+
+const props = defineProps<{
+    acceptUrl: string;
+}>();
 
 const emit = defineEmits<{
     delete: [];
     resend: [];
 }>();
+
+const { copy, isSupported } = useClipboard({ legacy: true });
+const { addNotification } = useNotificationsStore();
+
+async function copyInviteLink() {
+    await copy(props.acceptUrl);
+    addNotification('success', 'Invite link copied');
+}
 </script>
 
 <template>
@@ -35,7 +49,15 @@ const emit = defineEmits<{
         </DropdownMenuTrigger>
         <DropdownMenuContent class="min-w-[150px]" align="end">
             <DropdownMenuItem
-                data-testid="invitation_delete"
+                v-if="isSupported"
+                data-testid="invitation_copy_link"
+                class="flex items-center space-x-3 cursor-pointer"
+                @click="copyInviteLink()">
+                <ClipboardDocumentIcon class="w-5 text-icon-active" />
+                <span>Copy invite link</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+                data-testid="invitation_resend"
                 class="flex items-center space-x-3 cursor-pointer"
                 @click="emit('resend')">
                 <ArrowPathIcon class="w-5 text-icon-active" />
