@@ -2278,6 +2278,7 @@
                     {
                         "name": "project_id",
                         "in": "query",
+                        "description": "Filter by project (project notes and notes on tasks in the project). May be combined with `task_id` if the task belongs to that project.",
                         "schema": {
                             "type": [
                                 "string",
@@ -2289,6 +2290,7 @@
                     {
                         "name": "task_id",
                         "in": "query",
+                        "description": "Filter by task (notes on that task; also includes workspace-level notes). If `project_id` is set, the task must belong to that project.",
                         "schema": {
                             "type": [
                                 "string",
