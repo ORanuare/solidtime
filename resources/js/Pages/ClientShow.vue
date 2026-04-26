@@ -18,6 +18,9 @@ import {
 } from '@/utils/permissions';
 import CardTitle from '@/packages/ui/src/CardTitle.vue';
 import ProjectTable from '@/Components/Common/Project/ProjectTable.vue';
+import ProjectsFilterDropdown from '@/Components/Common/Project/ProjectsFilterDropdown.vue';
+import ProjectStatusFilterBadge from '@/Components/Common/Project/ProjectStatusFilterBadge.vue';
+import type { ProjectFilters } from '@/Components/Common/Project/ProjectsFilterDropdown.vue';
 import type { SortColumn, SortDirection } from '@/Components/Common/Project/ProjectTable.vue';
 import ClientEditModal from '@/Components/Common/Client/ClientEditModal.vue';
 import ClientMoreOptionsDropdown from '@/Components/Common/Client/ClientMoreOptionsDropdown.vue';
@@ -40,9 +43,37 @@ const clientId = computed(() => (route().params?.client as string) ?? '');
 
 const client = computed(() => clients.value.find((c) => c.id === clientId.value) ?? null);
 
-const projectsForClient = computed(() => {
+const allProjectsForClient = computed(() => {
     return projects.value.filter((p) => p.client_id === clientId.value);
 });
+
+const clientProjectFilters = useStorage<ProjectFilters>(
+    'client-detail-project-filters',
+    { status: 'active', clientIds: [] },
+    undefined,
+    { mergeDefaults: true }
+);
+
+const filteredProjectsForClient = computed(() => {
+    const status = clientProjectFilters.value.status;
+    return allProjectsForClient.value.filter((project) => {
+        if (status === 'active' && project.is_archived) {
+            return false;
+        }
+        if (status === 'archived' && !project.is_archived) {
+            return false;
+        }
+        return true;
+    });
+});
+
+function removeClientProjectsStatusFilter() {
+    clientProjectFilters.value.status = 'active';
+}
+
+function onClientProjectFiltersUpdate(filters: ProjectFilters) {
+    clientProjectFilters.value = { ...filters, clientIds: [] };
+}
 
 interface ClientDetailProjectTableSort {
     sortColumn: SortColumn;
@@ -359,9 +390,23 @@ function archiveClient() {
                         </SecondaryButton>
                     </template>
                 </CardTitle>
-                <div v-if="projectsForClient.length > 0" class="mt-3">
+                <div class="flex flex-wrap items-center gap-2 py-1 mt-2">
+                    <ProjectsFilterDropdown
+                        :filters="clientProjectFilters"
+                        :clients="[]"
+                        :show-client-filter="false"
+                        @update:filters="onClientProjectFiltersUpdate" />
+                    <ProjectStatusFilterBadge
+                        v-if="clientProjectFilters.status !== 'active'"
+                        :value="clientProjectFilters.status"
+                        @remove="removeClientProjectsStatusFilter"
+                        @update:value="
+                            clientProjectFilters.status = $event as 'active' | 'archived' | 'all'
+                        " />
+                </div>
+                <div v-if="filteredProjectsForClient.length > 0" class="mt-3">
                     <ProjectTable
-                        :projects="projectsForClient"
+                        :projects="filteredProjectsForClient"
                         :show-billable-rate="showBillableRate"
                         :show-per-project-billable-total="showBillableCost"
                         :per-project-billable-cents-by-id="perProjectBillableCentsById"
@@ -370,9 +415,21 @@ function archiveClient() {
                         @sort="handleProjectSort" />
                 </div>
                 <p
-                    v-else
+                    v-else-if="allProjectsForClient.length === 0"
                     class="mt-3 py-8 px-4 text-sm text-text-tertiary text-center rounded-lg border border-card-border bg-card-background">
                     No projects linked to this client yet.
+                </p>
+                <p
+                    v-else
+                    class="mt-3 py-8 px-4 text-sm text-text-tertiary text-center rounded-lg border border-card-border bg-card-background">
+                    <template v-if="clientProjectFilters.status === 'active'">
+                        No active projects for this client. Use the filter to show archived or all
+                        projects.
+                    </template>
+                    <template v-else-if="clientProjectFilters.status === 'archived'">
+                        No archived projects for this client.
+                    </template>
+                    <template v-else>No projects match the current filter.</template>
                 </p>
             </MainContainer>
         </template>
