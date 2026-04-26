@@ -25,7 +25,10 @@ export async function fetchAllNotes(
     );
 }
 
-export function useNotesQuery(filters?: MaybeRefOrGetter<NotesListFilters | undefined>) {
+export function useNotesQuery(
+    filters?: MaybeRefOrGetter<NotesListFilters | undefined>,
+    options?: { enabled?: MaybeRefOrGetter<boolean> }
+) {
     const queryClient = useQueryClient();
 
     const query = useQuery({
@@ -50,7 +53,16 @@ export function useNotesQuery(filters?: MaybeRefOrGetter<NotesListFilters | unde
             const data = await fetchAllNotes(organizationId, f);
             return { data };
         },
-        enabled: () => !!getCurrentOrganizationId(),
+        enabled: () => {
+            if (!getCurrentOrganizationId()) {
+                return false;
+            }
+            if (options?.enabled !== undefined && !toValue(options.enabled)) {
+                return false;
+            }
+
+            return true;
+        },
         staleTime: 1000 * 30,
     });
 

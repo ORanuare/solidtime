@@ -1,0 +1,155 @@
+<script setup lang="ts">
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
+import NoteMarkdownEditor from '@/Components/Common/Note/NoteMarkdownEditor.vue';
+import NoteMarkdownView from '@/Components/Common/Note/NoteMarkdownView.vue';
+import { getNotePreviewLine } from '@/utils/notePreview';
+import type { Note } from '@/packages/api/src';
+import { useNotesStore } from '@/utils/useNotes';
+import { canDeleteNotes, canUpdateNotes } from '@/utils/permissions';
+import { getCurrentUserId } from '@/utils/useUser';
+import {
+    ArchiveBoxIcon,
+    ChevronDownIcon,
+    ChevronUpIcon,
+    TrashIcon,
+} from '@heroicons/vue/20/solid';
+
+const props = defineProps<{
+    note: Note;
+}>();
+
+const { updateNote, deleteNote } = useNotesStore();
+const currentUserId = getCurrentUserId();
+
+const localBody = ref(props.note.body);
+const expanded = ref(false);
+const saveStatus = ref<'idle' | 'saving' | 'saved'>('idle');
+let savedClearTimer: ReturnType<typeof setTimeout> | null = null;
+
+watch(
+    () => props.note.body,
+    (b) => {
+        localBody.value = b;
+    }
+);
+
+const canEdit = computed(() => canUpdateNotes() && props.note.user_id === currentUserId);
+const canDelete = computed(() => canDeleteNotes() && props.note.user_id === currentUserId);
+
+let saveDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+watch(localBody, (v) => {
+    if (!canEdit.value) {
+        return;
+    }
+    if (saveDebounceTimer !== null) {
+        clearTimeout(saveDebounceTimer);
+    }
+    saveDebounceTimer = setTimeout(async () => {
+        saveDebounceTimer = null;
+        if (v === props.note.body) {
+            return;
+        }
+        saveStatus.value = 'saving';
+        try {
+            await updateNote({
+                noteId: props.note.id,
+                body: { body: v },
+            });
+            saveStatus.value = 'saved';
+            if (savedClearTimer !== null) {
+                clearTimeout(savedClearTimer);
+            }
+            savedClearTimer = setTimeout(() => {
+                saveStatus.value = 'idle';
+            }, 2000);
+        } catch {
+            saveStatus.value = 'idle';
+        }
+    }, 800);
+});
+
+onBeforeUnmount(() => {
+    if (saveDebounceTimer !== null) {
+        clearTimeout(saveDebounceTimer);
+    }
+    if (savedClearTimer !== null) {
+        clearTimeout(savedClearTimer);
+    }
+});
+
+async function onArchive() {
+    await updateNote({
+        noteId: props.note.id,
+        body: { is_archived: !props.note.is_archived },
+    });
+}
+
+function onDelete() {
+    void deleteNote(props.note.id);
+}
+</script>
+
+<template>
+    <div
+        class="rounded-lg border border-default bg-card-background p-3 shadow-sm"
+        :data-note-id="note.id">
+        <div class="flex items-start justify-between gap-2">
+            <div class="min-w-0 flex-1 text-xs text-text-tertiary">
+                <span class="font-medium text-text-secondary">{{ note.user_name }}</span>
+                <span v-if="note.visibility === 'private'" class="ml-1.5">· Private</span>
+                <span v-else class="ml-1.5">· Shared</span>
+                <span v-if="note.is_archived" class="ml-1.5">· Archived</span>
+            </div>
+            <div class="flex shrink-0 items-center gap-0.5">
+                <span
+                    v-if="canEdit && saveStatus !== 'idle'"
+                    class="text-[10px] uppercase tracking-wide text-text-tertiary">
+                    {{ saveStatus === 'saving' ? 'Saving…' : 'Saved' }}
+                </span>
+                <button
+                    v-if="canEdit"
+                    type="button"
+                    class="p-1 rounded text-text-secondary hover:bg-white/5"
+                    :aria-label="note.is_archived ? 'Unarchive note' : 'Archive note'"
+                    @click="onArchive">
+                    <ArchiveBoxIcon class="h-4 w-4" />
+                </button>
+                <button
+                    v-else
+                    type="button"
+                    class="p-1 rounded text-text-secondary hover:bg-white/5"
+                    :aria-expanded="expanded"
+                    :aria-label="expanded ? 'Collapse note' : 'Expand note'"
+                    @click="expanded = !expanded">
+                    <ChevronUpIcon v-if="expanded" class="h-4 w-4" />
+                    <ChevronDownIcon v-else class="h-4 w-4" />
+                </button>
+                <button
+                    v-if="canDelete"
+                    type="button"
+                    class="p-1 rounded text-destructive hover:bg-white/5"
+                    aria-label="Delete note"
+                    @click="onDelete">
+                    <TrashIcon class="h-4 w-4" />
+                </button>
+            </div>
+        </div>
+
+        <div v-if="canEdit" class="mt-2">
+            <NoteMarkdownEditor
+                v-model="localBody"
+                :show-toolbar="false"
+                compact
+                placeholder-text="Write markdown…" />
+        </div>
+        <div v-else class="mt-2">
+            <p class="text-sm text-text-primary line-clamp-2">
+                {{ getNotePreviewLine(note.body) }}
+            </p>
+            <div v-if="expanded" class="mt-2 border-t border-default pt-2">
+                <NoteMarkdownView class="text-sm" :source="note.body" />
+            </div>
+        </div>
+    </div>
+</template>

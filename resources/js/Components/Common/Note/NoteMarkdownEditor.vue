@@ -39,9 +39,15 @@ const props = withDefaults(
     defineProps<{
         /** Shown when the document is empty. */
         placeholderText?: string;
+        /** When false, hide the formatting toolbar (e.g. inline note rows). */
+        showToolbar?: boolean;
+        /** Shorter editor height for inline cards. */
+        compact?: boolean;
     }>(),
     {
         placeholderText: 'Use the toolbar for headings, lists, and formatting…',
+        showToolbar: true,
+        compact: false,
     }
 );
 
@@ -95,8 +101,20 @@ const appTheme: Extension = EditorView.theme({
     },
 });
 
+const compactTheme: Extension = EditorView.theme({
+    '.cm-scroller': {
+        minHeight: '120px',
+    },
+});
+
 function buildExtensions(): Extension[] {
-    const list: Extension[] = [basicSetup, markdown(), appTheme, EditorView.lineWrapping];
+    const list: Extension[] = [
+        basicSetup,
+        markdown(),
+        appTheme,
+        ...(props.compact ? [compactTheme] : []),
+        EditorView.lineWrapping,
+    ];
     if (props.placeholderText) {
         list.push(placeholder(props.placeholderText));
     }
@@ -148,11 +166,18 @@ watch(
 
 const toolBtnClass =
     'inline-flex h-8 min-w-8 items-center justify-center rounded-md border border-transparent text-text-secondary transition-colors hover:bg-white/5 hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none';
+
+function focusEditor() {
+    view?.focus();
+}
+
+defineExpose({ focus: focusEditor });
 </script>
 
 <template>
     <div class="w-full overflow-hidden rounded-md border border-default bg-card text-left text-sm">
         <div
+            v-if="showToolbar"
             class="flex flex-wrap items-center gap-0.5 border-b border-default bg-muted/20 px-1.5 py-1.5"
             @mousedown.prevent>
             <button
@@ -266,7 +291,8 @@ const toolBtnClass =
         </div>
         <div
             ref="host"
-            class="w-full min-h-60 overflow-hidden font-mono"
+            class="w-full overflow-hidden font-mono"
+            :class="compact ? 'min-h-24' : 'min-h-60'"
             data-testid="note-body-editor-host" />
     </div>
 </template>

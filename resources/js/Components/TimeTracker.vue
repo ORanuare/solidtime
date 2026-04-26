@@ -235,7 +235,7 @@ const noteContextTaskName = computed(() => {
                         :create-project
                         :enable-estimated-time="isAllowedToPerformPremiumAction()"
                         :can-create-project="canCreateProjects()"
-                        :can-add-note="canAccessTimerNotes"
+                        :can-add-note="canAccessTimerNotes && variant !== 'focus'"
                         :organization-billable-rate="organization?.billable_rate ?? null"
                         :create-client
                         :clients

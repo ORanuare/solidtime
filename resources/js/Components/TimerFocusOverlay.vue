@@ -1,11 +1,14 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import { MagnifyingGlassIcon, XMarkIcon } from '@heroicons/vue/20/solid';
 import OrganizationSwitcher from '@/Components/OrganizationSwitcher.vue';
 import TimeTracker from '@/Components/TimeTracker.vue';
+import TimerFocusNotesPanel from '@/Components/Common/Note/TimerFocusNotesPanel.vue';
 import { Button } from '@/packages/ui/src/Buttons';
 import { useTimerFocus } from '@/utils/useTimerFocus';
 import { useCommandPalette } from '@/utils/useCommandPalette';
 import { onKeyStroke } from '@vueuse/core';
+import { canCreateNotes, canViewNotes } from '@/utils/permissions';
 
 const { isTimerFocusOpen, transformOrigin, close } = useTimerFocus();
 const { openPalette, isOpen: paletteIsOpen } = useCommandPalette();
@@ -17,6 +20,8 @@ onKeyStroke('Escape', (e) => {
     e.preventDefault();
     close();
 });
+
+const showNotesColumn = computed(() => canViewNotes() || canCreateNotes());
 </script>
 
 <template>
@@ -54,8 +59,17 @@ onKeyStroke('Escape', (e) => {
                         </Button>
                     </div>
                 </div>
-                <div class="flex min-h-0 flex-1 items-center justify-center overflow-y-auto px-4 py-6">
-                    <TimeTracker variant="focus" />
+                <div
+                    class="flex min-h-0 flex-1 flex-col lg:flex-row">
+                    <div
+                        class="flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-y-auto px-4 py-6">
+                        <TimeTracker variant="focus" />
+                    </div>
+                    <aside
+                        v-if="showNotesColumn"
+                        class="flex h-48 min-h-0 w-full shrink-0 flex-col border-t border-default bg-default-background lg:h-auto lg:max-w-md lg:border-l lg:border-t-0 xl:max-w-lg">
+                        <TimerFocusNotesPanel class="h-full min-h-0" />
+                    </aside>
                 </div>
             </div>
         </Transition>
