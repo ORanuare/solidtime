@@ -24,7 +24,7 @@ const timeInputClass = computed(() =>
     twMerge(
         'h-full text-text-primary rounded-lg border-border-secondary border text-center bg-card-background border-none placeholder-text-tertiary focus:ring-0 transition font-semibold',
         props.timerVariant === 'focus'
-            ? 'w-[min(320px,calc(100vw-2rem))] min-w-[200px] text-3xl sm:text-4xl tabular-nums tracking-tight py-5 px-5'
+            ? 'w-[min(260px,calc(100vw-2rem))] min-w-[160px] text-2xl sm:text-3xl tabular-nums tracking-tight py-3.5 px-4'
             : 'w-[110px] lg:w-[120px] py-2.5 px-4 text-base'
     )
 );

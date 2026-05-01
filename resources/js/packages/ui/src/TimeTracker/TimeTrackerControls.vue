@@ -560,9 +560,9 @@ function onOpenTimerFocusClick(e: MouseEvent) {
 <template>
     <div
         v-if="layout === 'focus'"
-        class="flex flex-col w-full relative gap-8 @container"
+        class="flex flex-col w-full relative gap-6 @container"
         data-testid="dashboard_timer">
-        <div class="flex flex-col items-center justify-center gap-5 px-1">
+        <div class="flex flex-col items-center justify-center gap-4 px-1">
             <TimeTrackerRangeSelector
                 v-model:current-time-entry="currentTimeEntry"
                 v-model:live-timer="liveTimer"
@@ -574,11 +574,11 @@ function onOpenTimerFocusClick(e: MouseEvent) {
                 @create-time-entry="emit('createTimeEntry')"
                 @keydown.enter="startTimerIfNotActive"></TimeTrackerRangeSelector>
             <div
-                class="flex max-w-[min(320px,calc(100vw-2rem))] min-w-[200px] flex-col items-center gap-1 px-2 text-center"
+                class="flex max-w-[min(260px,calc(100vw-2rem))] min-w-[160px] flex-col items-center gap-1 px-2 text-center"
                 data-testid="timer_focus_context">
                 <div
                     v-if="timerProject || timerTask"
-                    class="flex max-w-full items-center justify-center gap-1.5 text-sm font-medium text-text-primary sm:text-base">
+                    class="flex max-w-full items-center justify-center gap-1.5 text-xs font-medium text-text-primary sm:text-sm">
                     <span
                         v-if="timerProjectForContext"
                         class="h-2.5 w-2.5 shrink-0 rounded-full ring-1 ring-black/10 dark:ring-white/15"
@@ -595,12 +595,12 @@ function onOpenTimerFocusClick(e: MouseEvent) {
                 </div>
                 <p v-else class="text-sm text-text-tertiary">Add a project or task</p>
                 <p
-                    v-if="tempDescription.trim()"
+                    v-if="tempDescription?.trim()"
                     class="w-full max-w-full truncate text-sm text-text-secondary">
-                    {{ tempDescription.trim() }}
+                    {{ tempDescription?.trim() }}
                 </p>
             </div>
-            <div class="flex flex-wrap items-center justify-center gap-4 sm:gap-5">
+            <div class="flex flex-wrap items-center justify-center gap-3 sm:gap-4">
                 <TimeTrackerStartStop
                     :active="isActive"
                     size="large"
@@ -620,14 +620,14 @@ function onOpenTimerFocusClick(e: MouseEvent) {
             </div>
         </div>
         <div
-            class="flex flex-col w-full rounded-lg bg-card-background border-card-border border transition shadow-card overflow-visible">
+            class="mx-auto flex w-full max-w-xl flex-col rounded-lg border border-card-border bg-card-background shadow-card transition overflow-visible">
             <div class="flex flex-1 flex-col relative min-w-0 overflow-visible">
                 <input
                     ref="currentTimeEntryDescriptionInput"
                     v-model="tempDescription"
                     placeholder="What are you working on?"
                     data-testid="time_entry_description"
-                    class="w-full py-4 sm:py-5 px-4 text-lg sm:text-xl text-text-primary bg-transparent border-none border-b border-b-card-background-separator placeholder-text-secondary focus:ring-0 transition"
+                    class="w-full px-3 py-2.5 text-base text-text-primary bg-transparent border-none border-b border-b-card-background-separator placeholder-text-secondary focus:ring-0 transition sm:py-3 sm:text-lg"
                     type="text"
                     @keydown.enter="startTimerIfNotActive"
                     @keydown.esc="showDropdown = false"
@@ -660,8 +660,8 @@ function onOpenTimerFocusClick(e: MouseEvent) {
                 </div>
             </div>
             <div
-                class="flex flex-col gap-3 p-3 lg:flex-row lg:items-center lg:justify-between lg:gap-4 border-t border-card-background-separator">
-                <div class="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                class="flex flex-col gap-2 border-t border-card-background-separator p-2 sm:p-2.5 lg:flex-row lg:items-center lg:justify-between lg:gap-3">
+                <div class="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
                     <div class="flex min-w-0 shrink-0 items-center gap-1">
                         <TimeTrackerProjectTaskDropdown
                             v-model:project="currentTimeEntry.project_id"
@@ -685,10 +685,10 @@ function onOpenTimerFocusClick(e: MouseEvent) {
                                     type="button"
                                     variant="outline"
                                     size="sm"
-                                    class="inline-flex h-7 w-7 shrink-0 select-none items-center justify-center border border-input-border p-0 text-text-secondary"
+                                    class="inline-flex h-6 w-6 shrink-0 select-none items-center justify-center border border-input-border p-0 text-text-secondary"
                                     data-testid="timer_quick_create_menu"
                                     aria-label="Create project or task">
-                                    <PlusIcon class="h-4 w-4" />
+                                    <PlusIcon class="h-3.5 w-3.5" />
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="start" class="min-w-[11rem]">
@@ -714,22 +714,22 @@ function onOpenTimerFocusClick(e: MouseEvent) {
                             <button
                                 v-show="canScrollFocusQuickPickLeft"
                                 type="button"
-                                class="absolute left-1 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-card-border/40 bg-card-background/75 text-text-primary shadow-sm backdrop-blur-sm transition hover:bg-card-background/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                class="absolute left-1 top-1/2 z-10 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-card-border/40 bg-card-background/75 text-text-primary shadow-sm backdrop-blur-sm transition hover:bg-card-background/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                 aria-label="Scroll quick picks left"
                                 @click="scrollFocusQuickPick(-FOCUS_QUICK_PICK_SCROLL_STEP_PX)">
-                                <ChevronLeftIcon class="h-5 w-5 opacity-90" />
+                                <ChevronLeftIcon class="h-4 w-4 opacity-90" />
                             </button>
                             <button
                                 v-show="canScrollFocusQuickPickRight"
                                 type="button"
-                                class="absolute right-1 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-card-border/40 bg-card-background/75 text-text-primary shadow-sm backdrop-blur-sm transition hover:bg-card-background/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                class="absolute right-1 top-1/2 z-10 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-card-border/40 bg-card-background/75 text-text-primary shadow-sm backdrop-blur-sm transition hover:bg-card-background/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                 aria-label="Scroll quick picks right"
                                 @click="scrollFocusQuickPick(FOCUS_QUICK_PICK_SCROLL_STEP_PX)">
-                                <ChevronRightIconSolid class="h-5 w-5 opacity-90" />
+                                <ChevronRightIconSolid class="h-4 w-4 opacity-90" />
                             </button>
                             <div
                                 ref="focusQuickPickScrollEl"
-                                class="flex min-w-0 flex-nowrap items-center gap-1.5 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                                class="flex min-w-0 flex-nowrap items-center gap-1 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                                 @scroll.passive="updateFocusQuickPickScrollArrows">
                                 <TooltipProvider
                                     v-for="row in focusQuickPickRows"
@@ -740,14 +740,14 @@ function onOpenTimerFocusClick(e: MouseEvent) {
                                                 type="button"
                                                 :class="
                                                     twMerge(
-                                                        'shrink-0 max-w-[min(12rem,100%)] rounded-md border border-transparent text-left ring-0 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                                                        'shrink-0 max-w-[min(10rem,100%)] rounded-md border border-transparent py-0.5 text-left ring-0 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                                                         focusQuickPickRowMatchesCurrent(row) &&
                                                             'border-accent-300/50 bg-accent-50 shadow-sm dark:border-accent-400/60 dark:bg-accent-300/25 dark:shadow-[0_0_0_1px_rgba(var(--color-accent-400),0.22)]'
                                                     )
                                                 "
                                                 @click="applyFocusQuickPickRow(row)">
                                                 <ProjectBadge
-                                                    class="min-w-0 max-w-full"
+                                                    class="min-w-0 max-w-full py-0.5 px-1.5 text-[11px] leading-snug"
                                                     size="base"
                                                     :name="row.project?.name"
                                                     :color="row.project?.color">
@@ -785,7 +785,7 @@ function onOpenTimerFocusClick(e: MouseEvent) {
                     </template>
                 </div>
                 <div
-                    class="flex flex-wrap items-center gap-1 sm:gap-2 lg:justify-end shrink-0">
+                    class="flex shrink-0 flex-wrap items-center gap-1 sm:gap-1.5 lg:justify-end">
                     <TimeTrackerTagDropdown
                         v-model="currentTimeEntry.tags"
                         :create-tag
@@ -804,12 +804,12 @@ function onOpenTimerFocusClick(e: MouseEvent) {
                                     :class="
                                         twMerge(
                                             noteActionIconClass,
-                                            'flex-shrink-0 ring-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring transition focus:bg-card-background-separator hover:bg-card-background-separator rounded-full w-10 h-10 flex items-center justify-center'
+                                            'flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full ring-0 transition hover:bg-card-background-separator focus:bg-card-background-separator focus:outline-none focus-visible:ring-2 focus-visible:ring-ring'
                                         )
                                     "
                                     @click="$emit('addNote')">
                                     <ClipboardDocumentListIcon
-                                        class="w-5 h-5 lg:h-6 lg:w-6"></ClipboardDocumentListIcon>
+                                        class="h-4 w-4 sm:h-[1.125rem] sm:w-[1.125rem]"></ClipboardDocumentListIcon>
                                 </button>
                             </TooltipTrigger>
                             <TooltipContent> Notes </TooltipContent>
