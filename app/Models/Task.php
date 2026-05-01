@@ -271,6 +271,14 @@ class Task extends Model implements AuditableContract
     }
 
     /**
+     * @return MorphMany<CalendarEvent, $this>
+     */
+    public function calendarEvents(): MorphMany
+    {
+        return $this->morphMany(CalendarEvent::class, 'eventable');
+    }
+
+    /**
      * @param  Builder<Task>  $builder
      * @return Builder<Task>
      */

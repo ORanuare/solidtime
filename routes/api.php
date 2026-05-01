@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\V1\ExportController;
 use App\Http\Controllers\Api\V1\ImportController;
 use App\Http\Controllers\Api\V1\InvitationController;
 use App\Http\Controllers\Api\V1\MemberController;
+use App\Http\Controllers\Api\V1\CalendarEventController;
 use App\Http\Controllers\Api\V1\NoteController;
 use App\Http\Controllers\Api\V1\OrganizationController;
 use App\Http\Controllers\Api\V1\ProjectController;
@@ -154,6 +155,14 @@ Route::prefix('v1')->name('v1.')->group(static function (): void {
             Route::post('/notes', [NoteController::class, 'store'])->name('store')->middleware('check-organization-blocked');
             Route::put('/notes/{note}', [NoteController::class, 'update'])->name('update')->middleware('check-organization-blocked');
             Route::delete('/notes/{note}', [NoteController::class, 'destroy'])->name('destroy');
+        });
+
+        // Calendar event routes
+        Route::name('calendar-events.')->prefix('/organizations/{organization}')->group(static function (): void {
+            Route::get('/calendar-events', [CalendarEventController::class, 'index'])->name('index');
+            Route::post('/calendar-events', [CalendarEventController::class, 'store'])->name('store')->middleware('check-organization-blocked');
+            Route::put('/calendar-events/{calendar_event}', [CalendarEventController::class, 'update'])->name('update')->middleware('check-organization-blocked');
+            Route::delete('/calendar-events/{calendar_event}', [CalendarEventController::class, 'destroy'])->name('destroy');
         });
 
         // Client routes
