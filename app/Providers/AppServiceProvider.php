@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Models\CalendarEvent;
 use App\Models\Client;
 use App\Models\FailedJob;
 use App\Models\Member;
@@ -58,6 +59,7 @@ class AppServiceProvider extends ServiceProvider
         Model::preventSilentlyDiscardingAttributes(! $this->app->isProduction());
         Model::preventAccessingMissingAttributes(! $this->app->isProduction());
         Relation::enforceMorphMap([
+            'calendar-event' => CalendarEvent::class,
             'client' => Client::class,
             'failed-job' => FailedJob::class,
             'membership' => Member::class,
