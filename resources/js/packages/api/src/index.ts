@@ -68,6 +68,11 @@ export type MemberRole = InviteMemberBody['role'];
 export type CreateTagBody = ZodiosBodyByAlias<SolidTimeApi, 'createTag'>;
 export type UpdateTagBody = ZodiosBodyByAlias<SolidTimeApi, 'updateTag'>;
 
+export type CalendarEventsIndexResponse = ZodiosResponseByAlias<SolidTimeApi, 'getCalendarEvents'>;
+export type OrgCalendarEvent = CalendarEventsIndexResponse['data'][0];
+export type CreateOrgCalendarEventBody = ZodiosBodyByAlias<SolidTimeApi, 'createCalendarEvent'>;
+export type UpdateOrgCalendarEventBody = ZodiosBodyByAlias<SolidTimeApi, 'updateCalendarEvent'>;
+
 export type NoteIndexResponse = ZodiosResponseByAlias<SolidTimeApi, 'getNotes'>;
 export type Note = NoteIndexResponse['data'][0];
 export type CreateNoteBody = ZodiosBodyByAlias<SolidTimeApi, 'createNote'>;

@@ -24,6 +24,54 @@ const ApiTokenWithAccessTokenResource = z
         access_token: z.string(),
     })
     .passthrough();
+const project_id = z.union([z.string(), z.null()]).optional();
+const visibility = z.union([z.enum(['private', 'shared']), z.null()]).optional();
+const CalendarEventResource = z
+    .object({
+        id: z.string(),
+        title: z.string(),
+        description: z.union([z.string(), z.null()]),
+        starts_at: z.union([z.string(), z.null()]),
+        ends_at: z.union([z.string(), z.null()]),
+        all_day: z.boolean(),
+        visibility: z.string(),
+        user_id: z.string(),
+        user_name: z.string(),
+        project_id: z.string(),
+        task_id: z.string(),
+        eventable_type: z.union([z.string(), z.null()]),
+        eventable_id: z.union([z.string(), z.null()]),
+        eventable_label: z.union([z.string(), z.literal('Workspace')]),
+        created_at: z.union([z.string(), z.null()]),
+        updated_at: z.union([z.string(), z.null()]),
+    })
+    .passthrough();
+const CalendarEventStoreRequest = z
+    .object({
+        title: z.string().max(500),
+        description: z.union([z.string(), z.null()]).optional(),
+        starts_at: z.string().datetime({ offset: true }),
+        ends_at: z.string().datetime({ offset: true }),
+        all_day: z.boolean(),
+        visibility: z.enum(['private', 'shared']),
+        task_id: z.union([z.string(), z.null()]).optional(),
+        project_id: z.union([z.string(), z.null()]).optional(),
+    })
+    .passthrough();
+const CalendarEventUpdateRequest = z
+    .object({
+        title: z.string().max(500),
+        description: z.union([z.string(), z.null()]),
+        starts_at: z.string().datetime({ offset: true }),
+        ends_at: z.string().datetime({ offset: true }),
+        all_day: z.boolean(),
+        visibility: z.enum(['private', 'shared']),
+        reassign: z.boolean(),
+        task_id: z.string(),
+        project_id: z.string(),
+    })
+    .partial()
+    .passthrough();
 const week_offset = z.union([z.number(), z.null()]).optional();
 const ClientResource = z
     .object({
@@ -95,8 +143,6 @@ const MemberUpdateRequest = z
     .partial()
     .passthrough();
 const MemberMergeIntoRequest = z.object({ member_id: z.string() }).partial().passthrough();
-const project_id = z.union([z.string(), z.null()]).optional();
-const visibility = z.union([z.enum(['private', 'shared']), z.null()]).optional();
 const NoteResource = z
     .object({
         id: z.string(),
@@ -128,8 +174,8 @@ const NoteUpdateRequest = z
         visibility: z.enum(['private', 'shared']),
         is_archived: z.boolean(),
         reassign: z.boolean(),
-        task_id: z.union([z.string(), z.null()]),
-        project_id: z.union([z.string(), z.null()]),
+        task_id: z.string(),
+        project_id: z.string(),
     })
     .partial()
     .passthrough();
@@ -636,12 +682,18 @@ const PersonalMembershipResource = z
         role: z.string(),
     })
     .passthrough();
+const JsonResource = z.string();
 
 export const schemas = {
     ApiTokenResource,
     ApiTokenCollection,
     ApiTokenStoreRequest,
     ApiTokenWithAccessTokenResource,
+    project_id,
+    visibility,
+    CalendarEventResource,
+    CalendarEventStoreRequest,
+    CalendarEventUpdateRequest,
     week_offset,
     ClientResource,
     ClientStoreRequest,
@@ -652,8 +704,6 @@ export const schemas = {
     MemberResource,
     MemberUpdateRequest,
     MemberMergeIntoRequest,
-    project_id,
-    visibility,
     NoteResource,
     NoteStoreRequest,
     NoteUpdateRequest,
@@ -691,6 +741,7 @@ export const schemas = {
     Weekday,
     UserResource,
     PersonalMembershipResource,
+    JsonResource,
 };
 
 const endpoints = makeApi([
@@ -774,6 +825,233 @@ const endpoints = makeApi([
                 schema: z
                     .object({ message: z.string(), errors: z.record(z.array(z.string())) })
                     .passthrough(),
+            },
+        ],
+    },
+    {
+        method: 'get',
+        path: '/v1/organizations/:organization/calendar-events',
+        alias: 'getCalendarEvents',
+        requestFormat: 'json',
+        parameters: [
+            {
+                name: 'organization',
+                type: 'Path',
+                schema: z.string(),
+            },
+            {
+                name: 'page',
+                type: 'Query',
+                schema: z.number().int().gte(1).lte(2147483647).optional(),
+            },
+            {
+                name: 'start',
+                type: 'Query',
+                schema: z.string().datetime({ offset: true }),
+            },
+            {
+                name: 'end',
+                type: 'Query',
+                schema: z.string().datetime({ offset: true }),
+            },
+            {
+                name: 'project_id',
+                type: 'Query',
+                schema: project_id,
+            },
+            {
+                name: 'task_id',
+                type: 'Query',
+                schema: project_id,
+            },
+            {
+                name: 'visibility',
+                type: 'Query',
+                schema: visibility,
+            },
+        ],
+        response: z
+            .object({
+                data: z.array(CalendarEventResource),
+                links: z
+                    .object({
+                        first: z.union([z.string(), z.null()]),
+                        last: z.union([z.string(), z.null()]),
+                        prev: z.union([z.string(), z.null()]),
+                        next: z.union([z.string(), z.null()]),
+                    })
+                    .passthrough(),
+                meta: z
+                    .object({
+                        current_page: z.number().int(),
+                        from: z.union([z.number(), z.null()]),
+                        last_page: z.number().int(),
+                        links: z.array(
+                            z
+                                .object({
+                                    url: z.union([z.string(), z.null()]),
+                                    label: z.string(),
+                                    active: z.boolean(),
+                                })
+                                .passthrough()
+                        ),
+                        path: z.union([z.string(), z.null()]),
+                        per_page: z.number().int(),
+                        to: z.union([z.number(), z.null()]),
+                        total: z.number().int(),
+                    })
+                    .passthrough(),
+            })
+            .passthrough(),
+        errors: [
+            {
+                status: 401,
+                description: `Unauthenticated`,
+                schema: z.object({ message: z.string() }).passthrough(),
+            },
+            {
+                status: 403,
+                description: `Authorization error`,
+                schema: z.object({ message: z.string() }).passthrough(),
+            },
+            {
+                status: 404,
+                description: `Not found`,
+                schema: z.object({ message: z.string() }).passthrough(),
+            },
+            {
+                status: 422,
+                description: `Validation error`,
+                schema: z
+                    .object({ message: z.string(), errors: z.record(z.array(z.string())) })
+                    .passthrough(),
+            },
+        ],
+    },
+    {
+        method: 'post',
+        path: '/v1/organizations/:organization/calendar-events',
+        alias: 'createCalendarEvent',
+        requestFormat: 'json',
+        parameters: [
+            {
+                name: 'body',
+                type: 'Body',
+                schema: CalendarEventStoreRequest,
+            },
+            {
+                name: 'organization',
+                type: 'Path',
+                schema: z.string(),
+            },
+        ],
+        response: z.object({ data: CalendarEventResource }).passthrough(),
+        errors: [
+            {
+                status: 401,
+                description: `Unauthenticated`,
+                schema: z.object({ message: z.string() }).passthrough(),
+            },
+            {
+                status: 403,
+                description: `Authorization error`,
+                schema: z.object({ message: z.string() }).passthrough(),
+            },
+            {
+                status: 404,
+                description: `Not found`,
+                schema: z.object({ message: z.string() }).passthrough(),
+            },
+            {
+                status: 422,
+                description: `Validation error`,
+                schema: z
+                    .object({ message: z.string(), errors: z.record(z.array(z.string())) })
+                    .passthrough(),
+            },
+        ],
+    },
+    {
+        method: 'put',
+        path: '/v1/organizations/:organization/calendar-events/:calendarEvent',
+        alias: 'updateCalendarEvent',
+        requestFormat: 'json',
+        parameters: [
+            {
+                name: 'body',
+                type: 'Body',
+                schema: CalendarEventUpdateRequest,
+            },
+            {
+                name: 'organization',
+                type: 'Path',
+                schema: z.string(),
+            },
+            {
+                name: 'calendarEvent',
+                type: 'Path',
+                schema: z.string(),
+            },
+        ],
+        response: z.object({ data: CalendarEventResource }).passthrough(),
+        errors: [
+            {
+                status: 401,
+                description: `Unauthenticated`,
+                schema: z.object({ message: z.string() }).passthrough(),
+            },
+            {
+                status: 403,
+                description: `Authorization error`,
+                schema: z.object({ message: z.string() }).passthrough(),
+            },
+            {
+                status: 404,
+                description: `Not found`,
+                schema: z.object({ message: z.string() }).passthrough(),
+            },
+            {
+                status: 422,
+                description: `Validation error`,
+                schema: z
+                    .object({ message: z.string(), errors: z.record(z.array(z.string())) })
+                    .passthrough(),
+            },
+        ],
+    },
+    {
+        method: 'delete',
+        path: '/v1/organizations/:organization/calendar-events/:calendarEvent',
+        alias: 'deleteCalendarEvent',
+        requestFormat: 'json',
+        parameters: [
+            {
+                name: 'organization',
+                type: 'Path',
+                schema: z.string(),
+            },
+            {
+                name: 'calendarEvent',
+                type: 'Path',
+                schema: z.string(),
+            },
+        ],
+        response: z.void(),
+        errors: [
+            {
+                status: 401,
+                description: `Unauthenticated`,
+                schema: z.object({ message: z.string() }).passthrough(),
+            },
+            {
+                status: 403,
+                description: `Authorization error`,
+                schema: z.object({ message: z.string() }).passthrough(),
+            },
+            {
+                status: 404,
+                description: `Not found`,
+                schema: z.object({ message: z.string() }).passthrough(),
             },
         ],
     },
@@ -4392,9 +4670,10 @@ Please note that the access token is only shown in this response and cannot be r
         alias: 'getMyActiveTimeEntry',
         description: `This endpoint is independent of organization.`,
         requestFormat: 'json',
-        response: z
-            .object({ data: TimeEntryResource.nullable() })
-            .passthrough(),
+        response: z.union([
+            z.object({ data: JsonResource }).passthrough(),
+            z.object({}).partial().passthrough(),
+        ]),
         errors: [
             {
                 status: 401,
