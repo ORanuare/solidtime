@@ -56,7 +56,7 @@ async function submit() {
     await updateOrganization(organizationBody.value);
     saving.value = false;
     showConfirmationModal.value = false;
-    router.reload({ preserveScroll: true });
+    router.reload();
 }
 
 function checkForConfirmationModal() {
