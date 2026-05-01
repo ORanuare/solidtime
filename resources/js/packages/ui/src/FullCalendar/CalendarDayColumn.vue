@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import FullCalendarEventContent from './FullCalendarEventContent.vue';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '..';
+import type { OrgCalendarEvent } from '@/packages/api/src';
 import type { DayEvent, ActivityBox } from './calendarTypes';
 import type { WindowActivityInPeriod } from './activityTypes';
 
@@ -46,6 +47,9 @@ const props = defineProps<{
     selectionHeight: number;
     selectionEndTop: number;
     selectionEndHeight: number;
+
+    /** When set, scheduled calendar events you own show resize handles like time entries. */
+    canMutateScheduledCalendarEvent?: (event: OrgCalendarEvent) => boolean;
 }>();
 
 function isUncoveredByEvents(abox: ActivityBox): boolean {
@@ -73,7 +77,7 @@ const emit = defineEmits<{
 
 <template>
     <div
-        class="fc-timegrid-col relative border-r border-border bg-transparent pointer-events-none"
+        class="fc-timegrid-col relative min-w-0 border-r border-border bg-transparent pointer-events-none"
         :class="{
             'has-activity-status': hasActivityStatus,
             'activity-expanded': hasActivityStatus && isDayView,
@@ -89,11 +93,15 @@ const emit = defineEmits<{
             <div
                 v-for="dayEvent in dayEvents"
                 :key="dayEvent.event.id"
-                class="fc-event group pointer-events-auto rounded-sm text-xs cursor-pointer shadow-card border border-border touch-none select-none hover:shadow-dropdown focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+                class="fc-event group pointer-events-auto relative rounded-sm text-xs cursor-pointer shadow-card touch-none select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
                 :class="[
                     getEventOpacityClass(dayEvent, dayStr),
+                    dayEvent.event.kind === 'scheduled_event'
+                        ? 'fc-event-scheduled border-2 border-dashed shadow-none ring-1 ring-inset ring-indigo-500/15 dark:ring-indigo-400/20'
+                        : 'fc-event-time-entry border border-solid shadow-card hover:shadow-dropdown',
                     {
-                        'running-entry rounded-b-none': dayEvent.event.isRunning,
+                        'running-entry rounded-b-none':
+                            dayEvent.event.kind === 'time_entry' && dayEvent.event.isRunning,
                         'fc-event-dragging': isDragging && dragEventId === dayEvent.event.id,
                         'fc-event-resizing': resizeEventId === dayEvent.event.id,
                         'rounded-t-none': dayEvent.isClippedStart,
@@ -105,18 +113,48 @@ const emit = defineEmits<{
                 :data-event-id="dayEvent.event.id"
                 :style="getEventStyle(dayEvent, dayStr)"
                 tabindex="0"
-                :aria-label="dayEvent.event.title"
+                :aria-label="
+                    dayEvent.event.kind === 'scheduled_event'
+                        ? `Calendar event: ${dayEvent.event.title}`
+                        : `Time entry: ${dayEvent.event.title}`
+                "
                 role="button"
                 @pointerdown="emit('event-pointerdown', $event, dayEvent)"
                 @keydown.enter.prevent="emit('event-keydown-enter', dayEvent)">
+                <span
+                    class="pointer-events-none absolute bottom-0 left-0 top-0 z-[1] w-[3px] rounded-l-sm"
+                    :class="
+                        dayEvent.event.kind === 'scheduled_event'
+                            ? 'bg-indigo-500 dark:bg-indigo-400'
+                            : ''
+                    "
+                    :style="
+                        dayEvent.event.kind === 'time_entry'
+                            ? {
+                                  backgroundColor:
+                                      dayEvent.event.project?.color ??
+                                      dayEvent.event.borderColor ??
+                                      '#6B7280',
+                              }
+                            : undefined
+                    "
+                    aria-hidden="true" />
                 <div
-                    v-if="!dayEvent.isClippedStart"
+                    v-if="
+                        (dayEvent.event.kind === 'time_entry' &&
+                            !dayEvent.event.isRunning &&
+                            !dayEvent.isClippedStart) ||
+                        (dayEvent.event.kind === 'scheduled_event' &&
+                            canMutateScheduledCalendarEvent?.(dayEvent.event.calendarEvent) &&
+                            !dayEvent.isClippedStart)
+                    "
                     class="fc-event-resizer fc-event-resizer-start absolute z-[99] w-full h-3 left-0 top-[-2px] cursor-row-resize flex items-center justify-center opacity-0 group-hover:opacity-100"
                     @pointerdown.stop.prevent="
                         emit('resizer-pointerdown', $event, dayEvent, 'start')
                     "></div>
                 <div class="px-1 py-0.5 h-full overflow-hidden">
                     <FullCalendarEventContent
+                        :event-kind="dayEvent.event.kind"
                         :title="dayEvent.event.title"
                         :project-name="dayEvent.event.project?.name"
                         :task-name="dayEvent.event.task?.name"
@@ -124,7 +162,14 @@ const emit = defineEmits<{
                         :duration-seconds="getEventDurationSeconds(dayEvent, dayStr)" />
                 </div>
                 <div
-                    v-if="!dayEvent.event.isRunning && !dayEvent.isClippedEnd"
+                    v-if="
+                        (dayEvent.event.kind === 'time_entry' &&
+                            !dayEvent.event.isRunning &&
+                            !dayEvent.isClippedEnd) ||
+                        (dayEvent.event.kind === 'scheduled_event' &&
+                            canMutateScheduledCalendarEvent?.(dayEvent.event.calendarEvent) &&
+                            !dayEvent.isClippedEnd)
+                    "
                     class="fc-event-resizer fc-event-resizer-end absolute z-[99] w-full h-3 left-0 bottom-[-2px] cursor-row-resize flex items-center justify-center opacity-0 group-hover:opacity-100"
                     @pointerdown.stop.prevent="
                         emit('resizer-pointerdown', $event, dayEvent, 'end')

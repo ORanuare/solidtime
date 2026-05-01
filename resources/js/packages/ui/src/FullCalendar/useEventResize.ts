@@ -1,9 +1,9 @@
 import { computed, ref, onUnmounted, type Ref, type ComputedRef } from 'vue';
 import type { Dayjs } from 'dayjs';
-import type { TimeEntry } from '@/packages/api/src';
+import type { OrgCalendarEvent, TimeEntry } from '@/packages/api/src';
 import { getDayJsInstance, getLocalizedDayJs, getLocalizedDayJsFromMinutes } from '../utils/time';
 import type { CalendarSettings } from './calendarSettings';
-import type { CalendarEvent, DayEvent } from './calendarTypes';
+import type { CalendarGridEvent, DayEvent } from './calendarTypes';
 import { SLOT_HEIGHT } from './calendarTypes';
 
 function snapTo(value: number, step: number): number {
@@ -21,6 +21,9 @@ export function useEventResize(params: {
     pixelsToMinutesFromMidnight: (px: number) => number;
     getDayFromClientX: (clientX: number) => string | null;
     clientYToGridPixels: (clientY: number) => number;
+    updateOrgCalendarEvent?: (id: string, body: Record<string, unknown>) => Promise<void>;
+    canMutateScheduledEvent?: (ev: OrgCalendarEvent) => boolean;
+    optimisticCalendarEventOverrides: Ref<Map<string, OrgCalendarEvent>>;
 }) {
     const isResizing = ref(false);
     const resizeEventId = ref<string | null>(null);
@@ -31,7 +34,7 @@ export function useEventResize(params: {
     // Reactive so resizeLiveDurationSeconds recomputes during cross-day resize
     const lastResizeClientY = ref(0);
 
-    let resizeOriginalEvent: CalendarEvent | null = null;
+    let resizeOriginalEvent: CalendarGridEvent | null = null;
     let resizeOriginalTop = 0;
     let resizeOriginalHeight = 0;
     let resizeOriginalDayStr = '';
@@ -58,7 +61,6 @@ export function useEventResize(params: {
         if (!resizeOriginalEvent) return null;
 
         const { s } = getGridConstants();
-        const d = getDayJsInstance();
         const isCrossDay =
             resizeCurrentDay.value !== null && resizeCurrentDay.value !== resizeOriginalDayStr;
 
@@ -69,26 +71,30 @@ export function useEventResize(params: {
             );
         }
 
-        if (resizeEdge.value === 'end') {
-            const start = d(resizeOriginalEvent.timeEntry.start);
-            const endDay =
-                isCrossDay && resizeCurrentDay.value
-                    ? resizeCurrentDay.value
-                    : resizeOriginalDayStr;
-            const endMinutes =
-                isCrossDay && resizeCurrentDay.value
-                    ? snappedMinutesFromCursor()
-                    : snapTo(
-                          params.pixelsToMinutesFromMidnight(
-                              resizeCurrentTop.value + resizeCurrentHeight.value
-                          ),
-                          s.snapMinutes
-                      );
-            return { start, end: getLocalizedDayJsFromMinutes(endDay, endMinutes) };
-        } else {
+        if (resizeOriginalEvent.kind === 'time_entry') {
+            const d = getDayJsInstance();
+            const timeEntry = resizeOriginalEvent.timeEntry;
+
+            if (resizeEdge.value === 'end') {
+                const start = d(timeEntry.start);
+                const endDay =
+                    isCrossDay && resizeCurrentDay.value
+                        ? resizeCurrentDay.value
+                        : resizeOriginalDayStr;
+                const endMinutes =
+                    isCrossDay && resizeCurrentDay.value
+                        ? snappedMinutesFromCursor()
+                        : snapTo(
+                              params.pixelsToMinutesFromMidnight(
+                                  resizeCurrentTop.value + resizeCurrentHeight.value
+                              ),
+                              s.snapMinutes
+                          );
+                return { start, end: getLocalizedDayJsFromMinutes(endDay, endMinutes) };
+            }
             const end = resizeOriginalEvent.isRunning
                 ? getLocalizedDayJs()
-                : d(resizeOriginalEvent.timeEntry.end!);
+                : d(timeEntry.end!);
             const startDay =
                 isCrossDay && resizeCurrentDay.value
                     ? resizeCurrentDay.value
@@ -102,17 +108,64 @@ export function useEventResize(params: {
                       );
             return { start: getLocalizedDayJsFromMinutes(startDay, startMinutes), end };
         }
+
+        if (resizeOriginalEvent.kind === 'scheduled_event') {
+            const cal = resizeOriginalEvent.calendarEvent;
+            if (!cal.starts_at || !cal.ends_at) return null;
+
+            if (resizeEdge.value === 'end') {
+                const start = getLocalizedDayJs(cal.starts_at);
+                const endDay =
+                    isCrossDay && resizeCurrentDay.value
+                        ? resizeCurrentDay.value
+                        : resizeOriginalDayStr;
+                const endMinutes =
+                    isCrossDay && resizeCurrentDay.value
+                        ? snappedMinutesFromCursor()
+                        : snapTo(
+                              params.pixelsToMinutesFromMidnight(
+                                  resizeCurrentTop.value + resizeCurrentHeight.value
+                              ),
+                              s.snapMinutes
+                          );
+                return { start, end: getLocalizedDayJsFromMinutes(endDay, endMinutes) };
+            }
+            const end = getLocalizedDayJs(cal.ends_at);
+            const startDay =
+                isCrossDay && resizeCurrentDay.value
+                    ? resizeCurrentDay.value
+                    : resizeOriginalDayStr;
+            const startMinutes =
+                isCrossDay && resizeCurrentDay.value
+                    ? snappedMinutesFromCursor()
+                    : snapTo(
+                          params.pixelsToMinutesFromMidnight(resizeCurrentTop.value),
+                          s.snapMinutes
+                      );
+            return { start: getLocalizedDayJsFromMinutes(startDay, startMinutes), end };
+        }
+
+        return null;
     }
 
     function onResizerPointerDown(
         e: PointerEvent,
-        ev: CalendarEvent,
+        ev: CalendarGridEvent,
         dayEvent: DayEvent,
         edge: 'start' | 'end',
         dayStr: string
     ) {
-        e.preventDefault();
-        e.stopPropagation();
+        if (ev.kind === 'time_entry') {
+            e.preventDefault();
+            e.stopPropagation();
+        } else if (ev.kind === 'scheduled_event') {
+            if (!params.canMutateScheduledEvent?.(ev.calendarEvent)) return;
+            if (!params.updateOrgCalendarEvent) return;
+            e.preventDefault();
+            e.stopPropagation();
+        } else {
+            return;
+        }
 
         resizeOriginalEvent = ev;
         resizeEdge.value = edge;
@@ -156,7 +209,10 @@ export function useEventResize(params: {
             }
         } else {
             let maxTopForRunning = Infinity;
-            if (resizeOriginalEvent.isRunning) {
+            if (
+                resizeOriginalEvent.kind === 'time_entry' &&
+                resizeOriginalEvent.isRunning
+            ) {
                 const now = getLocalizedDayJs();
                 const nowMinutes = now.hour() * 60 + now.minute() + now.second() / 60;
                 maxTopForRunning = params.minutesToPixels(
@@ -285,6 +341,49 @@ export function useEventResize(params: {
         isResizing.value = false;
 
         if (!resizeOriginalEvent || !times) {
+            resetResizeState();
+            return;
+        }
+
+        if (resizeOriginalEvent.kind === 'scheduled_event') {
+            const cal = resizeOriginalEvent.calendarEvent;
+            resetResizeState();
+
+            const newStart =
+                resizeEdge.value === 'start'
+                    ? times.start
+                    : getLocalizedDayJs(cal.starts_at!);
+            const newEnd =
+                resizeEdge.value === 'end' ? times.end : getLocalizedDayJs(cal.ends_at!);
+
+            if (!newEnd.isAfter(newStart)) {
+                return;
+            }
+
+            if (!params.updateOrgCalendarEvent) return;
+
+            const startsAt = newStart.utc().format();
+            const endsAt = newEnd.utc().format();
+
+            params.optimisticCalendarEventOverrides.value = new Map(
+                params.optimisticCalendarEventOverrides.value
+            ).set(cal.id, { ...cal, starts_at: startsAt, ends_at: endsAt });
+
+            try {
+                await params.updateOrgCalendarEvent(cal.id, {
+                    starts_at: startsAt,
+                    ends_at: endsAt,
+                });
+            } catch {
+                const reverted = new Map(params.optimisticCalendarEventOverrides.value);
+                reverted.delete(cal.id);
+                params.optimisticCalendarEventOverrides.value = reverted;
+            }
+            params.emitRefresh();
+            return;
+        }
+
+        if (resizeOriginalEvent.kind !== 'time_entry') {
             resetResizeState();
             return;
         }

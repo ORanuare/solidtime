@@ -1,9 +1,9 @@
 import { computed, ref, onUnmounted, type Ref, type ComputedRef } from 'vue';
 import type { Dayjs } from 'dayjs';
-import type { TimeEntry } from '@/packages/api/src';
+import type { OrgCalendarEvent, TimeEntry } from '@/packages/api/src';
 import { getLocalizedDayJs, getLocalizedDayJsFromMinutes } from '../utils/time';
 import type { CalendarSettings } from './calendarSettings';
-import type { CalendarEvent, DayEvent } from './calendarTypes';
+import type { CalendarGridEvent, DayEvent } from './calendarTypes';
 import { SLOT_HEIGHT, DRAG_THRESHOLD } from './calendarTypes';
 
 export function useEventDrag(params: {
@@ -16,7 +16,10 @@ export function useEventDrag(params: {
     pixelsToMinutesFromMidnight: (px: number) => number;
     getDayFromClientX: (clientX: number) => string | null;
     clientYToGridPixels: (clientY: number) => number;
-    onClickEvent: (ev: CalendarEvent) => void;
+    onClickEvent: (ev: CalendarGridEvent) => void;
+    updateOrgCalendarEvent?: (id: string, body: Record<string, unknown>) => Promise<void>;
+    canMutateScheduledEvent?: (ev: OrgCalendarEvent) => boolean;
+    optimisticCalendarEventOverrides: Ref<Map<string, OrgCalendarEvent>>;
 }) {
     const isDragging = ref(false);
     const dragEventId = ref<string | null>(null);
@@ -31,16 +34,46 @@ export function useEventDrag(params: {
     let dragStartClientX = 0;
     let dragStartClientY = 0;
     let dragStartEventTop = 0;
-    let dragOriginalEvent: CalendarEvent | null = null;
+    let dragOriginalEvent: CalendarGridEvent | null = null;
     let dragFullDurationMinutes = 0;
     let dragEventStartOffsetMinutes = 0;
     let hasMoved = false;
 
-    function onEventPointerDown(e: PointerEvent, ev: CalendarEvent, dayEvent: DayEvent) {
+    function localizedEventRange(ev: CalendarGridEvent): { start: Dayjs; end: Dayjs } | null {
+        if (ev.kind === 'time_entry') {
+            if (!ev.timeEntry.end) return null;
+            return {
+                start: getLocalizedDayJs(ev.timeEntry.start),
+                end: getLocalizedDayJs(ev.timeEntry.end),
+            };
+        }
+        if (ev.kind === 'scheduled_event') {
+            const { starts_at, ends_at } = ev.calendarEvent;
+            if (!starts_at || !ends_at) return null;
+            return {
+                start: getLocalizedDayJs(starts_at),
+                end: getLocalizedDayJs(ends_at),
+            };
+        }
+        return null;
+    }
+
+    function onEventPointerDown(e: PointerEvent, ev: CalendarGridEvent, dayEvent: DayEvent) {
         if (e.button !== 0) return;
         const target = e.target as HTMLElement;
         if (target.closest('.fc-event-resizer')) return;
-        if (ev.isRunning) return;
+
+        if (ev.kind === 'time_entry') {
+            if (ev.isRunning) return;
+        } else if (ev.kind === 'scheduled_event') {
+            if (!params.canMutateScheduledEvent?.(ev.calendarEvent)) return;
+            if (!params.updateOrgCalendarEvent) return;
+        } else {
+            return;
+        }
+
+        const range = localizedEventRange(ev);
+        if (!range) return;
 
         e.preventDefault();
 
@@ -57,18 +90,12 @@ export function useEventDrag(params: {
         const originDay = params.getDayFromClientX(e.clientX);
         dragOriginalDayStr.value = originDay;
 
-        if (ev.timeEntry.end) {
-            const evStart = getLocalizedDayJs(ev.timeEntry.start);
-            const evEnd = getLocalizedDayJs(ev.timeEntry.end);
-            dragFullDurationMinutes = evEnd.diff(evStart, 'minute');
-        } else {
-            dragFullDurationMinutes = dragVisibleDurationMinutes.value;
-        }
+        dragFullDurationMinutes = range.end.diff(range.start, 'minute');
 
-        if (dayEvent.isClippedStart && originDay && ev.timeEntry.end) {
+        if (dayEvent.isClippedStart && originDay) {
             const dayMidnight = getLocalizedDayJsFromMinutes(originDay, 0);
-            const evStart = getLocalizedDayJs(ev.timeEntry.start);
-            const eventStartFromGridStart = evStart.diff(dayMidnight, 'minute') - s.startHour * 60;
+            const eventStartFromGridStart =
+                range.start.diff(dayMidnight, 'minute') - s.startHour * 60;
             const segmentTopMinutes = (dayEvent.top / SLOT_HEIGHT) * s.slotMinutes;
             dragEventStartOffsetMinutes = segmentTopMinutes - eventStartFromGridStart;
         } else {
@@ -123,8 +150,12 @@ export function useEventDrag(params: {
             dragEventId.value = null;
             dragOriginalDayStr.value = null;
             dragCurrentDay.value = null;
-            if (dragOriginalEvent && !dragOriginalEvent.isRunning) {
-                params.onClickEvent(dragOriginalEvent);
+            if (dragOriginalEvent) {
+                if (dragOriginalEvent.kind === 'time_entry' && !dragOriginalEvent.isRunning) {
+                    params.onClickEvent(dragOriginalEvent);
+                } else if (dragOriginalEvent.kind === 'scheduled_event') {
+                    params.onClickEvent(dragOriginalEvent);
+                }
             }
             return;
         }
@@ -141,8 +172,6 @@ export function useEventDrag(params: {
         dragCurrentDay.value = null;
 
         if (!dragOriginalEvent) return;
-        const timeEntry = dragOriginalEvent.timeEntry;
-        if (!timeEntry.end) return;
 
         const s = params.calendarSettings.value;
         const gridY = params.clientYToGridPixels(e.clientY);
@@ -159,32 +188,66 @@ export function useEventDrag(params: {
         const newSegmentStart = getLocalizedDayJsFromMinutes(targetDateStr, clampedMinutes);
         const deltaMs = newSegmentStart.diff(originalSegmentStart);
 
-        const origStart = getLocalizedDayJs(timeEntry.start);
-        const origEnd = getLocalizedDayJs(timeEntry.end);
-        const durationMs = origEnd.diff(origStart);
-        const newStartLocal = origStart.add(deltaMs, 'millisecond');
-        const newEndLocal = newStartLocal.add(durationMs, 'millisecond');
+        if (dragOriginalEvent.kind === 'time_entry') {
+            const timeEntry = dragOriginalEvent.timeEntry;
+            if (!timeEntry.end) return;
 
-        const updatedTimeEntry = {
-            ...timeEntry,
-            start: newStartLocal.utc().format(),
-            end: newEndLocal.utc().format(),
-        } as TimeEntry;
+            const origStart = getLocalizedDayJs(timeEntry.start);
+            const origEnd = getLocalizedDayJs(timeEntry.end);
+            const durationMs = origEnd.diff(origStart);
+            const newStartLocal = origStart.add(deltaMs, 'millisecond');
+            const newEndLocal = newStartLocal.add(durationMs, 'millisecond');
 
-        params.optimisticOverrides.value = new Map(params.optimisticOverrides.value).set(
-            updatedTimeEntry.id,
-            updatedTimeEntry
-        );
+            const updatedTimeEntry = {
+                ...timeEntry,
+                start: newStartLocal.utc().format(),
+                end: newEndLocal.utc().format(),
+            } as TimeEntry;
 
-        try {
-            await params.updateTimeEntry(updatedTimeEntry);
-        } catch {
-            // Revert optimistic override on failure; mutation layer already shows error notification
-            const reverted = new Map(params.optimisticOverrides.value);
-            reverted.delete(updatedTimeEntry.id);
-            params.optimisticOverrides.value = reverted;
+            params.optimisticOverrides.value = new Map(params.optimisticOverrides.value).set(
+                updatedTimeEntry.id,
+                updatedTimeEntry
+            );
+
+            try {
+                await params.updateTimeEntry(updatedTimeEntry);
+            } catch {
+                const reverted = new Map(params.optimisticOverrides.value);
+                reverted.delete(updatedTimeEntry.id);
+                params.optimisticOverrides.value = reverted;
+            }
+            params.emitRefresh();
+            return;
         }
-        params.emitRefresh();
+
+        if (dragOriginalEvent.kind === 'scheduled_event' && params.updateOrgCalendarEvent) {
+            const cal = dragOriginalEvent.calendarEvent;
+            const range = localizedEventRange(dragOriginalEvent);
+            if (!range) return;
+
+            const durationMs = range.end.diff(range.start);
+            const newStartLocal = range.start.add(deltaMs, 'millisecond');
+            const newEndLocal = newStartLocal.add(durationMs, 'millisecond');
+
+            const startsAt = newStartLocal.utc().format();
+            const endsAt = newEndLocal.utc().format();
+
+            params.optimisticCalendarEventOverrides.value = new Map(
+                params.optimisticCalendarEventOverrides.value
+            ).set(cal.id, { ...cal, starts_at: startsAt, ends_at: endsAt });
+
+            try {
+                await params.updateOrgCalendarEvent(cal.id, {
+                    starts_at: startsAt,
+                    ends_at: endsAt,
+                });
+            } catch {
+                const reverted = new Map(params.optimisticCalendarEventOverrides.value);
+                reverted.delete(cal.id);
+                params.optimisticCalendarEventOverrides.value = reverted;
+            }
+            params.emitRefresh();
+        }
     }
 
     /**
@@ -193,7 +256,13 @@ export function useEventDrag(params: {
      * then clips each view day's grid to show the visible portion.
      */
     const dragPreviewsByDay = computed<Record<string, Record<string, string>>>(() => {
-        if (!isDragging.value || !dragOriginalEvent) return {};
+        if (
+            !isDragging.value ||
+            !dragOriginalEvent ||
+            (dragOriginalEvent.kind !== 'time_entry' &&
+                dragOriginalEvent.kind !== 'scheduled_event')
+        )
+            return {};
         if (!dragCurrentDay.value) return {};
 
         const s = params.calendarSettings.value;

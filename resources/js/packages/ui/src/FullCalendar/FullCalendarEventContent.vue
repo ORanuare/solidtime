@@ -4,6 +4,8 @@ import { formatHumanReadableDuration, getDayJsInstance } from '../utils/time';
 import type { Organization } from '@/packages/api/src';
 
 const props = defineProps<{
+    /** Distinguishes logged time vs planned calendar events in the grid */
+    eventKind?: 'time_entry' | 'scheduled_event';
     title: string;
     projectName?: string | null;
     taskName?: string | null;
@@ -37,10 +39,31 @@ const formattedDuration = computed(() =>
         numberFormat.value
     )
 );
+
+const kindLabel = computed(() => {
+    if (props.eventKind === 'scheduled_event') {
+        return 'Event';
+    }
+    if (props.eventKind === 'time_entry') {
+        return 'Tracked';
+    }
+    return null;
+});
 </script>
 
 <template>
     <div class="text-2xs leading-tight px-0.5 py-1">
+        <div v-if="kindLabel" class="mb-0.5 flex items-center justify-start">
+            <span
+                class="rounded px-1 py-px text-[0.55rem] font-bold uppercase tracking-wide leading-none"
+                :class="
+                    eventKind === 'scheduled_event'
+                        ? 'bg-indigo-600/35 text-indigo-50 dark:bg-indigo-500/35 dark:text-indigo-50'
+                        : 'bg-black/[0.12] text-text-secondary dark:bg-white/12 dark:text-text-secondary'
+                ">
+                {{ kindLabel }}
+            </span>
+        </div>
         <div class="font-semibold">{{ title }}</div>
         <div v-if="projectName" class="font-medium opacity-90">
             {{ projectName }}

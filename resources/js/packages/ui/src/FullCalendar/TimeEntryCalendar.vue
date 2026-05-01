@@ -2,6 +2,7 @@
 import {
     ref,
     watch,
+    computed,
     inject,
     type ComputedRef,
     nextTick,
@@ -53,37 +54,70 @@ import type {
     CreateClientBody,
     Tag,
     Organization,
+    OrgCalendarEvent,
+    CreateOrgCalendarEventBody,
 } from '@/packages/api/src';
 import type { Dayjs } from 'dayjs';
+import CalendarEventFormModal from './CalendarEventFormModal.vue';
+import CalendarEventDetailModal from './CalendarEventDetailModal.vue';
+import AlertDialog from '@/Components/ui/alert-dialog/AlertDialog.vue';
+import AlertDialogAction from '@/Components/ui/alert-dialog/AlertDialogAction.vue';
+import AlertDialogCancel from '@/Components/ui/alert-dialog/AlertDialogCancel.vue';
+import AlertDialogContent from '@/Components/ui/alert-dialog/AlertDialogContent.vue';
+import AlertDialogDescription from '@/Components/ui/alert-dialog/AlertDialogDescription.vue';
+import AlertDialogFooter from '@/Components/ui/alert-dialog/AlertDialogFooter.vue';
+import AlertDialogHeader from '@/Components/ui/alert-dialog/AlertDialogHeader.vue';
+import AlertDialogTitle from '@/Components/ui/alert-dialog/AlertDialogTitle.vue';
+import { buttonVariants } from '@/packages/ui/src/Buttons';
+import { DRAG_THRESHOLD } from './calendarTypes';
+
+/** Grid tracks use minmax(0, 1fr) so columns shrink and events stay inside day bounds. */
+function dayColumnGridTemplate(columnCount: number) {
+    return `repeat(${columnCount}, minmax(0, 1fr))`;
+}
 
 const emit = defineEmits<{
     (e: 'dates-change', payload: { start: Date; end: Date }): void;
     (e: 'refresh'): void;
 }>();
 
-const props = defineProps<{
-    timeEntries: TimeEntry[];
-    projects: Project[];
-    tasks: Task[];
-    clients: Client[];
-    tags: Tag[];
-    activityPeriods?: ActivityPeriod[];
-    loading?: boolean;
+const props = withDefaults(
+    defineProps<{
+        timeEntries: TimeEntry[];
+        projects: Project[];
+        tasks: Task[];
+        clients: Client[];
+        tags: Tag[];
+        activityPeriods?: ActivityPeriod[];
+        loading?: boolean;
 
-    enableEstimatedTime: boolean;
-    currency: string;
-    canCreateProject: boolean;
-    organizationBillableRate: number | null;
+        enableEstimatedTime: boolean;
+        currency: string;
+        canCreateProject: boolean;
+        organizationBillableRate: number | null;
 
-    createTimeEntry: (
-        entry: Omit<TimeEntry, 'id' | 'organization_id' | 'user_id'>
-    ) => Promise<void>;
-    updateTimeEntry: (entry: TimeEntry) => Promise<void>;
-    deleteTimeEntry: (timeEntryId: string) => Promise<void>;
-    createProject: (project: CreateProjectBody) => Promise<Project | undefined>;
-    createClient: (client: CreateClientBody) => Promise<Client | undefined>;
-    createTag: (name: string) => Promise<Tag | undefined>;
-}>();
+        createTimeEntry: (
+            entry: Omit<TimeEntry, 'id' | 'organization_id' | 'user_id'>
+        ) => Promise<void>;
+        updateTimeEntry: (entry: TimeEntry) => Promise<void>;
+        deleteTimeEntry: (timeEntryId: string) => Promise<void>;
+        createProject: (project: CreateProjectBody) => Promise<Project | undefined>;
+        createClient: (client: CreateClientBody) => Promise<Client | undefined>;
+        createTag: (name: string) => Promise<Tag | undefined>;
+
+        scheduledCalendarEvents: OrgCalendarEvent[];
+        currentUserId?: string | null;
+        /** Create/update/delete calendar events (no-op permissions handled upstream). */
+        createOrgCalendarEvent: (body: CreateOrgCalendarEventBody) => Promise<void>;
+        updateOrgCalendarEvent: (id: string, body: Record<string, unknown>) => Promise<void>;
+        deleteOrgCalendarEvent: (id: string) => Promise<void>;
+        canCreateCalendarEvents?: boolean;
+    }>(),
+    {
+        currentUserId: null,
+        canCreateCalendarEvents: false,
+    }
+);
 
 const newEventStart = ref<Dayjs | null>(null);
 const newEventEnd = ref<Dayjs | null>(null);
@@ -91,6 +125,27 @@ const showCreateTimeEntryModal = ref<boolean>(false);
 const showEditTimeEntryModal = ref<boolean>(false);
 const selectedTimeEntry = ref<TimeEntry | null>(null);
 const contextMenuOpen = ref(false);
+
+const showCreateCalendarEventModal = ref(false);
+const showEditCalendarEventModal = ref(false);
+const showCalendarEventDetailModal = ref(false);
+const selectedOrgCalendarEvent = ref<OrgCalendarEvent | null>(null);
+const newCalendarEventAllDay = ref(false);
+
+const calendarEventDeleteConfirmOpen = ref(false);
+const pendingCalendarEventDelete = ref<OrgCalendarEvent | null>(null);
+
+const showLayerTimeEntries = useLocalStorage('solidtime:calendar-show-time-entries', true);
+const showLayerScheduledEvents = useLocalStorage('solidtime:calendar-show-scheduled-events', true);
+
+const optimisticCalendarEventOverrides = ref<Map<string, OrgCalendarEvent>>(new Map());
+
+function mergedScheduledCalendarEvents(): OrgCalendarEvent[] {
+    const list = props.scheduledCalendarEvents;
+    const over = optimisticCalendarEventOverrides.value;
+    if (over.size === 0) return list;
+    return list.map((ev) => over.get(ev.id) ?? ev);
+}
 
 const rootRef = ref<HTMLElement | null>(null);
 const scrollerRef = ref<HTMLElement | null>(null);
@@ -114,6 +169,52 @@ const currentTime = ref(getLocalizedDayJs());
 let currentTimeInterval: ReturnType<typeof setInterval> | null = null;
 
 const organization = inject<ComputedRef<Organization>>('organization');
+
+const orgTimeFormat = computed(
+    () => organization?.value?.time_format ?? ('24-hours' as const)
+);
+
+function projectForCalendarEvent(ev: OrgCalendarEvent) {
+    if (!ev.project_id) {
+        return undefined;
+    }
+    return props.projects.find((p) => p.id === ev.project_id);
+}
+
+function taskForCalendarEvent(ev: OrgCalendarEvent) {
+    if (!ev.task_id) {
+        return undefined;
+    }
+    return props.tasks.find((t) => t.id === ev.task_id);
+}
+
+function openCalendarEventDetail(ev: OrgCalendarEvent) {
+    selectedOrgCalendarEvent.value = ev;
+    showCalendarEventDetailModal.value = true;
+}
+
+/** Same ownership rule as context-menu delete: only your events are draggable/resizable. */
+function canMutateScheduledCalendarEvent(ev: OrgCalendarEvent): boolean {
+    return Boolean(ev.user_id && ev.user_id === props.currentUserId);
+}
+
+function onCalendarEventDetailEdit(ev: OrgCalendarEvent) {
+    selectedOrgCalendarEvent.value = ev;
+    showEditCalendarEventModal.value = true;
+}
+
+async function onCalendarEventDetailDelete(ev: OrgCalendarEvent) {
+    await props.deleteOrgCalendarEvent(ev.id);
+    showCalendarEventDetailModal.value = false;
+    selectedOrgCalendarEvent.value = null;
+    emit('refresh');
+}
+
+watch(showCalendarEventDetailModal, (open) => {
+    if (!open && !showEditCalendarEventModal.value) {
+        selectedOrgCalendarEvent.value = null;
+    }
+});
 
 const {
     slots,
@@ -142,9 +243,12 @@ const {
 
 const cssBackground = useCssVariable('--color-bg-background');
 
-const { optimisticOverrides, calendarEvents, eventsByDay, dailyTotals, isToday, nowIndicatorTop } =
+const { optimisticOverrides, calendarEvents, eventsByDay, laneSegmentsByDay, dailyTotals, isToday, nowIndicatorTop } =
     useCalendarEvents({
         timeEntries: () => props.timeEntries,
+        scheduledCalendarEvents: () => mergedScheduledCalendarEvents(),
+        showTimeEntries: () => showLayerTimeEntries.value,
+        showScheduledEvents: () => showLayerScheduledEvents.value,
         projects: () => props.projects,
         clients: () => props.clients,
         tasks: () => props.tasks,
@@ -181,9 +285,16 @@ const { isDragging, dragEventId, dragPreviewsByDay, onEventPointerDown } = useEv
     pixelsToMinutesFromMidnight,
     getDayFromClientX,
     clientYToGridPixels,
+    updateOrgCalendarEvent: (id, body) => props.updateOrgCalendarEvent(id, body),
+    canMutateScheduledEvent: canMutateScheduledCalendarEvent,
+    optimisticCalendarEventOverrides,
     onClickEvent: (ev) => {
-        selectedTimeEntry.value = ev.timeEntry;
-        showEditTimeEntryModal.value = true;
+        if (ev.kind === 'time_entry') {
+            selectedTimeEntry.value = ev.timeEntry;
+            showEditTimeEntryModal.value = true;
+        } else {
+            openCalendarEventDetail(ev.calendarEvent);
+        }
     },
 });
 
@@ -207,6 +318,9 @@ const {
     pixelsToMinutesFromMidnight,
     getDayFromClientX,
     clientYToGridPixels,
+    updateOrgCalendarEvent: (id, body) => props.updateOrgCalendarEvent(id, body),
+    canMutateScheduledEvent: canMutateScheduledCalendarEvent,
+    optimisticCalendarEventOverrides,
 });
 
 const {
@@ -236,33 +350,78 @@ const {
 
 const {
     contextMenuTimeEntry,
+    contextMenuCalendarEvent,
     handleCalendarContextMenu,
-    handleContextEdit,
+    handleContextEditTimeEntry,
+    handleContextEditCalendarEvent,
     handleContextDuplicate,
-    handleContextDelete,
+    handleContextDeleteTimeEntry,
     handleContextSplit,
     handleContextStop,
     handleContextDiscard,
-    handleContextCreate,
+    handleContextCreateTimeEntry,
+    handleContextCreateCalendarEvent,
 } = useContextMenu({
     calendarSettings,
     calendarEvents,
+    scheduledCalendarEvents: () => mergedScheduledCalendarEvents(),
     pixelsToMinutesFromMidnight,
     getDayFromClientX,
     clientYToGridPixels,
     createTimeEntry: (entry) => props.createTimeEntry(entry),
     updateTimeEntry: (entry) => props.updateTimeEntry(entry),
     deleteTimeEntry: (id) => props.deleteTimeEntry(id),
-    onEditEvent: (entry) => {
+    deleteCalendarEvent: (id) => props.deleteOrgCalendarEvent(id),
+    onEditTimeEntry: (entry) => {
         selectedTimeEntry.value = entry;
         showEditTimeEntryModal.value = true;
     },
-    onCreateEvent: (start, end) => {
+    onEditCalendarEvent: (ev) => {
+        selectedOrgCalendarEvent.value = ev;
+        showEditCalendarEventModal.value = true;
+    },
+    onCreateTimeEntryRange: (start, end) => {
         newEventStart.value = start;
         newEventEnd.value = end;
         showCreateTimeEntryModal.value = true;
     },
+    onCreateCalendarEventRange: (start, end, allDay) => {
+        newEventStart.value = start;
+        newEventEnd.value = end;
+        newCalendarEventAllDay.value = allDay;
+        showCreateCalendarEventModal.value = true;
+    },
+    canCreateCalendarEvent: () => Boolean(props.canCreateCalendarEvents),
+    canDeleteCalendarEvent: (ev) => Boolean(ev.user_id && ev.user_id === props.currentUserId),
     emitRefresh: () => emit('refresh'),
+});
+
+function requestContextDeleteCalendarEvent() {
+    const ev = contextMenuCalendarEvent.value;
+    if (!ev) {
+        return;
+    }
+    pendingCalendarEventDelete.value = ev;
+    nextTick(() => {
+        calendarEventDeleteConfirmOpen.value = true;
+    });
+}
+
+async function confirmPendingCalendarEventDelete() {
+    const ev = pendingCalendarEventDelete.value;
+    if (!ev) {
+        return;
+    }
+    await props.deleteOrgCalendarEvent(ev.id);
+    calendarEventDeleteConfirmOpen.value = false;
+    pendingCalendarEventDelete.value = null;
+    emit('refresh');
+}
+
+watch(calendarEventDeleteConfirmOpen, (open) => {
+    if (!open) {
+        pendingCalendarEventDelete.value = null;
+    }
 });
 
 watch(showCreateTimeEntryModal, (value) => {
@@ -293,8 +452,41 @@ watch(showEditTimeEntryModal, (value) => {
  */
 function guardedSlotPointerDown(e: PointerEvent) {
     if (contextMenuOpen.value) return;
-    if (showCreateTimeEntryModal.value || showEditTimeEntryModal.value) return;
+        if (
+        showCreateTimeEntryModal.value ||
+        showEditTimeEntryModal.value ||
+        showCreateCalendarEventModal.value ||
+        showEditCalendarEventModal.value ||
+        showCalendarEventDetailModal.value ||
+        calendarEventDeleteConfirmOpen.value
+    )
+        return;
     onSlotPointerDown(e);
+}
+
+function onGridEventPointerDown(e: PointerEvent, dayEvent: DayEvent) {
+    if (
+        dayEvent.event.kind === 'scheduled_event' &&
+        !canMutateScheduledCalendarEvent(dayEvent.event.calendarEvent)
+    ) {
+        if (e.button !== 0) return;
+        const startX = e.clientX;
+        const startY = e.clientY;
+        function onUp(up: PointerEvent) {
+            document.removeEventListener('pointerup', onUp);
+            const dx = up.clientX - startX;
+            const dy = up.clientY - startY;
+            if (Math.sqrt(dx * dx + dy * dy) < DRAG_THRESHOLD) {
+                const sev = dayEvent.event;
+                if (sev.kind === 'scheduled_event') {
+                    openCalendarEventDetail(sev.calendarEvent);
+                }
+            }
+        }
+        document.addEventListener('pointerup', onUp);
+        return;
+    }
+    onEventPointerDown(e, dayEvent.event, dayEvent);
 }
 
 const scrollToCurrentTime = () => {
@@ -319,6 +511,15 @@ watch(
     () => {
         if (optimisticOverrides.value.size > 0) {
             optimisticOverrides.value = new Map();
+        }
+    }
+);
+
+watch(
+    () => props.scheduledCalendarEvents,
+    () => {
+        if (optimisticCalendarEventOverrides.value.size > 0) {
+            optimisticCalendarEventOverrides.value = new Map();
         }
     }
 );
@@ -472,16 +673,79 @@ function getEventDurationSeconds(dayEvent: DayEvent, dayStr: string): number {
             :can-create-project="canCreateProject"
             :organization-billable-rate="organizationBillableRate" />
 
+        <CalendarEventFormModal
+            v-model:show="showCreateCalendarEventModal"
+            :projects="projects"
+            :tasks="tasks"
+            :initial-starts-at="newEventStart ? newEventStart.toISOString() : null"
+            :initial-ends-at="newEventEnd ? newEventEnd.toISOString() : null"
+            :initial-all-day="newCalendarEventAllDay"
+            @save-create="
+                async (body) => {
+                    await createOrgCalendarEvent(body);
+                    emit('refresh');
+                }
+            " />
+
+        <CalendarEventFormModal
+            v-model:show="showEditCalendarEventModal"
+            :projects="projects"
+            :tasks="tasks"
+            :editing="selectedOrgCalendarEvent"
+            @save-update="
+                async ({ id, body }) => {
+                    await updateOrgCalendarEvent(id, body);
+                    emit('refresh');
+                }
+            " />
+
+        <CalendarEventDetailModal
+            v-if="selectedOrgCalendarEvent"
+            v-model:show="showCalendarEventDetailModal"
+            :calendar-event="selectedOrgCalendarEvent"
+            :project="projectForCalendarEvent(selectedOrgCalendarEvent)"
+            :task="taskForCalendarEvent(selectedOrgCalendarEvent)"
+            :org-time-format="orgTimeFormat"
+            @edit="onCalendarEventDetailEdit"
+            @delete="onCalendarEventDetailDelete" />
+
+        <AlertDialog v-model:open="calendarEventDeleteConfirmOpen">
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Delete this event?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        <template v-if="pendingCalendarEventDelete">
+                            “{{ pendingCalendarEventDelete.title }}” will be permanently removed. This
+                            cannot be undone.
+                        </template>
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                        :class="buttonVariants({ variant: 'destructive' })"
+                        data-testid="calendar_context_delete_confirm"
+                        @click="confirmPendingCalendarEventDelete">
+                        Delete event
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+
         <template v-if="!loading">
             <CalendarToolbar
                 :view-title="viewTitle"
                 :active-view="activeView"
                 :settings="calendarSettings"
+                :show-time-entries="showLayerTimeEntries"
+                :show-scheduled-events="showLayerScheduledEvents"
                 @prev="handlePrev"
                 @next="handleNext"
                 @today="handleToday"
                 @change-view="handleChangeView"
-                @update:settings="onSettingsUpdate" />
+                @update:settings="onSettingsUpdate"
+                @update:show-time-entries="showLayerTimeEntries = $event"
+                @update:show-scheduled-events="showLayerScheduledEvents = $event" />
 
             <ContextMenu v-model:open="contextMenuOpen">
                 <ContextMenuTrigger
@@ -502,12 +766,12 @@ function getEventDurationSeconds(dayEvent: DayEvent, dayStr: string): number {
                             <div
                                 class="grid flex-1 min-w-0"
                                 :style="{
-                                    gridTemplateColumns: 'repeat(' + viewDays.length + ', 1fr)',
+                                    gridTemplateColumns: dayColumnGridTemplate(viewDays.length),
                                 }">
                                 <div
                                     v-for="day in viewDays"
                                     :key="day.format('YYYY-MM-DD')"
-                                    class="fc-col-header-cell border-r border-border px-2 py-3 bg-default-background text-center"
+                                    class="fc-col-header-cell min-w-0 overflow-hidden border-r border-border px-2 py-3 bg-default-background text-center"
                                     :class="{
                                         'bg-secondary': isToday(day),
                                         'fc-day-today': isToday(day),
@@ -523,8 +787,46 @@ function getEventDurationSeconds(dayEvent: DayEvent, dayStr: string): number {
                             </div>
                         </div>
 
-                        <div ref="scrollerRef" class="fc-scroller">
-                            <div class="flex min-w-0">
+                        <!-- Outside the time scroll area so all-day events stay visible while scrolling -->
+                        <div
+                            v-if="showLayerScheduledEvents"
+                            class="flex shrink-0 border-b border-border bg-secondary/25 dark:bg-secondary/40">
+                            <div
+                                class="shrink-0 border-r border-border bg-default-background flex items-center justify-center text-[0.65rem] font-semibold text-text-secondary uppercase tracking-wide px-1"
+                                :style="{
+                                    width: TIME_AXIS_WIDTH + 'px',
+                                    minWidth: TIME_AXIS_WIDTH + 'px',
+                                }">
+                                all-day
+                            </div>
+                            <div
+                                class="grid flex-1 min-w-0 bg-default-background"
+                                :style="{
+                                    gridTemplateColumns: dayColumnGridTemplate(viewDays.length),
+                                }">
+                                <div
+                                    v-for="day in viewDays"
+                                    :key="'lane-' + day.format('YYYY-MM-DD')"
+                                    class="min-w-0 overflow-hidden border-r border-border px-1 py-1.5 space-y-1 min-h-[36px]">
+                                    <div
+                                        v-for="seg in laneSegmentsByDay[day.format('YYYY-MM-DD')] ||
+                                        []"
+                                        :key="seg.segmentKey"
+                                        :data-event-id="seg.calendarEvent.id"
+                                        class="min-w-0 max-w-full truncate rounded-md px-1.5 py-1 text-[0.75rem] leading-tight font-semibold cursor-pointer border shadow-sm box-border"
+                                        :style="{
+                                            backgroundColor: seg.backgroundColor,
+                                            borderColor: seg.borderColor,
+                                        }"
+                                        @click.stop="openCalendarEventDetail(seg.calendarEvent)">
+                                        {{ seg.title }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div ref="scrollerRef" class="fc-scroller flex flex-col flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
+                            <div class="flex min-w-0 flex-1 min-h-0">
                                 <div
                                     class="shrink-0 bg-default-background border-r border-border"
                                     :style="{
@@ -556,14 +858,15 @@ function getEventDurationSeconds(dayEvent: DayEvent, dayStr: string): number {
                                         class="bg-default-background relative"
                                         :style="{ height: totalGridHeight + 'px' }">
                                         <div
-                                            class="absolute inset-0 grid"
+                                            class="absolute inset-0 grid min-w-0"
                                             :style="{
                                                 gridTemplateColumns:
-                                                    'repeat(' + viewDays.length + ', 1fr)',
+                                                    dayColumnGridTemplate(viewDays.length),
                                             }">
                                             <div
                                                 v-for="day in viewDays"
                                                 :key="'bg-' + day.format('YYYY-MM-DD')"
+                                                class="min-w-0"
                                                 :style="
                                                     isToday(day)
                                                         ? {
@@ -588,7 +891,7 @@ function getEventDurationSeconds(dayEvent: DayEvent, dayStr: string): number {
                                         class="grid absolute inset-0 pointer-events-none min-w-0"
                                         :style="{
                                             gridTemplateColumns:
-                                                'repeat(' + viewDays.length + ', 1fr)',
+                                                dayColumnGridTemplate(viewDays.length),
                                         }">
                                         <CalendarDayColumn
                                             v-for="day in viewDays"
@@ -631,7 +934,9 @@ function getEventDurationSeconds(dayEvent: DayEvent, dayStr: string): number {
                                             :get-top-activity="getTopActivity"
                                             :is-day-view="activeView === 'timeGridDay'"
                                             :show-selection="
-                                                isSelecting || showCreateTimeEntryModal
+                                                isSelecting ||
+                                                showCreateTimeEntryModal ||
+                                                showCreateCalendarEventModal
                                             "
                                             :is-selection-start="
                                                 selectionDay === day.format('YYYY-MM-DD')
@@ -648,15 +953,23 @@ function getEventDurationSeconds(dayEvent: DayEvent, dayStr: string): number {
                                             :selection-height="selectionHeight"
                                             :selection-end-top="selectionEndTop"
                                             :selection-end-height="selectionEndHeight"
+                                            :can-mutate-scheduled-calendar-event="
+                                                canMutateScheduledCalendarEvent
+                                            "
                                             @activity-pointerdown="guardedSlotPointerDown"
                                             @event-pointerdown="
-                                                (e, dayEvent) =>
-                                                    onEventPointerDown(e, dayEvent.event, dayEvent)
+                                                (e, dayEvent) => onGridEventPointerDown(e, dayEvent)
                                             "
                                             @event-keydown-enter="
                                                 (dayEvent) => {
-                                                    selectedTimeEntry = dayEvent.event.timeEntry;
-                                                    showEditTimeEntryModal = true;
+                                                    if (dayEvent.event.kind === 'time_entry') {
+                                                        selectedTimeEntry = dayEvent.event.timeEntry;
+                                                        showEditTimeEntryModal = true;
+                                                    } else {
+                                                        openCalendarEventDetail(
+                                                            dayEvent.event.calendarEvent
+                                                        );
+                                                    }
                                                 }
                                             "
                                             @resizer-pointerdown="
@@ -676,9 +989,9 @@ function getEventDurationSeconds(dayEvent: DayEvent, dayStr: string): number {
                     </div>
                 </ContextMenuTrigger>
 
-                <ContextMenuContent class="min-w-[160px]">
+                <ContextMenuContent class="min-w-[200px]">
                     <template v-if="contextMenuTimeEntry && contextMenuTimeEntry.end !== null">
-                        <ContextMenuItem class="space-x-3" @select="handleContextEdit()">
+                        <ContextMenuItem class="space-x-3" @select="handleContextEditTimeEntry()">
                             <PencilIcon class="w-4 h-4 text-icon-default" />
                             <span>Edit</span>
                         </ContextMenuItem>
@@ -693,7 +1006,7 @@ function getEventDurationSeconds(dayEvent: DayEvent, dayStr: string): number {
                         <ContextMenuSeparator />
                         <ContextMenuItem
                             class="space-x-3 text-destructive"
-                            @select="handleContextDelete()">
+                            @select="handleContextDeleteTimeEntry()">
                             <TrashIcon class="w-4 h-4 text-icon-default" />
                             <span>Delete</span>
                         </ContextMenuItem>
@@ -711,10 +1024,33 @@ function getEventDurationSeconds(dayEvent: DayEvent, dayStr: string): number {
                             <span>Discard</span>
                         </ContextMenuItem>
                     </template>
+                    <template v-else-if="contextMenuCalendarEvent">
+                        <ContextMenuItem class="space-x-3" @select="handleContextEditCalendarEvent()">
+                            <PencilIcon class="w-4 h-4 text-icon-default" />
+                            <span>Edit</span>
+                        </ContextMenuItem>
+                        <ContextMenuItem
+                            v-if="
+                                contextMenuCalendarEvent.user_id &&
+                                contextMenuCalendarEvent.user_id === currentUserId
+                            "
+                            class="space-x-3 text-destructive"
+                            @select="requestContextDeleteCalendarEvent()">
+                            <TrashIcon class="w-4 h-4 text-icon-default" />
+                            <span>Delete</span>
+                        </ContextMenuItem>
+                    </template>
                     <template v-else>
-                        <ContextMenuItem class="space-x-3" @select="handleContextCreate()">
+                        <ContextMenuItem class="space-x-3" @select="handleContextCreateTimeEntry()">
                             <PlusIcon class="w-4 h-4 text-icon-default" />
                             <span>Create Time Entry</span>
+                        </ContextMenuItem>
+                        <ContextMenuItem
+                            v-if="canCreateCalendarEvents"
+                            class="space-x-3"
+                            @select="handleContextCreateCalendarEvent()">
+                            <PlusIcon class="w-4 h-4 text-icon-default" />
+                            <span>Create event</span>
                         </ContextMenuItem>
                     </template>
                 </ContextMenuContent>

@@ -1,14 +1,16 @@
 import { ref, type Ref, type ComputedRef } from 'vue';
 import type { Dayjs } from 'dayjs';
-import type { TimeEntry } from '@/packages/api/src';
+import type { TimeEntry, OrgCalendarEvent } from '@/packages/api/src';
 import { getDayJsInstance, getLocalizedDayJsFromMinutes } from '../utils/time';
 
 import type { CalendarSettings } from './calendarSettings';
-import type { CalendarEvent } from './calendarTypes';
+import type { CalendarGridEvent } from './calendarTypes';
 
 export function useContextMenu(params: {
     calendarSettings: Ref<CalendarSettings>;
-    calendarEvents: ComputedRef<CalendarEvent[]>;
+    calendarEvents: ComputedRef<CalendarGridEvent[]>;
+    /** Lane-only scheduled events (all-day / multi-day timed) are omitted from `calendarEvents` but use the same `data-event-id`. */
+    scheduledCalendarEvents: () => OrgCalendarEvent[];
     pixelsToMinutesFromMidnight: (px: number) => number;
     getDayFromClientX: (clientX: number) => string | null;
     clientYToGridPixels: (clientY: number) => number;
@@ -17,11 +19,17 @@ export function useContextMenu(params: {
     ) => Promise<void>;
     updateTimeEntry: (entry: TimeEntry) => Promise<void>;
     deleteTimeEntry: (id: string) => Promise<void>;
-    onEditEvent: (entry: TimeEntry) => void;
-    onCreateEvent: (start: Dayjs, end: Dayjs) => void;
+    deleteCalendarEvent: (id: string) => Promise<void>;
+    onEditTimeEntry: (entry: TimeEntry) => void;
+    onEditCalendarEvent: (ev: OrgCalendarEvent) => void;
+    onCreateTimeEntryRange: (start: Dayjs, end: Dayjs) => void;
+    onCreateCalendarEventRange: (start: Dayjs, end: Dayjs, allDay: boolean) => void;
+    canCreateCalendarEvent: () => boolean;
+    canDeleteCalendarEvent: (ev: OrgCalendarEvent) => boolean;
     emitRefresh: () => void;
 }) {
     const contextMenuTimeEntry = ref<TimeEntry | null>(null);
+    const contextMenuCalendarEvent = ref<OrgCalendarEvent | null>(null);
     const contextMenuCreateTime = ref<{ start: Dayjs; end: Dayjs } | null>(null);
 
     function getTimeAtClickPosition(event: MouseEvent): { start: Dayjs; end: Dayjs } | null {
@@ -46,24 +54,56 @@ export function useContextMenu(params: {
 
         if (!eventEl) {
             contextMenuTimeEntry.value = null;
+            contextMenuCalendarEvent.value = null;
             const timeInfo = getTimeAtClickPosition(event);
             contextMenuCreateTime.value = timeInfo;
             return;
         }
 
         const eventId = eventEl.getAttribute('data-event-id');
-        if (!eventId) return;
+        if (!eventId) {
+            contextMenuTimeEntry.value = null;
+            contextMenuCalendarEvent.value = null;
+            contextMenuCreateTime.value = getTimeAtClickPosition(event);
+            return;
+        }
 
         const ev = params.calendarEvents.value.find((e) => e.id === eventId);
-        if (!ev) return;
+        if (ev) {
+            contextMenuCreateTime.value = null;
 
-        contextMenuTimeEntry.value = ev.timeEntry;
-        contextMenuCreateTime.value = null;
+            if (ev.kind === 'scheduled_event') {
+                contextMenuTimeEntry.value = null;
+                contextMenuCalendarEvent.value = ev.calendarEvent;
+                return;
+            }
+
+            contextMenuCalendarEvent.value = null;
+            contextMenuTimeEntry.value = ev.timeEntry;
+            return;
+        }
+
+        const laneEv = params.scheduledCalendarEvents().find((e) => e.id === eventId);
+        if (laneEv) {
+            contextMenuCreateTime.value = null;
+            contextMenuTimeEntry.value = null;
+            contextMenuCalendarEvent.value = laneEv;
+            return;
+        }
+
+        contextMenuTimeEntry.value = null;
+        contextMenuCalendarEvent.value = null;
+        contextMenuCreateTime.value = getTimeAtClickPosition(event);
     }
 
-    function handleContextEdit() {
+    function handleContextEditTimeEntry() {
         if (!contextMenuTimeEntry.value || contextMenuTimeEntry.value.end === null) return;
-        params.onEditEvent(contextMenuTimeEntry.value);
+        params.onEditTimeEntry(contextMenuTimeEntry.value);
+    }
+
+    function handleContextEditCalendarEvent() {
+        if (!contextMenuCalendarEvent.value) return;
+        params.onEditCalendarEvent(contextMenuCalendarEvent.value);
     }
 
     async function handleContextDuplicate() {
@@ -81,9 +121,15 @@ export function useContextMenu(params: {
         params.emitRefresh();
     }
 
-    async function handleContextDelete() {
+    async function handleContextDeleteTimeEntry() {
         if (!contextMenuTimeEntry.value || contextMenuTimeEntry.value.end === null) return;
         await params.deleteTimeEntry(contextMenuTimeEntry.value.id);
+        params.emitRefresh();
+    }
+
+    async function handleContextDeleteCalendarEvent() {
+        if (!contextMenuCalendarEvent.value) return;
+        await params.deleteCalendarEvent(contextMenuCalendarEvent.value.id);
         params.emitRefresh();
     }
 
@@ -98,7 +144,6 @@ export function useContextMenu(params: {
         try {
             await params.updateTimeEntry({ ...entry, end: midpoint.utc().format() });
         } catch {
-            // Update failed, don't proceed with create
             params.emitRefresh();
             return;
         }
@@ -114,11 +159,10 @@ export function useContextMenu(params: {
                 tags: entry.tags,
             });
         } catch {
-            // Create failed after update succeeded — restore original entry
             try {
                 await params.updateTimeEntry({ ...entry });
             } catch {
-                // Restoration also failed; refresh will show server state
+                //
             }
         }
         params.emitRefresh();
@@ -140,30 +184,51 @@ export function useContextMenu(params: {
         params.emitRefresh();
     }
 
-    function handleContextCreate() {
+    function handleContextCreateTimeEntry() {
         if (contextMenuCreateTime.value) {
-            params.onCreateEvent(
+            params.onCreateTimeEntryRange(
                 contextMenuCreateTime.value.start,
                 contextMenuCreateTime.value.end
             );
         } else {
-            params.onCreateEvent(
+            params.onCreateTimeEntryRange(
                 getDayJsInstance()().utc(),
                 getDayJsInstance()().utc().add(1, 'hour')
             );
         }
     }
 
+    function handleContextCreateCalendarEvent() {
+        if (!params.canCreateCalendarEvent()) return;
+        if (contextMenuCreateTime.value) {
+            params.onCreateCalendarEventRange(
+                contextMenuCreateTime.value.start,
+                contextMenuCreateTime.value.end,
+                false
+            );
+        } else {
+            params.onCreateCalendarEventRange(
+                getDayJsInstance()().utc(),
+                getDayJsInstance()().utc().add(1, 'hour'),
+                false
+            );
+        }
+    }
+
     return {
         contextMenuTimeEntry,
+        contextMenuCalendarEvent,
         contextMenuCreateTime,
         handleCalendarContextMenu,
-        handleContextEdit,
+        handleContextEditTimeEntry,
+        handleContextEditCalendarEvent,
         handleContextDuplicate,
-        handleContextDelete,
+        handleContextDeleteTimeEntry,
+        handleContextDeleteCalendarEvent,
         handleContextSplit,
         handleContextStop,
         handleContextDiscard,
-        handleContextCreate,
+        handleContextCreateTimeEntry,
+        handleContextCreateCalendarEvent,
     };
 }
