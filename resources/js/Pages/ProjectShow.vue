@@ -27,8 +27,10 @@ import {
     canCreateTasks,
     canCreateNotes,
     canViewNotes,
+    canViewCalendarEvents,
     canViewProjectMembers,
 } from '@/utils/permissions';
+import ProjectShowEventsSection from '@/Components/Common/CalendarEvent/ProjectShowEventsSection.vue';
 import NoteList from '@/Components/Common/Note/NoteList.vue';
 import { TabBar, TabBarItem } from '@/packages/ui/src';
 import { useTasksQuery } from '@/utils/useTasksQuery';
@@ -248,7 +250,12 @@ const shownTasks = computed(() => {
                 </Card>
             </div>
         </MainContainer>
-        <MainContainer v-if="canViewNotes()" class="pt-6" :class="canViewProjectMembers() ? '' : 'pb-8'">
+        <MainContainer
+            v-if="canViewNotes()"
+            class="pt-6"
+            :class="
+                !canViewCalendarEvents() && !canViewProjectMembers() ? 'pb-8' : ''
+            ">
             <CardTitle title="Notes" :icon="ClipboardDocumentIcon">
                 <template #actions>
                     <div class="flex flex-wrap items-center justify-end gap-2">
@@ -284,6 +291,15 @@ const shownTasks = computed(() => {
                     :project-tasks-tab="activeTab"
                     :show-top-create-action="false" />
             </Card>
+        </MainContainer>
+        <MainContainer
+            v-if="canViewCalendarEvents()"
+            class="pt-6"
+            :class="!canViewProjectMembers() ? 'pb-8' : ''">
+            <ProjectShowEventsSection
+                :project-id="projectId"
+                :task-filter-id="effectiveNotesFilterTaskId"
+                @clear-task-filter="clearNotesTaskFilter" />
         </MainContainer>
         <MainContainer v-if="canViewProjectMembers()" class="pt-6 pb-8">
             <CardTitle title="Project Members" :icon="UserGroupIcon">

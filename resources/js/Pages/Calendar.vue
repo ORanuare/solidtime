@@ -1,14 +1,18 @@
 <script setup lang="ts">
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { useTimeEntriesCalendarQuery } from '@/utils/useTimeEntriesCalendarQuery';
+import { useOrgCalendarEventsQuery } from '@/utils/useOrgCalendarEventsQuery';
+import { useOrgCalendarEventsMutations } from '@/utils/useOrgCalendarEventsMutations';
 import { useTimeEntriesMutations } from '@/utils/useTimeEntriesMutations';
 import { computed, ref, onMounted } from 'vue';
 import { useQueryClient } from '@tanstack/vue-query';
+import { usePage } from '@inertiajs/vue3';
 import {
     type Client,
     type CreateClientBody,
     type CreateProjectBody,
     type Project,
+    type CreateOrgCalendarEventBody,
 } from '@/packages/api/src';
 import { TimeEntryCalendar } from '@/packages/ui/src';
 import type { ActivityPeriod } from '@/packages/ui/src/FullCalendar/activityTypes';
@@ -21,14 +25,23 @@ import { useTagsQuery } from '@/utils/useTagsQuery';
 import { useProjectsStore } from '@/utils/useProjects';
 import { useClientsStore } from '@/utils/useClients';
 import { getOrganizationCurrencyString } from '@/utils/money';
-import { canCreateProjects } from '@/utils/permissions';
+import {
+    canCreateProjects,
+    canViewCalendarEvents,
+    canCreateCalendarEvents,
+} from '@/utils/permissions';
 import { useCurrentTimeEntryStore } from '@/utils/useCurrentTimeEntry';
 import { useOrganizationQuery } from '@/utils/useOrganizationQuery';
 import { getCurrentOrganizationId } from '@/utils/useUser';
 
+const page = usePage<{ auth: { user?: { id: string } } }>();
+const currentUserId = computed(() => page.props.auth.user?.id ?? '');
+
 const { organization } = useOrganizationQuery(getCurrentOrganizationId()!);
 const calendarStart = ref<Date | undefined>(undefined);
 const calendarEnd = ref<Date | undefined>(undefined);
+
+const canViewCalEvents = computed(() => canViewCalendarEvents());
 
 // Test-injectable activity periods (for E2E testing).
 // These hooks are no-ops in production — they only take effect when test code
@@ -55,9 +68,27 @@ const { data: timeEntryResponse, isLoading: timeEntriesLoading } = useTimeEntrie
     calendarEnd
 );
 
+const { data: scheduledCalendarRaw, isLoading: scheduledCalendarLoading } = useOrgCalendarEventsQuery(
+    calendarStart,
+    calendarEnd,
+    canViewCalEvents
+);
+
 const currentTimeEntries = computed(() => {
     return timeEntryResponse?.value?.data || [];
 });
+
+const scheduledCalendarEvents = computed(() => scheduledCalendarRaw.value ?? []);
+
+const calendarLoading = computed(
+    () => timeEntriesLoading.value || (canViewCalEvents.value && scheduledCalendarLoading.value)
+);
+
+const {
+    createOrgCalendarEvent,
+    updateOrgCalendarEvent,
+    deleteOrgCalendarEvent,
+} = useOrgCalendarEventsMutations();
 
 const {
     createTimeEntry: createTimeEntryMutation,
@@ -78,6 +109,18 @@ async function updateTimeEntry(entry: import('@/packages/api/src').TimeEntry): P
 
 async function deleteTimeEntry(timeEntryId: string): Promise<void> {
     await deleteTimeEntryMutation(timeEntryId);
+}
+
+async function saveOrgCalendarEvent(body: CreateOrgCalendarEventBody): Promise<void> {
+    await createOrgCalendarEvent(body);
+}
+
+async function patchOrgCalendarEvent(id: string, body: Record<string, unknown>): Promise<void> {
+    await updateOrgCalendarEvent({ id, body });
+}
+
+async function removeOrgCalendarEvent(id: string): Promise<void> {
+    await deleteOrgCalendarEvent(id);
 }
 
 async function createTag(name: string) {
@@ -119,11 +162,17 @@ function onRefresh() {
         main-class="p-0 min-h-0 overflow-hidden">
         <TimeEntryCalendar
             :time-entries="currentTimeEntries"
+            :scheduled-calendar-events="scheduledCalendarEvents"
+            :current-user-id="currentUserId"
+            :create-org-calendar-event="saveOrgCalendarEvent"
+            :update-org-calendar-event="patchOrgCalendarEvent"
+            :delete-org-calendar-event="removeOrgCalendarEvent"
+            :can-create-calendar-events="canCreateCalendarEvents()"
             :projects="projects"
             :tasks="tasks"
             :clients="clients"
             :tags="tags"
-            :loading="timeEntriesLoading"
+            :loading="calendarLoading"
             :enable-estimated-time="isAllowedToPerformPremiumAction()"
             :currency="getOrganizationCurrencyString()"
             :can-create-project="canCreateProjects()"
