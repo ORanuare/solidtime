@@ -4,7 +4,7 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 
-        <title inertia>{{ config('app.name', 'Laravel') }}</title>
+        <title inertia>{{ config('app.name', 'Solidtime') }}</title>
 
         <!-- Favicons -->
         <link rel="apple-touch-icon" sizes="180x180" href="/favicons/apple-touch-icon.png">

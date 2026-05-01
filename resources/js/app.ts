@@ -10,7 +10,7 @@ import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query';
 import { type DefineComponent } from 'vue';
 import { setupPrefetching } from '@/utils/prefetch';
 
-const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
+const appName = import.meta.env.VITE_APP_NAME || 'Solidtime';
 const pinia = createPinia();
 const queryClient = new QueryClient();
 
