@@ -25,6 +25,12 @@ const close = () => {
     }
 };
 
+function onOpenChange(open: boolean) {
+    if (!open) {
+        close();
+    }
+}
+
 const maxWidthClass = computed(() => {
     return {
         sm: 'sm:max-w-sm',
@@ -42,7 +48,7 @@ const maxWidthClass = computed(() => {
 </script>
 
 <template>
-    <Dialog :open="show" @update:open="close">
+    <Dialog :open="show" @update:open="onOpenChange">
         <DialogContent :class="maxWidthClass">
             <div class="min-w-0">
                 <slot />

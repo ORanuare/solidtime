@@ -2,7 +2,7 @@
 import { buttonVariants } from '@/packages/ui/src';
 import { AlertDialogCancel, type AlertDialogCancelProps } from 'reka-ui';
 import { computed, type HTMLAttributes } from 'vue';
-import { twMerge } from 'tailwind-merge';
+import { twMerge, type ClassNameValue } from 'tailwind-merge';
 
 const props = defineProps<AlertDialogCancelProps & { class?: HTMLAttributes['class'] }>();
 
@@ -16,7 +16,9 @@ const delegatedProps = computed(() => {
 <template>
     <AlertDialogCancel
         v-bind="delegatedProps"
-        :class="twMerge(buttonVariants({ variant: 'outline' }), 'mt-2 sm:mt-0', props.class)">
+        :class="
+            twMerge(buttonVariants({ variant: 'outline' }), 'mt-2 sm:mt-0', props.class as ClassNameValue)
+        ">
         <slot />
     </AlertDialogCancel>
 </template>

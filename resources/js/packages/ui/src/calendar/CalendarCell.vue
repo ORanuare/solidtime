@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { CalendarCell, type CalendarCellProps, useForwardProps } from 'reka-ui';
 import { computed, type HTMLAttributes } from 'vue';
-import { twMerge } from 'tailwind-merge';
+import { twMerge, type ClassNameValue } from 'tailwind-merge';
 
 const props = defineProps<CalendarCellProps & { class?: HTMLAttributes['class'] }>();
 
@@ -19,7 +19,7 @@ const forwardedProps = useForwardProps(delegatedProps);
         :class="
             twMerge(
                 'relative p-0 text-center text-sm focus-within:relative focus-within:z-20 [&:has([data-selected])]:rounded-md [&:has([data-selected])]:bg-accent [&:has([data-selected][data-outside-view])]:bg-accent/50',
-                props.class
+                props.class as ClassNameValue
             )
         "
         v-bind="forwardedProps">
