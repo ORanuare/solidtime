@@ -22,7 +22,7 @@ export function getNoteNotableLevel(
  * Empty for workspace-level notes.
  */
 export function getNoteNotableEntityName(
-    note: Pick<Note, 'notable_type' | 'notable_label'>
+    note: Pick<Note, 'notable_type' | 'notable_id' | 'notable_label'>
 ): string {
     if (getNoteNotableLevel(note) === 'workspace') {
         return '';
@@ -39,4 +39,9 @@ export function getNoteNotableEntityName(
 
 export function isWorkspaceNote(n: Note): boolean {
     return getNoteNotableLevel(n) === 'workspace';
+}
+
+/** Attached to a project entity, not workspace-wide and not task-level. */
+export function isProjectNotableNote(note: Pick<Note, 'notable_type' | 'notable_id'>): boolean {
+    return getNoteNotableLevel(note) === 'project';
 }

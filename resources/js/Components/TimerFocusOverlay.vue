@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { ChevronDownIcon, MagnifyingGlassIcon, XMarkIcon } from '@heroicons/vue/20/solid';
 import { ChevronRightIcon } from '@heroicons/vue/16/solid';
 import OrganizationSwitcher from '@/Components/OrganizationSwitcher.vue';
 import TimeTracker from '@/Components/TimeTracker.vue';
 import TimerFocusNotesPanel from '@/Components/Common/Note/TimerFocusNotesPanel.vue';
+import TimerFocusEventsPanel from '@/Components/Common/CalendarEvent/TimerFocusEventsPanel.vue';
 import { Button } from '@/packages/ui/src/Buttons';
 import { Popover, PopoverContent, PopoverTrigger } from '@/packages/ui/src/popover';
 import ProjectBadge from '@/packages/ui/src/Project/ProjectBadge.vue';
@@ -22,8 +23,13 @@ import { useProjectsQuery } from '@/utils/useProjectsQuery';
 import { useTasksQuery } from '@/utils/useTasksQuery';
 import { getCurrentOrganizationId } from '@/utils/useUser';
 import { useCommandPalette } from '@/utils/useCommandPalette';
-import { onKeyStroke } from '@vueuse/core';
-import { canCreateNotes, canViewNotes } from '@/utils/permissions';
+import { onKeyStroke, useMediaQuery } from '@vueuse/core';
+import {
+    canCreateCalendarEvents,
+    canCreateNotes,
+    canViewCalendarEvents,
+    canViewNotes,
+} from '@/utils/permissions';
 import { twMerge } from 'tailwind-merge';
 
 const { isTimerFocusOpen, transformOrigin, close } = useTimerFocus();
@@ -37,6 +43,15 @@ const currentTimeEntryStore = useCurrentTimeEntryStore();
 const { currentTimeEntry, isActive, now } = storeToRefs(currentTimeEntryStore);
 
 const todayDetailOpen = ref(false);
+const schedulePanelOpen = ref(false);
+const isLgFocusLayout = useMediaQuery('(min-width: 1024px)');
+
+watch(isTimerFocusOpen, (open) => {
+    if (!open) {
+        todayDetailOpen.value = false;
+        schedulePanelOpen.value = false;
+    }
+});
 
 const todayWorkedDisplay = computed(() =>
     formatDuration(todayWorkedLoading.value ? 0 : totalSeconds.value)
@@ -81,6 +96,11 @@ onKeyStroke('Escape', (e) => {
     if (!isTimerFocusOpen.value || paletteIsOpen.value) {
         return;
     }
+    if (schedulePanelOpen.value) {
+        schedulePanelOpen.value = false;
+        e.preventDefault();
+        return;
+    }
     if (todayDetailOpen.value) {
         todayDetailOpen.value = false;
         e.preventDefault();
@@ -90,7 +110,8 @@ onKeyStroke('Escape', (e) => {
     close();
 });
 
-const showNotesColumn = computed(() => canViewNotes() || canCreateNotes());
+const showNotesAside = computed(() => canViewNotes() || canCreateNotes());
+const showEventsFloating = computed(() => canViewCalendarEvents() || canCreateCalendarEvents());
 </script>
 
 <template>
@@ -131,14 +152,14 @@ const showNotesColumn = computed(() => canViewNotes() || canCreateNotes());
                 <div
                     class="flex min-h-0 flex-1 flex-col lg:flex-row">
                     <div
-                        class="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto px-4 py-6">
+                        class="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden px-3 py-4 lg:overflow-y-auto lg:px-4 lg:py-6">
                         <div
-                            class="absolute right-4 top-4 z-10 flex shrink-0 flex-col items-end sm:right-6 sm:top-6">
+                            class="z-10 mb-3 flex w-full shrink-0 items-center justify-between gap-2 lg:absolute lg:right-6 lg:top-6 lg:mb-0 lg:w-auto lg:justify-end">
                             <Popover v-model:open="todayDetailOpen">
                                 <PopoverTrigger as-child>
                                     <button
                                         type="button"
-                                        class="group flex cursor-pointer items-center gap-2 rounded-lg border border-card-border bg-card-background px-3 py-2 text-right shadow-sm transition hover:bg-tertiary/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-secondary/80"
+                                        class="group flex cursor-pointer items-center gap-2 rounded-lg border border-card-border bg-card-background px-2.5 py-2 text-right shadow-sm transition hover:bg-tertiary/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-secondary/80 sm:px-3"
                                         data-testid="timer_focus_today_trigger"
                                         :aria-expanded="todayDetailOpen"
                                         aria-controls="timer-focus-today-detail"
@@ -154,7 +175,7 @@ const showNotesColumn = computed(() => canViewNotes() || canCreateNotes());
                                             >
                                             <span
                                                 data-testid="timer_focus_today_worked"
-                                                class="font-semibold tabular-nums text-xl leading-none tracking-tight text-text-primary sm:text-2xl"
+                                                class="font-semibold tabular-nums text-lg leading-none tracking-tight text-text-primary sm:text-xl lg:text-2xl"
                                                 >{{ todayWorkedDisplay }}</span
                                             >
                                         </div>
@@ -249,14 +270,35 @@ const showNotesColumn = computed(() => canViewNotes() || canCreateNotes());
                                     </div>
                                 </PopoverContent>
                             </Popover>
+                            <button
+                                v-if="showEventsFloating && !isLgFocusLayout"
+                                type="button"
+                                class="inline-flex shrink-0 items-center rounded-lg border border-card-border bg-card-background px-2.5 py-2 text-xs font-medium text-text-secondary shadow-sm transition hover:bg-tertiary/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-secondary/80"
+                                data-testid="timer_focus_schedule_toggle"
+                                :aria-expanded="schedulePanelOpen"
+                                :aria-label="
+                                    schedulePanelOpen ? 'Hide schedule panel' : 'Show schedule panel'
+                                "
+                                @click="schedulePanelOpen = !schedulePanelOpen">
+                                {{ schedulePanelOpen ? 'Hide' : 'Schedule' }}
+                            </button>
                         </div>
-                        <div class="flex min-h-0 flex-1 items-center justify-center">
+
+                        <div
+                            v-if="showEventsFloating && schedulePanelOpen && !isLgFocusLayout"
+                            class="mb-3 shrink-0">
+                            <TimerFocusEventsPanel layout="embedded" />
+                        </div>
+
+                        <TimerFocusEventsPanel v-if="showEventsFloating && isLgFocusLayout" />
+
+                        <div class="flex min-h-0 flex-1 items-center justify-center overflow-hidden">
                             <TimeTracker variant="focus" />
                         </div>
                     </div>
                     <aside
-                        v-if="showNotesColumn"
-                        class="flex h-48 min-h-0 w-full shrink-0 flex-col border-t border-default bg-default-background lg:h-auto lg:max-w-md lg:border-l lg:border-t-0 xl:max-w-lg">
+                        v-if="showNotesAside"
+                        class="flex h-48 min-h-0 w-full shrink-0 flex-col overflow-hidden border-t border-default bg-default-background lg:h-auto lg:w-80 lg:shrink-0 lg:border-l lg:border-t-0 xl:w-96">
                         <TimerFocusNotesPanel class="h-full min-h-0" />
                     </aside>
                 </div>

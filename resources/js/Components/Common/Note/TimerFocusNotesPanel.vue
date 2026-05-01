@@ -14,7 +14,7 @@ import { canCreateNotes } from '@/utils/permissions';
 import { useProjectsQuery } from '@/utils/useProjectsQuery';
 import { useTasksQuery } from '@/utils/useTasksQuery';
 import { sortNotesForTimerFocus } from '@/utils/timerFocusNoteSort';
-import { isWorkspaceNote } from '@/utils/noteNotableLevel';
+import { isWorkspaceNote, isProjectNotableNote } from '@/utils/noteNotableLevel';
 import {
     getNoteListFilterPillStyle,
     type TimerFocusNotesListMode,
@@ -123,6 +123,11 @@ const visibleNotesForFocus = computed(() => {
     });
     if (listMode.value === 'workspace') {
         list = list.filter((n) => isWorkspaceNote(n));
+    } else if (listMode.value === 'project') {
+        const pid = resolvedProjectId.value;
+        list = list.filter(
+            (n) => isProjectNotableNote(n) && (!pid || n.notable_id === pid)
+        );
     }
     return list;
 });
@@ -386,7 +391,7 @@ function hideComposer() {
                     :disabled="!canFilterByProject"
                     :title="
                         canFilterByProject
-                            ? 'Notes on this project. Click again to show every note.'
+                            ? 'Notes attached to this project only (not tasks). Click again to show every note.'
                             : 'Set a project on the timer'
                     "
                     @click="setListMode('project')">
