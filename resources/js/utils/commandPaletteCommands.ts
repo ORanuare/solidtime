@@ -3,6 +3,7 @@ import {
     HomeIcon,
     ClockIcon,
     CalendarIcon,
+    CalendarDaysIcon,
     ChartBarIcon,
     FolderIcon,
     UserCircleIcon,
@@ -68,6 +69,7 @@ export function createNavigationCommands(
         canViewMembers: () => boolean;
         canViewTags: () => boolean;
         canViewNotes: () => boolean;
+        canViewCalendarEvents: () => boolean;
         canViewReport: () => boolean;
         canViewInvoices: () => boolean;
         canManageBilling: () => boolean;
@@ -106,6 +108,16 @@ export function createNavigationCommands(
             group: 'navigation',
             action: () => navigate('calendar'),
             priority: GROUP_PRIORITIES.navigation + 8,
+        },
+        {
+            id: 'nav-events',
+            label: 'Go to Events',
+            icon: CalendarDaysIcon,
+            keywords: ['events', 'scheduled', 'meetings', 'calendar events'],
+            group: 'navigation',
+            action: () => navigate('events'),
+            permission: permissions.canViewCalendarEvents,
+            priority: GROUP_PRIORITIES.navigation + 7.5,
         },
         {
             id: 'nav-reporting',

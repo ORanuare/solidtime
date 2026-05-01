@@ -125,6 +125,22 @@ export function canDeleteNotes() {
     return currentUserHasPermission('notes:delete');
 }
 
+export function canViewCalendarEvents() {
+    return currentUserHasPermission('calendar-events:view');
+}
+
+export function canCreateCalendarEvents() {
+    return currentUserHasPermission('calendar-events:create');
+}
+
+export function canUpdateCalendarEvents() {
+    return currentUserHasPermission('calendar-events:update');
+}
+
+export function canDeleteCalendarEvents() {
+    return currentUserHasPermission('calendar-events:delete');
+}
+
 export function canManageBilling() {
     return currentUserHasPermission('billing');
 }

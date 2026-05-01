@@ -5,6 +5,7 @@ import OrganizationSwitcher from '@/Components/OrganizationSwitcher.vue';
 import CurrentSidebarTimer from '@/Components/CurrentSidebarTimer.vue';
 import {
     CalendarIcon,
+    CalendarDaysIcon,
     ChartBarIcon,
     ClockIcon,
     Cog6ToothIcon,
@@ -37,6 +38,7 @@ import {
     canViewReport,
     canViewTags,
     canViewNotes,
+    canViewCalendarEvents,
 } from '@/utils/permissions';
 import { isBillingActivated, isInvoicingActivated } from '@/utils/billing';
 import type { User } from '@/types/models';
@@ -252,6 +254,12 @@ const page = usePage<{
                                 :icon="ClipboardDocumentIcon"
                                 :current="route().current('notes')"
                                 :href="route('notes')"></NavigationSidebarItem>
+                            <NavigationSidebarItem
+                                v-if="canViewCalendarEvents()"
+                                title="Events"
+                                :icon="CalendarDaysIcon"
+                                :current="route().current('events')"
+                                :href="route('events')"></NavigationSidebarItem>
                             <NavigationSidebarItem
                                 v-if="isInvoicingActivated() && canViewInvoices()"
                                 title="Invoices"

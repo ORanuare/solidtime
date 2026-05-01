@@ -87,6 +87,10 @@ Route::middleware([
         return Inertia::render('Notes');
     })->name('notes');
 
+    Route::get('/events', function () {
+        return Inertia::render('Events');
+    })->name('events');
+
     Route::get('/import', function () {
         return Inertia::render('Import');
     })->name('import');
