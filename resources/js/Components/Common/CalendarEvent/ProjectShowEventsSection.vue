@@ -26,7 +26,8 @@ import type { CreateOrgCalendarEventBody, OrgCalendarEvent } from '@/packages/ap
 import FocusCalendarEventCard from '@/Components/Common/CalendarEvent/FocusCalendarEventCard.vue';
 import CalendarEventFormModal from '@/packages/ui/src/FullCalendar/CalendarEventFormModal.vue';
 import CalendarEventDetailModal from '@/packages/ui/src/FullCalendar/CalendarEventDetailModal.vue';
-import { getCalendarEventFocusBucket, isCalendarEventInProjectDetailScope } from '@/utils/timerFocusCalendarEventSort';
+import { getCalendarEventFocusBucket } from '@/utils/timerFocusCalendarEventSort';
+import { isCalendarEventInProjectDetailScope } from '@/utils/orgCalendarEventAssignments';
 import { useTimestamp } from '@vueuse/core';
 
 const props = defineProps<{
@@ -138,7 +139,7 @@ function eventIsOngoing(ev: OrgCalendarEvent): boolean {
 const displayedEvents = computed(() => {
     let list = [...(rawEvents.value ?? [])].filter((ev) => ev.starts_at);
     list = list.filter((ev) =>
-        isCalendarEventInProjectDetailScope(ev, props.projectId, props.taskFilterId)
+        isCalendarEventInProjectDetailScope(ev, props.projectId, props.taskFilterId, tasks.value)
     );
     const q = debouncedSearch.value.trim().toLowerCase();
     if (q) {
@@ -167,8 +168,10 @@ const groupedByDay = computed(() => {
     return [...map.entries()].sort(([a], [b]) => a.localeCompare(b));
 });
 
+import { calendarEventAttachmentStripeLevel } from '@/utils/orgCalendarEventAssignments';
+
 function eventAttachmentStripeClass(ev: OrgCalendarEvent) {
-    const level = ev.task_id ? 'task' : ev.project_id ? 'project' : 'workspace';
+    const level = calendarEventAttachmentStripeLevel(ev);
     if (level === 'workspace') {
         return 'before:bg-violet-500 dark:before:bg-violet-400';
     }
@@ -375,6 +378,8 @@ const rangeSummary = computed(() => {
             v-if="detailEvent"
             v-model:show="detailModalOpen"
             :calendar-event="detailEvent"
+            :projects="projects"
+            :tasks="tasks"
             :project="projectForEvent(detailEvent)"
             :task="taskForEvent(detailEvent)"
             :org-time-format="orgTimeFormat"

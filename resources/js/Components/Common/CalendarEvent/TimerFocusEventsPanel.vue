@@ -14,9 +14,15 @@ import { useOrgCalendarEventsMutations } from '@/utils/useOrgCalendarEventsMutat
 import { useTimerFocusCalendarEventsQuery } from '@/utils/useTimerFocusCalendarEventsQuery';
 import { useTimerFocus } from '@/utils/useTimerFocus';
 import {
-    sortCalendarEventsForTimerFocus,
-    isWorkspaceCalendarEvent,
+    calendarEventAttachmentStripeLevel,
+    eventAssignmentList,
+    eventTouchesProject,
+    eventTouchesTask,
     isProjectOnlyCalendarEvent,
+    isWorkspaceCalendarEvent,
+} from '@/utils/orgCalendarEventAssignments';
+import {
+    sortCalendarEventsForTimerFocus,
     getCalendarEventFocusBucket,
 } from '@/utils/timerFocusCalendarEventSort';
 import {
@@ -102,23 +108,44 @@ const visibleEventsForFocus = computed(() => {
     const allTasks = tasks.value;
     const allProjects = projects.value;
     let list = (rawEvents.value ?? []).filter((ev: OrgCalendarEvent) => {
-        if (ev.task_id) {
-            const task = allTasks.find((t) => t.id === ev.task_id);
-            if (task?.is_done) {
-                return false;
+        for (const a of eventAssignmentList(ev)) {
+            if (a.type === 'task') {
+                const task = allTasks.find((t) => t.id === a.id);
+                if (task?.is_done) {
+                    return false;
+                }
+                if (task?.project_id) {
+                    const p = allProjects.find((x) => x.id === task.project_id);
+                    if (p?.is_archived) {
+                        return false;
+                    }
+                }
             }
-            if (task?.project_id) {
-                const p = allProjects.find((x) => x.id === task.project_id);
+            if (a.type === 'project') {
+                const p = allProjects.find((x) => x.id === a.id);
                 if (p?.is_archived) {
                     return false;
                 }
             }
-            return true;
         }
-        if (ev.project_id) {
-            const p = allProjects.find((x) => x.id === ev.project_id);
-            if (p?.is_archived) {
-                return false;
+        if (eventAssignmentList(ev).length === 0) {
+            if (ev.task_id) {
+                const task = allTasks.find((t) => t.id === ev.task_id);
+                if (task?.is_done) {
+                    return false;
+                }
+                if (task?.project_id) {
+                    const p = allProjects.find((x) => x.id === task.project_id);
+                    if (p?.is_archived) {
+                        return false;
+                    }
+                }
+            }
+            if (ev.project_id) {
+                const p = allProjects.find((x) => x.id === ev.project_id);
+                if (p?.is_archived) {
+                    return false;
+                }
             }
         }
         return true;
@@ -128,16 +155,21 @@ const visibleEventsForFocus = computed(() => {
     } else if (listMode.value === 'project') {
         const pid = resolvedProjectId.value;
         if (pid) {
-            list = list.filter((ev) => ev.project_id === pid && isProjectOnlyCalendarEvent(ev));
+            list = list.filter(
+                (ev) => isProjectOnlyCalendarEvent(ev) && eventTouchesProject(ev, pid, allTasks)
+            );
         } else {
             list = list.filter((ev) => isProjectOnlyCalendarEvent(ev));
         }
     } else if (listMode.value === 'task') {
         const tid = listTaskId.value;
         if (tid) {
-            list = list.filter((ev) => ev.task_id === tid);
+            list = list.filter((ev) => eventTouchesTask(ev, tid));
         } else {
-            list = list.filter((ev) => Boolean(ev.task_id));
+            list = list.filter(
+                (ev) =>
+                    eventAssignmentList(ev).some((a) => a.type === 'task') || Boolean(ev.task_id)
+            );
         }
     }
     return list;
@@ -150,7 +182,8 @@ const sortedEvents = computed(() =>
         visibleEventsForFocus.value,
         sortProjectId.value,
         formTaskId.value,
-        focusClock.value
+        focusClock.value,
+        tasks.value
     )
 );
 
@@ -241,7 +274,7 @@ function setListMode(mode: 'workspace' | 'project' | 'task') {
 }
 
 function eventAttachmentStripeClass(ev: OrgCalendarEvent) {
-    const level = ev.task_id ? 'task' : ev.project_id ? 'project' : 'workspace';
+    const level = calendarEventAttachmentStripeLevel(ev);
     if (level === 'workspace') {
         return 'before:bg-violet-500 dark:before:bg-violet-400';
     }
@@ -441,6 +474,8 @@ async function onSaveUpdate(payload: { id: string; body: Record<string, unknown>
             v-if="detailEvent && canViewCalendarEvents()"
             v-model:show="detailModalOpen"
             :calendar-event="detailEvent"
+            :projects="projects"
+            :tasks="tasks"
             :project="projectForEvent(detailEvent)"
             :task="taskForEvent(detailEvent)"
             :org-time-format="orgTimeFormat"

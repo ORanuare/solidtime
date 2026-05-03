@@ -29,6 +29,7 @@ import FocusCalendarEventCard from '@/Components/Common/CalendarEvent/FocusCalen
 import CalendarEventFormModal from '@/packages/ui/src/FullCalendar/CalendarEventFormModal.vue';
 import CalendarEventDetailModal from '@/packages/ui/src/FullCalendar/CalendarEventDetailModal.vue';
 import { getCalendarEventFocusBucket } from '@/utils/timerFocusCalendarEventSort';
+import { calendarEventAttachmentStripeLevel } from '@/utils/orgCalendarEventAssignments';
 import { useTimestamp } from '@vueuse/core';
 
 const searchInput = ref('');
@@ -174,7 +175,7 @@ const groupedByDay = computed(() => {
 });
 
 function eventAttachmentStripeClass(ev: OrgCalendarEvent) {
-    const level = ev.task_id ? 'task' : ev.project_id ? 'project' : 'workspace';
+    const level = calendarEventAttachmentStripeLevel(ev);
     if (level === 'workspace') {
         return 'before:bg-violet-500 dark:before:bg-violet-400';
     }
@@ -394,6 +395,8 @@ const rangeSummary = computed(() => {
                 v-if="detailEvent"
                 v-model:show="detailModalOpen"
                 :calendar-event="detailEvent"
+                :projects="projects"
+                :tasks="tasks"
                 :project="projectForEvent(detailEvent)"
                 :task="taskForEvent(detailEvent)"
                 :org-time-format="orgTimeFormat"

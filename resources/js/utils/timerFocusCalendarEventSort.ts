@@ -1,91 +1,79 @@
 import type { OrgCalendarEvent } from '@/packages/api/src';
 import { getDayJsInstance } from '@/packages/ui/src/utils/time';
+import {
+    eventAssignmentList,
+    eventTouchesProject,
+    eventTouchesTask,
+    isCalendarEventInProjectDetailScope,
+    isProjectOnlyCalendarEvent,
+    isWorkspaceCalendarEvent,
+} from '@/utils/orgCalendarEventAssignments';
 
-export function isWorkspaceCalendarEvent(
-    ev: Pick<OrgCalendarEvent, 'project_id' | 'task_id'>
-): boolean {
-    const pid = ev.project_id;
-    const tid = ev.task_id;
-    return (!pid || pid === '') && (!tid || tid === '');
-}
+export {
+    isCalendarEventInProjectDetailScope,
+    isProjectOnlyCalendarEvent,
+    isWorkspaceCalendarEvent,
+};
 
-/** Attached to a project row, not to a specific task (excludes workspace-wide events). */
-export function isProjectOnlyCalendarEvent(
-    ev: Pick<OrgCalendarEvent, 'project_id' | 'task_id'>
-): boolean {
-    const pid = ev.project_id;
-    const tid = ev.task_id;
-    if (!pid || pid === '') {
-        return false;
-    }
-    return !tid || tid === '';
-}
+type TaskRef = { id: string; project_id: string };
 
-/**
- * Whether an event belongs on a project detail view: workspace events excluded; project/task
- * must match the project being viewed (and a specific task when {@link taskId} is set).
- */
-export function isCalendarEventInProjectDetailScope(
-    ev: Pick<OrgCalendarEvent, 'project_id' | 'task_id'>,
-    projectId: string,
-    taskId?: string | null
-): boolean {
-    if (taskId) {
-        if (!ev.task_id || ev.task_id !== taskId) {
-            return false;
+function hasTaskOnProject(ev: OrgCalendarEvent, projectId: string, tasks: TaskRef[]): boolean {
+    for (const a of eventAssignmentList(ev)) {
+        if (a.type !== 'task') {
+            continue;
         }
-        return ev.project_id === projectId;
+        const t = tasks.find((x) => x.id === a.id);
+        if (t?.project_id === projectId) {
+            return true;
+        }
     }
-    if (isWorkspaceCalendarEvent(ev)) {
-        return false;
+    if (ev.task_id) {
+        const t = tasks.find((x) => x.id === ev.task_id);
+        return t?.project_id === projectId;
     }
-    return ev.project_id === projectId;
+    return false;
 }
 
-function hasTaskId(ev: OrgCalendarEvent): boolean {
-    return Boolean(ev.task_id && ev.task_id !== '');
-}
-
-function isProjectDirectOnProject(ev: OrgCalendarEvent, projectId: string): boolean {
-    if (isWorkspaceCalendarEvent(ev) || ev.project_id !== projectId) {
+function isProjectDirectOnProject(ev: OrgCalendarEvent, projectId: string, tasks: TaskRef[]): boolean {
+    if (isWorkspaceCalendarEvent(ev) || !eventTouchesProject(ev, projectId, tasks)) {
         return false;
     }
-    return !hasTaskId(ev);
+    return !hasTaskOnProject(ev, projectId, tasks);
 }
 
-function isTaskOnProject(ev: OrgCalendarEvent, projectId: string): boolean {
-    if (isWorkspaceCalendarEvent(ev) || ev.project_id !== projectId) {
+function isTaskOnProject(ev: OrgCalendarEvent, projectId: string, tasks: TaskRef[]): boolean {
+    if (isWorkspaceCalendarEvent(ev) || !eventTouchesProject(ev, projectId, tasks)) {
         return false;
     }
-    return hasTaskId(ev);
+    return hasTaskOnProject(ev, projectId, tasks);
 }
 
 type Rank = [number, number];
 
-function sortKeyProjectOnly(ev: OrgCalendarEvent, projectId: string): Rank {
+function sortKeyProjectOnly(ev: OrgCalendarEvent, projectId: string, tasks: TaskRef[]): Rank {
     if (isWorkspaceCalendarEvent(ev)) {
         return [2, 0];
     }
-    if (isProjectDirectOnProject(ev, projectId)) {
+    if (isProjectDirectOnProject(ev, projectId, tasks)) {
         return [0, 0];
     }
-    if (isTaskOnProject(ev, projectId)) {
+    if (isTaskOnProject(ev, projectId, tasks)) {
         return [1, 0];
     }
     return [2, 0];
 }
 
-function sortKeyWithTask(ev: OrgCalendarEvent, projectId: string, taskId: string): Rank {
+function sortKeyWithTask(ev: OrgCalendarEvent, projectId: string, taskId: string, tasks: TaskRef[]): Rank {
     if (isWorkspaceCalendarEvent(ev)) {
         return [2, 0];
     }
-    if (ev.task_id === taskId) {
+    if (eventTouchesTask(ev, taskId)) {
         return [0, 0];
     }
-    if (isProjectDirectOnProject(ev, projectId)) {
+    if (isProjectDirectOnProject(ev, projectId, tasks)) {
         return [1, 0];
     }
-    if (ev.project_id === projectId) {
+    if (eventTouchesProject(ev, projectId, tasks)) {
         return [1, 1];
     }
     return [2, 0];
@@ -101,14 +89,19 @@ function compareRank(ka: Rank, kb: Rank, a: OrgCalendarEvent, b: OrgCalendarEven
     return (b.created_at ?? '').localeCompare(a.created_at ?? '');
 }
 
-function tierRank(ev: OrgCalendarEvent, projectId: string | undefined, taskId: string | undefined): Rank {
+function tierRank(
+    ev: OrgCalendarEvent,
+    projectId: string | undefined,
+    taskId: string | undefined,
+    tasks: TaskRef[]
+): Rank {
     if (!projectId) {
         return [0, 0];
     }
     if (!taskId) {
-        return sortKeyProjectOnly(ev, projectId);
+        return sortKeyProjectOnly(ev, projectId, tasks);
     }
-    return sortKeyWithTask(ev, projectId, taskId);
+    return sortKeyWithTask(ev, projectId, taskId, tasks);
 }
 
 /** 0 = happening now, 1 = upcoming, 2 = past */
@@ -159,7 +152,8 @@ export function sortCalendarEventsForTimerFocus(
     list: OrgCalendarEvent[],
     projectId: string | undefined,
     taskId: string | undefined,
-    nowMs: number = Date.now()
+    nowMs: number = Date.now(),
+    tasks: TaskRef[] = []
 ): OrgCalendarEvent[] {
     const d = getDayJsInstance();
 
@@ -170,8 +164,8 @@ export function sortCalendarEventsForTimerFocus(
             return ba - bb;
         }
 
-        const ta = tierRank(a, projectId, taskId);
-        const tb = tierRank(b, projectId, taskId);
+        const ta = tierRank(a, projectId, taskId, tasks);
+        const tb = tierRank(b, projectId, taskId, tasks);
         const tie = compareRank(ta, tb, a, b);
         if (tie !== 0) {
             return tie;

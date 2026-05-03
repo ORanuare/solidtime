@@ -22,15 +22,26 @@ import {
     canUpdateCalendarEvents,
 } from '@/utils/permissions';
 import { getCurrentUserId } from '@/utils/useUser';
+import { eventAssignmentList } from '@/utils/orgCalendarEventAssignments';
 
 const show = defineModel('show', { default: false });
 
-const props = defineProps<{
-    calendarEvent: OrgCalendarEvent;
-    project?: Project;
-    task?: Task;
-    orgTimeFormat: TimeFormat;
-}>();
+const props = withDefaults(
+    defineProps<{
+        calendarEvent: OrgCalendarEvent;
+        projects?: Project[];
+        tasks?: Task[];
+        project?: Project;
+        task?: Task;
+        orgTimeFormat: TimeFormat;
+    }>(),
+    {
+        projects: () => [],
+        tasks: () => [],
+        project: undefined,
+        task: undefined,
+    }
+);
 
 const emit = defineEmits<{
     (e: 'edit', ev: OrgCalendarEvent): void;
@@ -54,6 +65,33 @@ const scheduleLabel = computed(() =>
 const visibilityLabel = computed(() =>
     props.calendarEvent.visibility === 'private' ? 'Private' : 'Shared'
 );
+
+type LinkRow = {
+    project: Project | undefined;
+    task: Task | undefined;
+    fallbackName: string;
+};
+
+const linkRows = computed((): LinkRow[] => {
+    const list = eventAssignmentList(props.calendarEvent);
+    if (list.length > 0) {
+        return list.map((a) => {
+            if (a.type === 'project') {
+                const project = props.projects.find((x) => x.id === a.id);
+                return { project, task: undefined, fallbackName: a.name };
+            }
+            const task = props.tasks.find((x) => x.id === a.id);
+            const project = task
+                ? props.projects.find((x) => x.id === task.project_id)
+                : undefined;
+            return { project, task, fallbackName: a.name };
+        });
+    }
+    if (props.project) {
+        return [{ project: props.project, task: props.task, fallbackName: props.project.name }];
+    }
+    return [];
+});
 
 function onClose() {
     show.value = false;
@@ -106,22 +144,28 @@ function confirmDelete() {
                     <span class="text-text-tertiary">·</span>
                     <span>{{ visibilityLabel }}</span>
                 </div>
-                <ProjectBadge
-                    v-if="project"
-                    class="max-w-full pt-0.5"
-                    size="base"
-                    :name="project.name"
-                    :color="project.color">
-                    <div class="flex min-w-0 items-center gap-0.5">
-                        <span class="truncate text-xs font-medium text-text-primary">{{ project.name }}</span>
-                        <ChevronRightIcon
-                            v-if="task"
-                            class="h-3.5 w-3.5 shrink-0 text-text-secondary" />
-                        <span v-if="task" class="min-w-0 truncate text-xs font-medium text-text-primary">{{
-                            task.name
-                        }}</span>
-                    </div>
-                </ProjectBadge>
+                <div v-if="linkRows.length === 0" class="text-sm text-text-secondary">Workspace</div>
+                <div v-else class="flex flex-col gap-2 pt-0.5">
+                    <ProjectBadge
+                        v-for="(row, i) in linkRows"
+                        :key="i"
+                        class="max-w-full"
+                        size="base"
+                        :name="row.project?.name ?? row.fallbackName"
+                        :color="row.project?.color ?? '#6B7280'">
+                        <div class="flex min-w-0 items-center gap-0.5">
+                            <span class="truncate text-xs font-medium text-text-primary">{{
+                                row.project?.name ?? row.fallbackName
+                            }}</span>
+                            <ChevronRightIcon
+                                v-if="row.task"
+                                class="h-3.5 w-3.5 shrink-0 text-text-secondary" />
+                            <span v-if="row.task" class="min-w-0 truncate text-xs font-medium text-text-primary">{{
+                                row.task.name
+                            }}</span>
+                        </div>
+                    </ProjectBadge>
+                </div>
             </div>
         </template>
         <template #footer>

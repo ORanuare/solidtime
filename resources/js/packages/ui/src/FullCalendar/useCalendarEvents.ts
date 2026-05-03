@@ -255,11 +255,14 @@ export function useCalendarEvents(params: {
                 if (!startLocal.isBefore(dayEnd) || !endLocal.isAfter(dayStart)) continue;
 
                 if (!result[dayStr]) result[dayStr] = [];
+                const linkCount = raw.assignments?.length ?? 0;
                 result[dayStr]!.push({
                     segmentKey: `${raw.id}-${dayStr}-lane`,
                     calendarEvent: raw,
                     dayStr,
                     title: raw.title,
+                    attachmentHint:
+                        linkCount > 1 ? raw.eventable_label || undefined : undefined,
                     backgroundColor: bg,
                     borderColor: border,
                 });

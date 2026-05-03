@@ -11,6 +11,10 @@ import {
     canUpdateCalendarEvents,
 } from '@/utils/permissions';
 import { getCurrentUserId } from '@/utils/useUser';
+import {
+    orgCalendarEventAttachmentLinkCount,
+    orgCalendarEventAttachmentSummaryForList,
+} from '@/utils/orgCalendarEventAssignments';
 import { twMerge } from 'tailwind-merge';
 
 const props = withDefaults(
@@ -48,18 +52,22 @@ const whenLabel = computed(() =>
     formatOrgCalendarEventSchedule(props.calendarEvent, props.orgTimeFormat)
 );
 
-/** Where the event is attached (timer-focus interactive rows). */
-const attachmentSummary = computed(() => {
-    if (props.task?.name) {
-        return props.project?.name
-            ? `${props.project.name} › ${props.task.name}`
-            : props.task.name;
-    }
-    if (props.project?.name) {
-        return props.project.name;
-    }
-    return props.calendarEvent.eventable_label ?? 'Workspace';
-});
+/** Where the event is attached (lists + timer-focus rows). */
+const attachmentSummary = computed(() =>
+    orgCalendarEventAttachmentSummaryForList(
+        props.calendarEvent,
+        props.project,
+        props.task
+    )
+);
+
+const attachmentLinkCount = computed(() =>
+    orgCalendarEventAttachmentLinkCount(props.calendarEvent)
+);
+
+const showMultiLinkBadge = computed(
+    () => attachmentLinkCount.value > 1
+);
 
 const interactiveRowClass = computed(() =>
     twMerge(
@@ -86,20 +94,30 @@ function rowAriaLabel() {
         :aria-label="rowAriaLabel()"
         @click="emit('viewDetails')">
         <div class="min-w-0 space-y-0.5">
-            <div class="flex items-start gap-1.5">
-                <p class="min-w-0 flex-1 truncate text-xs font-semibold text-text-primary">
+            <div class="flex min-w-0 items-center gap-1.5">
+                <p class="min-w-0 flex-1 truncate text-xs font-semibold leading-tight text-text-primary">
                     {{ calendarEvent.title }}
                 </p>
-                <span
-                    v-if="ongoing"
-                    class="shrink-0 rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[0.55rem] font-bold uppercase leading-none tracking-wide text-emerald-800 dark:bg-emerald-400/15 dark:text-emerald-200">
-                    Ongoing
-                </span>
+                <div class="flex shrink-0 items-center gap-1.5">
+                    <span
+                        v-if="showMultiLinkBadge"
+                        class="rounded-full bg-text-secondary/12 px-1.5 py-0.5 text-[0.55rem] font-bold tabular-nums leading-none tracking-wide text-text-secondary"
+                        :title="`${attachmentLinkCount} linked items`">
+                        {{ attachmentLinkCount }} links
+                    </span>
+                    <span
+                        v-if="ongoing"
+                        class="rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[0.55rem] font-bold uppercase leading-none tracking-wide text-emerald-800 dark:bg-emerald-400/15 dark:text-emerald-200">
+                        Ongoing
+                    </span>
+                </div>
             </div>
-            <p class="min-w-0 truncate text-[0.65rem] leading-snug">
+            <p
+                class="min-w-0 text-[0.65rem] leading-snug"
+                :class="showMultiLinkBadge ? 'line-clamp-2' : 'truncate'">
                 <span class="tabular-nums text-text-tertiary">{{ whenLabel }}</span>
                 <span class="mx-0.5 text-text-tertiary/55" aria-hidden="true">·</span>
-                <span class="text-text-secondary">{{ attachmentSummary }}</span>
+                <span class="text-text-secondary" :title="attachmentSummary">{{ attachmentSummary }}</span>
             </p>
             <div
                 v-if="calendarEvent.visibility === 'private'"
@@ -147,7 +165,7 @@ function rowAriaLabel() {
                     <span v-if="calendarEvent.visibility === 'private'" class="shrink-0">Private</span>
                 </div>
                 <ProjectBadge
-                    v-if="project && !compact"
+                    v-if="project && !compact && attachmentLinkCount <= 1"
                     class="max-w-full pt-0.5"
                     size="base"
                     :name="project.name"

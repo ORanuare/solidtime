@@ -10,6 +10,8 @@ const props = defineProps<{
     projectName?: string | null;
     taskName?: string | null;
     clientName?: string | null;
+    /** When the scheduled event has multiple project/task links; replaces project/task lines. */
+    scheduledAttachmentSummary?: string | null;
     durationSeconds?: number;
     start?: string | Date | null;
     end?: string | Date | null;
@@ -65,15 +67,23 @@ const kindLabel = computed(() => {
             </span>
         </div>
         <div class="font-semibold">{{ title }}</div>
-        <div v-if="projectName" class="font-medium opacity-90">
-            {{ projectName }}
-        </div>
-        <div v-if="taskName" class="font-medium">
-            {{ taskName }}
-        </div>
-        <div v-if="clientName" class="opacity-85">
-            {{ clientName }}
-        </div>
+        <template
+            v-if="eventKind === 'scheduled_event' && scheduledAttachmentSummary?.trim()">
+            <div class="font-medium opacity-90 line-clamp-4 break-words">
+                {{ scheduledAttachmentSummary }}
+            </div>
+        </template>
+        <template v-else>
+            <div v-if="projectName" class="font-medium opacity-90">
+                {{ projectName }}
+            </div>
+            <div v-if="taskName" class="font-medium">
+                {{ taskName }}
+            </div>
+            <div v-if="clientName" class="opacity-85">
+                {{ clientName }}
+            </div>
+        </template>
         <div class="opacity-90" data-duration>
             {{ formattedDuration }}
         </div>

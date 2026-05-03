@@ -73,6 +73,17 @@ const emit = defineEmits<{
     ): void;
     (e: 'activity-pointerdown', event: PointerEvent): void;
 }>();
+
+function scheduledAttachmentSummary(dayEvent: DayEvent): string | null {
+    if (dayEvent.event.kind !== 'scheduled_event') {
+        return null;
+    }
+    const n = dayEvent.event.calendarEvent.assignments?.length ?? 0;
+    if (n <= 1) {
+        return null;
+    }
+    return dayEvent.event.calendarEvent.eventable_label?.trim() || null;
+}
 </script>
 
 <template>
@@ -159,6 +170,7 @@ const emit = defineEmits<{
                         :project-name="dayEvent.event.project?.name"
                         :task-name="dayEvent.event.task?.name"
                         :client-name="dayEvent.event.client?.name"
+                        :scheduled-attachment-summary="scheduledAttachmentSummary(dayEvent)"
                         :duration-seconds="getEventDurationSeconds(dayEvent, dayStr)" />
                 </div>
                 <div

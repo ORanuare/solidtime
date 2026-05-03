@@ -49,6 +49,8 @@ export interface AllDayLaneSegment {
     calendarEvent: OrgCalendarEvent;
     dayStr: string;
     title: string;
+    /** Shown below the title when the event has multiple project/task links. */
+    attachmentHint?: string;
     backgroundColor: string;
     borderColor: string;
 }

@@ -703,6 +703,8 @@ function getEventDurationSeconds(dayEvent: DayEvent, dayStr: string): number {
             v-if="selectedOrgCalendarEvent"
             v-model:show="showCalendarEventDetailModal"
             :calendar-event="selectedOrgCalendarEvent"
+            :projects="projects"
+            :tasks="tasks"
             :project="projectForCalendarEvent(selectedOrgCalendarEvent)"
             :task="taskForCalendarEvent(selectedOrgCalendarEvent)"
             :org-time-format="orgTimeFormat"
@@ -813,13 +815,23 @@ function getEventDurationSeconds(dayEvent: DayEvent, dayStr: string): number {
                                         []"
                                         :key="seg.segmentKey"
                                         :data-event-id="seg.calendarEvent.id"
-                                        class="min-w-0 max-w-full truncate rounded-md px-1.5 py-1 text-[0.75rem] leading-tight font-semibold cursor-pointer border shadow-sm box-border"
+                                        class="min-w-0 max-w-full rounded-md px-1.5 py-1 text-[0.75rem] leading-tight font-semibold cursor-pointer border shadow-sm box-border"
                                         :style="{
                                             backgroundColor: seg.backgroundColor,
                                             borderColor: seg.borderColor,
                                         }"
+                                        :title="
+                                            seg.attachmentHint
+                                                ? `${seg.title} — ${seg.attachmentHint}`
+                                                : seg.title
+                                        "
                                         @click.stop="openCalendarEventDetail(seg.calendarEvent)">
-                                        {{ seg.title }}
+                                        <div class="truncate">{{ seg.title }}</div>
+                                        <div
+                                            v-if="seg.attachmentHint"
+                                            class="truncate text-[0.65rem] font-normal leading-snug opacity-90">
+                                            {{ seg.attachmentHint }}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
