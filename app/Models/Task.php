@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Support\Carbon;
@@ -271,11 +272,17 @@ class Task extends Model implements AuditableContract
     }
 
     /**
-     * @return MorphMany<CalendarEvent, $this>
+     * @return BelongsToMany<CalendarEvent, $this>
      */
-    public function calendarEvents(): MorphMany
+    public function calendarEvents(): BelongsToMany
     {
-        return $this->morphMany(CalendarEvent::class, 'eventable');
+        return $this->belongsToMany(
+            CalendarEvent::class,
+            'calendar_event_assignments',
+            'assignable_id',
+            'calendar_event_id'
+        )->where('calendar_event_assignments.assignable_type', 'task')
+            ->withTimestamps();
     }
 
     /**

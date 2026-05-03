@@ -11,15 +11,13 @@ use Database\Factories\CalendarEventFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use OwenIt\Auditing\Contracts\Auditable as AuditableContract;
 
 /**
  * @property string $id
  * @property string $organization_id
  * @property string $user_id
- * @property string|null $eventable_type
- * @property string|null $eventable_id
  * @property string $title
  * @property string|null $description
  * @property \Illuminate\Support\Carbon $starts_at
@@ -28,7 +26,7 @@ use OwenIt\Auditing\Contracts\Auditable as AuditableContract;
  * @property NoteVisibility $visibility
  * @property-read Organization $organization
  * @property-read User $user
- * @property-read Project|Task|null $eventable
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, CalendarEventAssignment> $assignments
  *
  * @method static CalendarEventFactory factory()
  */
@@ -82,10 +80,10 @@ class CalendarEvent extends Model implements AuditableContract
     }
 
     /**
-     * @return MorphTo<Project|Task, $this>
+     * @return HasMany<CalendarEventAssignment, $this>
      */
-    public function eventable(): MorphTo
+    public function assignments(): HasMany
     {
-        return $this->morphTo();
+        return $this->hasMany(CalendarEventAssignment::class, 'calendar_event_id')->orderBy('position');
     }
 }
