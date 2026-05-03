@@ -63,9 +63,9 @@ class GenericProjectsImporter extends DefaultImporter
                         'billable_rate' => isset($record['billable_rate']) && $record['billable_rate'] !== '' ? (int) $record['billable_rate'] : null,
                         'billing_type' => $billingType,
                         'fixed_price' => isset($record['fixed_price']) && $record['fixed_price'] !== '' && is_numeric($record['fixed_price']) ? (int) $record['fixed_price'] : null,
+                        'amount_received' => isset($record['amount_received']) && $record['amount_received'] !== '' && is_numeric($record['amount_received']) ? (int) $record['amount_received'] : null,
                         'is_public' => isset($record['is_public']) && $record['is_public'] === 'true',
                         'is_billable' => isset($record['billable_default']) && $record['billable_default'] === 'true',
-                        'is_paid' => ! isset($record['is_paid']) || $record['is_paid'] === '' || $record['is_paid'] === 'true',
                         'estimated_time' => isset($record['estimated_time']) && $record['estimated_time'] !== '' && is_numeric($record['estimated_time']) && ((int) $record['estimated_time'] !== 0) ? (int) $record['estimated_time'] : null,
                         'archived_at' => $archivedAt,
                     ]);

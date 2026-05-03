@@ -111,10 +111,6 @@ abstract class DefaultImporter implements ImporterContract
                 'required',
                 'boolean',
             ],
-            'is_paid' => [
-                'nullable',
-                'boolean',
-            ],
             'billable_rate' => [
                 'nullable',
                 'integer',
@@ -126,6 +122,12 @@ abstract class DefaultImporter implements ImporterContract
                 Rule::enum(ProjectBillingType::class),
             ],
             'fixed_price' => [
+                'nullable',
+                'integer',
+                'min:0',
+                'max:9223372036854775807',
+            ],
+            'amount_received' => [
                 'nullable',
                 'integer',
                 'min:0',
