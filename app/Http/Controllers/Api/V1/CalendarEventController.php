@@ -11,6 +11,7 @@ use App\Http\Requests\V1\CalendarEvent\CalendarEventUpdateRequest;
 use App\Http\Resources\V1\CalendarEvent\CalendarEventCollection;
 use App\Http\Resources\V1\CalendarEvent\CalendarEventResource;
 use App\Models\CalendarEvent;
+use App\Models\CalendarEventAssignment;
 use App\Models\Organization;
 use App\Models\Project;
 use App\Models\Task;
@@ -53,24 +54,24 @@ class CalendarEventController extends Controller
 
         if ($request->filled('task_id')) {
             $taskId = $request->input('task_id');
-            $query->where('eventable_type', 'task')
-                ->where('eventable_id', $taskId);
+            $query->whereHas('assignments', function (Builder $q) use ($taskId): void {
+                $q->where('assignable_type', 'task')
+                    ->where('assignable_id', $taskId);
+            });
         } elseif ($request->filled('project_id')) {
             $projectId = $request->input('project_id');
             $query->where(function (Builder $q) use ($projectId): void {
                 $q->where(function (Builder $q2) use ($projectId): void {
-                    $q2->where(function (Builder $q3) use ($projectId): void {
-                        $q3->where('eventable_type', 'project')
-                            ->where('eventable_id', $projectId);
-                    })->orWhere(function (Builder $q3) use ($projectId): void {
-                        $q3->where('eventable_type', 'task')
-                            ->whereHasMorph('eventable', [Task::class], function (Builder $q4) use ($projectId): void {
+                    $q2->whereHas('assignments', function (Builder $q3) use ($projectId): void {
+                        $q3->where('assignable_type', 'project')
+                            ->where('assignable_id', $projectId);
+                    })->orWhereHas('assignments', function (Builder $q3) use ($projectId): void {
+                        $q3->where('assignable_type', 'task')
+                            ->whereHasMorph('assignable', [Task::class], function (Builder $q4) use ($projectId): void {
                                 $q4->where('project_id', $projectId);
                             });
                     });
-                })->orWhere(function (Builder $q2): void {
-                    $this->scopeWorkspaceEventables($q2);
-                });
+                })->orWhereDoesntHave('assignments');
             });
         }
 
@@ -79,7 +80,7 @@ class CalendarEventController extends Controller
         }
 
         $events = $query
-            ->with(['user', 'eventable'])
+            ->with(['user', 'assignments.assignable'])
             ->orderBy('starts_at')
             ->paginate(config('app.pagination_per_page_default'));
 
@@ -96,21 +97,8 @@ class CalendarEventController extends Controller
         $this->checkPermission($organization, 'calendar-events:create');
         $user = $this->user();
 
-        $task = null;
-        $project = null;
-        if ($request->filled('task_id')) {
-            /** @var Task $task */
-            $task = Task::query()
-                ->whereBelongsTo($organization, 'organization')
-                ->findOrFail($request->input('task_id'));
-            $this->assertUserCanAccessProject($organization, $user, $task->project);
-        } elseif ($request->filled('project_id')) {
-            /** @var Project $project */
-            $project = Project::query()
-                ->whereBelongsTo($organization, 'organization')
-                ->findOrFail($request->input('project_id'));
-            $this->assertUserCanAccessProject($organization, $user, $project);
-        }
+        $items = $this->assignmentItemsFromStoreRequest($request);
+        $models = $this->resolveAssignmentModels($organization, $user, $items);
 
         $event = new CalendarEvent;
         $event->title = $request->input('title');
@@ -121,16 +109,10 @@ class CalendarEventController extends Controller
         $event->visibility = NoteVisibility::from($request->input('visibility'));
         $event->user()->associate($user);
         $event->organization()->associate($organization);
-        if ($task !== null) {
-            $event->eventable()->associate($task);
-        } elseif ($project !== null) {
-            $event->eventable()->associate($project);
-        } else {
-            $event->eventable_type = null;
-            $event->eventable_id = null;
-        }
         $event->save();
-        $event->load(['user', 'eventable']);
+
+        $this->syncAssignments($event, $models);
+        $event->load(['user', 'assignments.assignable']);
 
         return new CalendarEventResource($event);
     }
@@ -165,25 +147,12 @@ class CalendarEventController extends Controller
             $calendarEvent->visibility = NoteVisibility::from($request->input('visibility'));
         }
         if ($request->boolean('reassign')) {
-            if ($request->filled('task_id')) {
-                $task = Task::query()
-                    ->whereBelongsTo($organization, 'organization')
-                    ->findOrFail($request->input('task_id'));
-                $this->assertUserCanAccessProject($organization, $user, $task->project);
-                $calendarEvent->eventable()->associate($task);
-            } elseif ($request->filled('project_id')) {
-                $project = Project::query()
-                    ->whereBelongsTo($organization, 'organization')
-                    ->findOrFail($request->input('project_id'));
-                $this->assertUserCanAccessProject($organization, $user, $project);
-                $calendarEvent->eventable()->associate($project);
-            } else {
-                $calendarEvent->eventable_type = null;
-                $calendarEvent->eventable_id = null;
-            }
+            $items = $this->assignmentItemsFromUpdateRequest($request);
+            $models = $this->resolveAssignmentModels($organization, $user, $items);
+            $this->syncAssignments($calendarEvent, $models);
         }
         $calendarEvent->save();
-        $calendarEvent->load(['user', 'eventable']);
+        $calendarEvent->load(['user', 'assignments.assignable']);
 
         return new CalendarEventResource($calendarEvent);
     }
@@ -203,12 +172,119 @@ class CalendarEventController extends Controller
     }
 
     /**
-     * @param  Builder<CalendarEvent>  $query
+     * @return list<array{type: string, id: string}>
      */
-    private function scopeWorkspaceEventables(Builder $query): void
+    private function assignmentItemsFromStoreRequest(CalendarEventStoreRequest $request): array
     {
-        $query->whereNull('eventable_type')
-            ->whereNull('eventable_id');
+        if ($request->has('assignments')) {
+            $raw = $request->input('assignments', []);
+
+            return $this->sanitizeAssignmentItems(is_array($raw) ? $raw : []);
+        }
+        if ($request->filled('task_id')) {
+            return [['type' => 'task', 'id' => (string) $request->input('task_id')]];
+        }
+        if ($request->filled('project_id')) {
+            return [['type' => 'project', 'id' => (string) $request->input('project_id')]];
+        }
+
+        return [];
+    }
+
+    /**
+     * @return list<array{type: string, id: string}>
+     */
+    private function assignmentItemsFromUpdateRequest(CalendarEventUpdateRequest $request): array
+    {
+        if ($request->has('assignments')) {
+            $raw = $request->input('assignments', []);
+
+            return $this->sanitizeAssignmentItems(is_array($raw) ? $raw : []);
+        }
+        if ($request->filled('task_id')) {
+            return [['type' => 'task', 'id' => (string) $request->input('task_id')]];
+        }
+        if ($request->filled('project_id')) {
+            return [['type' => 'project', 'id' => (string) $request->input('project_id')]];
+        }
+
+        return [];
+    }
+
+    /**
+     * @param  list<mixed>  $raw
+     * @return list<array{type: string, id: string}>
+     */
+    private function sanitizeAssignmentItems(array $raw): array
+    {
+        $items = [];
+        foreach ($raw as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            $type = isset($row['type']) ? (string) $row['type'] : '';
+            $id = isset($row['id']) ? (string) $row['id'] : '';
+            if ($type === '' || $id === '') {
+                continue;
+            }
+            $items[] = ['type' => $type, 'id' => $id];
+        }
+
+        return $items;
+    }
+
+    /**
+     * @param  list<array{type: string, id: string}>  $items
+     * @return list<Project|Task>
+     */
+    private function resolveAssignmentModels(Organization $organization, User $user, array $items): array
+    {
+        $seen = [];
+        $models = [];
+        foreach ($items as $item) {
+            $type = $item['type'];
+            $id = $item['id'];
+            $key = $type.':'.$id;
+            if (isset($seen[$key])) {
+                continue;
+            }
+            $seen[$key] = true;
+            if ($type === 'task') {
+                /** @var Task $task */
+                $task = Task::query()
+                    ->whereBelongsTo($organization, 'organization')
+                    ->findOrFail($id);
+                $this->assertUserCanAccessProject($organization, $user, $task->project);
+                $models[] = $task;
+            } elseif ($type === 'project') {
+                /** @var Project $project */
+                $project = Project::query()
+                    ->whereBelongsTo($organization, 'organization')
+                    ->findOrFail($id);
+                $this->assertUserCanAccessProject($organization, $user, $project);
+                $models[] = $project;
+            }
+        }
+
+        return $models;
+    }
+
+    /**
+     * @param  list<Project|Task>  $models
+     */
+    private function syncAssignments(CalendarEvent $event, array $models): void
+    {
+        $event->assignments()->delete();
+        $position = 0;
+        foreach ($models as $model) {
+            $assignment = new CalendarEventAssignment([
+                'calendar_event_id' => $event->getKey(),
+                'position' => $position,
+            ]);
+            $assignment->assignable()->associate($model);
+            $assignment->save();
+            $position++;
+        }
     }
 
     /**
@@ -228,24 +304,24 @@ class CalendarEventController extends Controller
                         ->where('user_id', $user->getKey());
                 })->orWhere(function (Builder $q2) use ($organization, $user, $canViewAllProjects, $canViewAllTasks): void {
                     $q2->where('visibility', NoteVisibility::Shared)
-                        ->where(function (Builder $q3): void {
-                            $q3->whereNull('eventable_type')
-                                ->whereNull('eventable_id');
-                        })->orWhere(function (Builder $q3) use ($organization, $user, $canViewAllProjects): void {
-                            $q3->where('eventable_type', 'project')
-                                ->whereHasMorph('eventable', [Project::class], function (Builder $q4) use ($organization, $user, $canViewAllProjects): void {
-                                    $q4->where('organization_id', $organization->getKey());
-                                    if (! $canViewAllProjects) {
-                                        $q4->visibleByEmployee($user);
-                                    }
-                                });
-                        })->orWhere(function (Builder $q3) use ($organization, $user, $canViewAllTasks): void {
-                            $q3->where('eventable_type', 'task')
-                                ->whereHasMorph('eventable', [Task::class], function (Builder $q4) use ($organization, $user, $canViewAllTasks): void {
-                                    $q4->where('organization_id', $organization->getKey());
-                                    if (! $canViewAllTasks) {
-                                        $q4->visibleByEmployee($user);
-                                    }
+                        ->where(function (Builder $q3) use ($organization, $user, $canViewAllProjects, $canViewAllTasks): void {
+                            $q3->whereDoesntHave('assignments')
+                                ->orWhereHas('assignments', function (Builder $qA) use ($organization, $user, $canViewAllProjects): void {
+                                    $qA->where('assignable_type', 'project')
+                                        ->whereHasMorph('assignable', [Project::class], function (Builder $q4) use ($organization, $user, $canViewAllProjects): void {
+                                            $q4->where('organization_id', $organization->getKey());
+                                            if (! $canViewAllProjects) {
+                                                $q4->visibleByEmployee($user);
+                                            }
+                                        });
+                                })->orWhereHas('assignments', function (Builder $qA) use ($organization, $user, $canViewAllTasks): void {
+                                    $qA->where('assignable_type', 'task')
+                                        ->whereHasMorph('assignable', [Task::class], function (Builder $q4) use ($organization, $user, $canViewAllTasks): void {
+                                            $q4->where('organization_id', $organization->getKey());
+                                            if (! $canViewAllTasks) {
+                                                $q4->visibleByEmployee($user);
+                                            }
+                                        });
                                 });
                         });
                 });

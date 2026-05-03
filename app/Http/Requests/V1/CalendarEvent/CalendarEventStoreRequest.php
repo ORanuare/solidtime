@@ -53,7 +53,21 @@ class CalendarEventStoreRequest extends BaseFormRequest
                 'string',
                 Rule::enum(NoteVisibility::class),
             ],
+            'assignments' => [
+                'sometimes',
+                'array',
+            ],
+            'assignments.*.type' => [
+                'required_with:assignments',
+                'string',
+                Rule::in(['project', 'task']),
+            ],
+            'assignments.*.id' => [
+                'required_with:assignments.*.type',
+                'uuid',
+            ],
             'task_id' => [
+                Rule::prohibitedIf(fn () => $this->has('assignments')),
                 'nullable',
                 'uuid',
                 'prohibits:project_id',
@@ -63,6 +77,7 @@ class CalendarEventStoreRequest extends BaseFormRequest
                 })->uuid(),
             ],
             'project_id' => [
+                Rule::prohibitedIf(fn () => $this->has('assignments')),
                 'nullable',
                 'uuid',
                 'prohibits:task_id',
@@ -79,11 +94,32 @@ class CalendarEventStoreRequest extends BaseFormRequest
         $validator->after(function (Validator $v): void {
             $start = $this->input('starts_at');
             $end = $this->input('ends_at');
-            if ($start === null || $end === null) {
+            if ($start !== null && $end !== null && strtotime((string) $end) <= strtotime((string) $start)) {
+                $v->errors()->add('ends_at', __('The end must be after the start.'));
+            }
+
+            if (! $this->has('assignments')) {
                 return;
             }
-            if (strtotime((string) $end) <= strtotime((string) $start)) {
-                $v->errors()->add('ends_at', __('The end must be after the start.'));
+            $assignments = $this->input('assignments');
+            if (! is_array($assignments)) {
+                return;
+            }
+            $seen = [];
+            foreach ($assignments as $i => $row) {
+                if (! is_array($row)) {
+                    continue;
+                }
+                $type = $row['type'] ?? '';
+                $id = $row['id'] ?? '';
+                if ($type === '' || $id === '') {
+                    continue;
+                }
+                $key = $type.':'.$id;
+                if (isset($seen[$key])) {
+                    $v->errors()->add('assignments.'.$i.'.id', __('Duplicate assignment.'));
+                }
+                $seen[$key] = true;
             }
         });
     }

@@ -6,6 +6,7 @@ namespace App\Http\Resources\V1\CalendarEvent;
 
 use App\Http\Resources\V1\BaseResource;
 use App\Models\CalendarEvent;
+use App\Models\CalendarEventAssignment;
 use App\Models\Project;
 use App\Models\Task;
 use Illuminate\Http\Request;
@@ -20,15 +21,33 @@ class CalendarEventResource extends BaseResource
      */
     public function toArray(Request $request): array
     {
-        $e = $this->resource->eventable;
-        $projectId = '';
-        $taskId = '';
-        if ($e instanceof Task) {
-            $projectId = $e->project_id;
-            $taskId = $e->id;
-        } elseif ($e instanceof Project) {
-            $projectId = $e->id;
-        }
+        $assignments = $this->resource->assignments;
+        $assignmentPayload = $assignments->map(function (CalendarEventAssignment $a): array {
+            $m = $a->assignable;
+            if ($m instanceof Task) {
+                return [
+                    'type' => 'task',
+                    'id' => $m->id,
+                    'name' => $m->name,
+                ];
+            }
+            if ($m instanceof Project) {
+                return [
+                    'type' => 'project',
+                    'id' => $m->id,
+                    'name' => $m->name,
+                ];
+            }
+
+            return [
+                'type' => (string) $a->assignable_type,
+                'id' => (string) $a->assignable_id,
+                'name' => '',
+            ];
+        })->values()->all();
+
+        [$projectId, $taskId] = $this->primaryProjectAndTaskIds($assignments);
+        $label = $this->assignmentSummaryLabel($assignments);
 
         return [
             'id' => $this->resource->id,
@@ -42,23 +61,73 @@ class CalendarEventResource extends BaseResource
             'user_name' => $this->resource->user?->name ?? '',
             'project_id' => $projectId,
             'task_id' => $taskId,
-            'eventable_type' => $this->resource->eventable_type,
-            'eventable_id' => $this->resource->eventable_id,
-            'eventable_label' => $this->eventableLabel($e),
+            'assignments' => $assignmentPayload,
+            'eventable_label' => $label,
             'created_at' => $this->formatDateTime($this->resource->created_at),
             'updated_at' => $this->formatDateTime($this->resource->updated_at),
         ];
     }
 
-    private function eventableLabel(?\Illuminate\Database\Eloquent\Model $eventable): string
+    /**
+     * @param  \Illuminate\Support\Collection<int, CalendarEventAssignment>  $assignments
+     * @return array{0: string, 1: string}
+     */
+    private function primaryProjectAndTaskIds($assignments): array
     {
-        if ($eventable instanceof Task) {
-            return 'Task: '.$eventable->name;
+        $projectId = '';
+        $taskId = '';
+        foreach ($assignments as $a) {
+            $m = $a->assignable;
+            if ($m instanceof Task) {
+                return [$m->project_id, $m->id];
+            }
         }
-        if ($eventable instanceof Project) {
-            return 'Project: '.$eventable->name;
+        foreach ($assignments as $a) {
+            $m = $a->assignable;
+            if ($m instanceof Project) {
+                return [$m->id, ''];
+            }
         }
 
-        return 'Workspace';
+        return [$projectId, $taskId];
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, CalendarEventAssignment>  $assignments
+     */
+    private function assignmentSummaryLabel($assignments): string
+    {
+        if ($assignments->isEmpty()) {
+            return 'Workspace';
+        }
+
+        $typed = [];
+        foreach ($assignments as $a) {
+            $m = $a->assignable;
+            if ($m instanceof Task) {
+                $typed[] = ['task', $m->name];
+            } elseif ($m instanceof Project) {
+                $typed[] = ['project', $m->name];
+            }
+        }
+
+        if ($typed === []) {
+            return 'Workspace';
+        }
+
+        $kinds = array_unique(array_column($typed, 0));
+        $names = array_column($typed, 1);
+
+        if (count($names) === 1) {
+            return $names[0];
+        }
+
+        if (count($kinds) === 1) {
+            $scope = $kinds[0] === 'task' ? 'Tasks' : 'Projects';
+
+            return $scope.' · '.implode(', ', $names);
+        }
+
+        return implode(', ', $names);
     }
 }

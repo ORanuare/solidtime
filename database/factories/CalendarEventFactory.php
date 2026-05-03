@@ -6,7 +6,10 @@ namespace Database\Factories;
 
 use App\Enums\NoteVisibility;
 use App\Models\CalendarEvent;
+use App\Models\CalendarEventAssignment;
 use App\Models\Organization;
+use App\Models\Project;
+use App\Models\Task;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -27,8 +30,6 @@ class CalendarEventFactory extends Factory
         return [
             'organization_id' => Organization::factory(),
             'user_id' => User::factory(),
-            'eventable_type' => null,
-            'eventable_id' => null,
             'title' => $this->faker->sentence(4),
             'description' => null,
             'starts_at' => $start,
@@ -76,6 +77,32 @@ class CalendarEventFactory extends Factory
                 'starts_at' => $start,
                 'ends_at' => (clone $start)->modify('+1 day'),
             ];
+        });
+    }
+
+    public function withProject(Project $project): self
+    {
+        return $this->afterCreating(function (CalendarEvent $event) use ($project): void {
+            $max = (int) CalendarEventAssignment::query()->where('calendar_event_id', $event->getKey())->max('position');
+            CalendarEventAssignment::query()->create([
+                'calendar_event_id' => $event->getKey(),
+                'assignable_type' => 'project',
+                'assignable_id' => $project->getKey(),
+                'position' => $max + 1,
+            ]);
+        });
+    }
+
+    public function withTask(Task $task): self
+    {
+        return $this->afterCreating(function (CalendarEvent $event) use ($task): void {
+            $max = (int) CalendarEventAssignment::query()->where('calendar_event_id', $event->getKey())->max('position');
+            CalendarEventAssignment::query()->create([
+                'calendar_event_id' => $event->getKey(),
+                'assignable_type' => 'task',
+                'assignable_id' => $task->getKey(),
+                'position' => $max + 1,
+            ]);
         });
     }
 }

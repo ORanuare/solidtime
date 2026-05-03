@@ -7,6 +7,7 @@ namespace Tests\Unit\Endpoint\Api\V1;
 use App\Enums\NoteVisibility;
 use App\Http\Controllers\Api\V1\CalendarEventController;
 use App\Models\CalendarEvent;
+use App\Models\CalendarEventAssignment;
 use App\Models\Member;
 use App\Models\Project;
 use App\Models\Task;
@@ -61,7 +62,8 @@ class CalendarEventEndpointTest extends ApiEndpointTestAbstract
             ->has('data')
             ->where('data.title', 'Team sync')
             ->where('data.visibility', 'shared')
-            ->where('data.eventable_type', null));
+            ->where('data.eventable_label', 'Workspace')
+            ->where('data.assignments', []));
 
         $this->assertDatabaseHas('calendar_events', [
             'title' => 'Team sync',
@@ -164,25 +166,23 @@ class CalendarEventEndpointTest extends ApiEndpointTestAbstract
             ->forOrganization($data->organization)
             ->author($data->user)
             ->shared()
+            ->withProject($project)
             ->create([
                 'title' => 'Proj',
                 'starts_at' => '2026-05-10 10:00:00',
                 'ends_at' => '2026-05-10 11:00:00',
             ]);
-        $onProject->eventable()->associate($project);
-        $onProject->save();
 
         $onTask = CalendarEvent::factory()
             ->forOrganization($data->organization)
             ->author($data->user)
             ->shared()
+            ->withTask($task)
             ->create([
                 'title' => 'TaskEv',
                 'starts_at' => '2026-05-10 10:00:00',
                 'ends_at' => '2026-05-10 11:00:00',
             ]);
-        $onTask->eventable()->associate($task);
-        $onTask->save();
 
         Passport::actingAs($data->user);
         $response = $this->getJson(route('api.v1.calendar-events.index', [
@@ -328,5 +328,74 @@ class CalendarEventEndpointTest extends ApiEndpointTestAbstract
         ]);
 
         $response->assertForbidden();
+    }
+
+    public function test_store_accepts_multiple_assignments(): void
+    {
+        $data = $this->createUserWithPermission([
+            'calendar-events:create',
+            'calendar-events:view',
+            'projects:view:all',
+            'tasks:view:all',
+        ]);
+        $p1 = Project::factory()->forOrganization($data->organization)->create();
+        $p2 = Project::factory()->forOrganization($data->organization)->create();
+        Passport::actingAs($data->user);
+
+        $response = $this->postJson(route('api.v1.calendar-events.store', [$data->organization->getKey()]), [
+            'title' => 'Cross-team',
+            'description' => null,
+            'starts_at' => '2026-05-10T14:00:00Z',
+            'ends_at' => '2026-05-10T15:00:00Z',
+            'all_day' => false,
+            'visibility' => NoteVisibility::Shared->value,
+            'assignments' => [
+                ['type' => 'project', 'id' => $p1->getKey()],
+                ['type' => 'project', 'id' => $p2->getKey()],
+            ],
+        ]);
+
+        $response->assertStatus(201);
+        $response->assertJson(fn (AssertableJson $json) => $json
+            ->has('data.assignments', 2)
+            ->where('data.project_id', $p1->getKey())
+            ->where('data.task_id', ''));
+        $id = $response->json('data.id');
+        $this->assertSame(2, CalendarEventAssignment::query()->where('calendar_event_id', $id)->count());
+    }
+
+    public function test_index_with_project_id_includes_event_when_only_second_assignment_matches(): void
+    {
+        $data = $this->createUserWithPermission([
+            'calendar-events:view',
+            'calendar-events:create',
+            'projects:view:all',
+            'tasks:view:all',
+        ]);
+        $p1 = Project::factory()->forOrganization($data->organization)->create();
+        $p2 = Project::factory()->forOrganization($data->organization)->create();
+        Passport::actingAs($data->user);
+
+        $this->postJson(route('api.v1.calendar-events.store', [$data->organization->getKey()]), [
+            'title' => 'Multi',
+            'description' => null,
+            'starts_at' => '2026-05-10T14:00:00Z',
+            'ends_at' => '2026-05-10T15:00:00Z',
+            'all_day' => false,
+            'visibility' => NoteVisibility::Shared->value,
+            'assignments' => [
+                ['type' => 'project', 'id' => $p1->getKey()],
+                ['type' => 'project', 'id' => $p2->getKey()],
+            ],
+        ])->assertStatus(201);
+
+        $response = $this->getJson(route('api.v1.calendar-events.index', [
+            $data->organization->getKey(),
+            ...$this->windowQuery('2026-05-01T00:00:00Z', '2026-05-30T00:00:00Z'),
+            'project_id' => $p2->getKey(),
+        ]));
+        $response->assertStatus(200);
+        $titles = collect($response->json('data'))->pluck('title')->all();
+        $this->assertContains('Multi', $titles);
     }
 }

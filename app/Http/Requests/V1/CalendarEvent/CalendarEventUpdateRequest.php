@@ -68,11 +68,28 @@ class CalendarEventUpdateRequest extends BaseFormRequest
                 'project_id' => [
                     'prohibited',
                 ],
+                'assignments' => [
+                    'prohibited',
+                ],
             ]);
         }
 
         return array_merge($base, [
+            'assignments' => [
+                'sometimes',
+                'array',
+            ],
+            'assignments.*.type' => [
+                'required_with:assignments',
+                'string',
+                Rule::in(['project', 'task']),
+            ],
+            'assignments.*.id' => [
+                'required_with:assignments.*.type',
+                'uuid',
+            ],
             'task_id' => [
+                Rule::prohibitedIf(fn () => $this->has('assignments')),
                 'nullable',
                 'uuid',
                 ExistsEloquent::make(Task::class, null, function (Builder $builder): Builder {
@@ -81,6 +98,7 @@ class CalendarEventUpdateRequest extends BaseFormRequest
                 })->uuid(),
             ],
             'project_id' => [
+                Rule::prohibitedIf(fn () => $this->has('assignments')),
                 'nullable',
                 'uuid',
                 ExistsEloquent::make(Project::class, null, function (Builder $builder): Builder {
@@ -96,6 +114,26 @@ class CalendarEventUpdateRequest extends BaseFormRequest
         $validator->after(function (Validator $v): void {
             if ($this->boolean('reassign') && $this->filled('task_id') && $this->filled('project_id')) {
                 $v->errors()->add('task_id', 'Provide either a task or a project, not both.');
+            }
+
+            if ($this->boolean('reassign') && $this->has('assignments') && is_array($this->input('assignments'))) {
+                $assignments = $this->input('assignments');
+                $seen = [];
+                foreach ($assignments as $i => $row) {
+                    if (! is_array($row)) {
+                        continue;
+                    }
+                    $type = $row['type'] ?? '';
+                    $id = $row['id'] ?? '';
+                    if ($type === '' || $id === '') {
+                        continue;
+                    }
+                    $key = $type.':'.$id;
+                    if (isset($seen[$key])) {
+                        $v->errors()->add('assignments.'.$i.'.id', __('Duplicate assignment.'));
+                    }
+                    $seen[$key] = true;
+                }
             }
 
             $hasStart = $this->has('starts_at');
