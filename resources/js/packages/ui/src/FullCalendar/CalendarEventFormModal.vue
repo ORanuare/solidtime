@@ -79,12 +79,54 @@ const localEnd = ref<string | null>(null);
 const selectedProjectIds = ref<string[]>([]);
 const selectedTaskIds = ref<string[]>([]);
 
+/** Picker lists: exclude archived projects and completed tasks (and tasks on archived projects). */
+const linkableProjects = computed(() => props.projects.filter((p) => !p.is_archived));
+
+const linkableTasks = computed(() =>
+    props.tasks.filter((t) => {
+        const p = props.projects.find((x) => x.id === t.project_id);
+        return !t.is_done && p !== undefined && !p.is_archived;
+    })
+);
+
+/** Editing: selections that point to archived projects or done / orphaned tasks — shown so they can be removed. */
+const selectedUnavailableProjects = computed(() => {
+    const out: Project[] = [];
+    for (const id of selectedProjectIds.value) {
+        const p = props.projects.find((x) => x.id === id);
+        if (p?.is_archived) {
+            out.push(p);
+        }
+    }
+    return out.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+});
+
+const selectedUnavailableTasks = computed(() => {
+    const out: Task[] = [];
+    for (const id of selectedTaskIds.value) {
+        const t = props.tasks.find((x) => x.id === id);
+        if (!t) {
+            continue;
+        }
+        const p = props.projects.find((x) => x.id === t.project_id);
+        if (t.is_done || p?.is_archived) {
+            out.push(t);
+        }
+    }
+    return out.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+});
+
+const hasStaleLinkSelections = computed(
+    () =>
+        selectedUnavailableProjects.value.length > 0 || selectedUnavailableTasks.value.length > 0
+);
+
 const tasksSorted = computed(() =>
-    [...props.tasks].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
+    [...linkableTasks.value].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
 );
 
 const projectsSorted = computed(() =>
-    [...props.projects].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
+    [...linkableProjects.value].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
 );
 
 const tasksGroupedByProject = computed(() => {
@@ -193,9 +235,18 @@ function selectWorkspaceOnly() {
 function applyDefaultSelection() {
     selectWorkspaceOnly();
     if (props.defaultTaskId) {
-        selectedTaskIds.value = [props.defaultTaskId];
-    } else if (props.defaultProjectId) {
-        selectedProjectIds.value = [props.defaultProjectId];
+        const t = props.tasks.find((x) => x.id === props.defaultTaskId);
+        const p = t ? props.projects.find((x) => x.id === t.project_id) : undefined;
+        if (t && !t.is_done && p && !p.is_archived) {
+            selectedTaskIds.value = [props.defaultTaskId];
+        }
+        return;
+    }
+    if (props.defaultProjectId) {
+        const p = props.projects.find((x) => x.id === props.defaultProjectId);
+        if (p && !p.is_archived) {
+            selectedProjectIds.value = [props.defaultProjectId];
+        }
     }
 }
 
@@ -343,11 +394,18 @@ function defaultAttachmentPayload(): Pick<
     CreateOrgCalendarEventBody,
     'assignments' | 'task_id' | 'project_id'
 > {
-    if (props.defaultTaskId && props.defaultProjectId) {
-        return { assignments: [{ type: 'task', id: props.defaultTaskId }] };
+    if (props.defaultTaskId) {
+        const t = props.tasks.find((x) => x.id === props.defaultTaskId);
+        const p = t ? props.projects.find((x) => x.id === t.project_id) : undefined;
+        if (t && !t.is_done && p && !p.is_archived) {
+            return { assignments: [{ type: 'task', id: props.defaultTaskId }] };
+        }
     }
     if (props.defaultProjectId) {
-        return { assignments: [{ type: 'project', id: props.defaultProjectId }] };
+        const p = props.projects.find((x) => x.id === props.defaultProjectId);
+        if (p && !p.is_archived) {
+            return { assignments: [{ type: 'project', id: props.defaultProjectId }] };
+        }
     }
     return {};
 }
@@ -505,6 +563,68 @@ function buildPartialUpdate(range: { starts_at: string; ends_at: string }): Reco
                             </div>
                         </div>
                         <div class="space-y-4 p-4">
+                            <div
+                                v-if="hasStaleLinkSelections"
+                                class="rounded-lg border border-amber-500/35 bg-amber-500/[0.06] p-3 dark:border-amber-400/30 dark:bg-amber-500/[0.08]">
+                                <p class="text-xs font-medium text-text-primary">Previously linked items</p>
+                                <p class="mt-0.5 text-[11px] leading-snug text-text-secondary">
+                                    Archived or completed — they are not offered below. Tap to remove from
+                                    this event.
+                                </p>
+                                <div class="mt-2 flex flex-wrap gap-2">
+                                    <button
+                                        v-for="p in selectedUnavailableProjects"
+                                        :key="`stale-project-${p.id}`"
+                                        type="button"
+                                        :class="
+                                            twMerge(
+                                                projectChipButtonClass(true),
+                                                'opacity-90 ring-1 ring-amber-500/40 dark:ring-amber-400/35'
+                                            )
+                                        "
+                                        :style="projectChipSurface(p, true)"
+                                        :aria-pressed="true"
+                                        @click="toggleProject(p.id)">
+                                        <span
+                                            class="h-2.5 w-2.5 shrink-0 rounded-full ring-2 ring-white/80 dark:ring-black/20"
+                                            :style="{ backgroundColor: p.color }" />
+                                        <span class="min-w-0 truncate">{{ p.name }}</span>
+                                        <span
+                                            class="shrink-0 rounded bg-amber-500/25 px-1 text-[10px] font-semibold uppercase text-amber-900 dark:text-amber-100">
+                                            Archived
+                                        </span>
+                                    </button>
+                                    <button
+                                        v-for="t in selectedUnavailableTasks"
+                                        :key="`stale-task-${t.id}`"
+                                        type="button"
+                                        :class="
+                                            twMerge(
+                                                taskChipButtonClass(true),
+                                                'opacity-90 ring-1 ring-amber-500/40 dark:ring-amber-400/35'
+                                            )
+                                        "
+                                        :aria-pressed="true"
+                                        @click="toggleTask(t.id)">
+                                        <span
+                                            class="h-2 w-2 shrink-0 rounded-full"
+                                            :style="{
+                                                backgroundColor:
+                                                    projects.find((x) => x.id === t.project_id)?.color ??
+                                                    '#6B7280',
+                                            }" />
+                                        <span class="min-w-0 truncate">{{ t.name }}</span>
+                                        <span
+                                            class="shrink-0 rounded bg-amber-500/25 px-1 text-[10px] font-semibold uppercase text-amber-900 dark:text-amber-100">
+                                            {{
+                                                tasks.find((x) => x.id === t.id)?.is_done
+                                                    ? 'Done'
+                                                    : 'Unavailable'
+                                            }}
+                                        </span>
+                                    </button>
+                                </div>
+                            </div>
                             <section
                                 class="rounded-lg border border-border-secondary border-l-[3px] border-l-violet-500/45 bg-violet-500/[0.03] p-3 dark:border-border-secondary dark:border-l-violet-400/40 dark:bg-violet-500/[0.045]">
                                 <div class="mb-3 flex gap-2">
