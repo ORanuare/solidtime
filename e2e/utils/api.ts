@@ -231,7 +231,6 @@ export async function createProjectViaApi(
         client_id?: string | null;
         estimated_time?: number | null;
         is_public?: boolean;
-        is_paid?: boolean;
     }
 ) {
     const response = await ctx.request.post(
@@ -247,7 +246,6 @@ export async function createProjectViaApi(
                 client_id: data.client_id ?? null,
                 estimated_time: data.estimated_time ?? null,
                 is_public: data.is_public ?? false,
-                is_paid: data.is_paid ?? true,
             },
         }
     );
@@ -263,7 +261,6 @@ export async function archiveProjectViaApi(
         name: string;
         color: string;
         is_billable: boolean;
-        is_paid?: boolean;
         client_id?: string | null;
         billable_rate?: number | null;
         estimated_time?: number | null;
@@ -276,7 +273,6 @@ export async function archiveProjectViaApi(
                 name: project.name,
                 color: project.color,
                 is_billable: project.is_billable,
-                is_paid: project.is_paid ?? true,
                 is_archived: true,
                 client_id: project.client_id ?? null,
                 billable_rate: project.billable_rate ?? null,

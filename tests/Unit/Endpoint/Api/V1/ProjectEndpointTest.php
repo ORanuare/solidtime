@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Endpoint\Api\V1;
 
+use App\Enums\ProjectBillingType;
 use App\Enums\Role;
 use App\Http\Controllers\Api\V1\ProjectController;
 use App\Models\Client;
@@ -321,7 +322,6 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'color' => $projectFake->color,
             'client_id' => null,
             'is_billable' => $projectFake->is_billable,
-            'is_paid' => $projectFake->is_paid,
         ]);
 
         // Assert
@@ -343,7 +343,6 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'name' => $projectFake->name,
             'color' => $projectFake->color,
             'is_billable' => $projectFake->is_billable,
-            'is_paid' => $projectFake->is_paid,
             'client_id' => null,
             'billable_rate' => $billableRate,
         ]);
@@ -355,7 +354,6 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'color' => $projectFake->color,
             'organization_id' => $projectFake->organization_id,
             'is_billable' => $projectFake->is_billable,
-            'is_paid' => $projectFake->is_paid,
             'client_id' => null,
             'billable_rate' => $billableRate,
         ]);
@@ -376,7 +374,6 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'name' => $projectFake->name,
             'color' => $projectFake->color,
             'is_billable' => $projectFake->is_billable,
-            'is_paid' => $projectFake->is_paid,
             'client_id' => null,
             'billable_rate' => $billableRate,
         ]);
@@ -403,7 +400,6 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'color' => $projectFake->color,
             'client_id' => null,
             'is_billable' => $projectFake->is_billable,
-            'is_paid' => $projectFake->is_paid,
         ]);
 
         // Assert
@@ -414,7 +410,6 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'organization_id' => $projectFake->organization_id,
             'client_id' => null,
             'is_billable' => $projectFake->is_billable,
-            'is_paid' => $projectFake->is_paid,
         ]);
     }
 
@@ -432,7 +427,6 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'name' => $projectFake->name,
             'color' => $projectFake->color,
             'is_billable' => $projectFake->is_billable,
-            'is_paid' => $projectFake->is_paid,
             'client_id' => null,
             'estimated_time' => 10000,
         ]);
@@ -450,7 +444,6 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'color' => $projectFake->color,
             'organization_id' => $projectFake->organization_id,
             'is_billable' => $projectFake->is_billable,
-            'is_paid' => $projectFake->is_paid,
             'client_id' => null,
             'estimated_time' => null,
         ]);
@@ -471,7 +464,6 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'name' => $projectFake->name,
             'color' => $projectFake->color,
             'is_billable' => $projectFake->is_billable,
-            'is_paid' => $projectFake->is_paid,
             'client_id' => null,
             'estimated_time' => 10000,
         ]);
@@ -489,7 +481,6 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'color' => $projectFake->color,
             'organization_id' => $projectFake->organization_id,
             'is_billable' => $projectFake->is_billable,
-            'is_paid' => $projectFake->is_paid,
             'client_id' => null,
             'estimated_time' => 10000,
         ]);
@@ -516,7 +507,6 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'color' => $projectFake->color,
             'client_id' => $clientB->getKey(),
             'is_billable' => $projectFake->is_billable,
-            'is_paid' => $projectFake->is_paid,
         ]);
 
         // Assert
@@ -550,7 +540,6 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'color' => $projectFake->color,
             'client_id' => null,
             'is_billable' => $projectFake->is_billable,
-            'is_paid' => $projectFake->is_paid,
         ]);
 
         // Assert
@@ -580,7 +569,6 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'color' => $projectFake->color,
             'client_id' => $client->getKey(),
             'is_billable' => $projectFake->is_billable,
-            'is_paid' => $projectFake->is_paid,
         ]);
 
         // Assert
@@ -610,7 +598,6 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'color' => $projectFake->color,
             'client_id' => null,
             'is_billable' => $projectFake->is_billable,
-            'is_paid' => $projectFake->is_paid,
         ]);
 
         // Assert
@@ -620,7 +607,6 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'color' => $projectFake->color,
             'organization_id' => $data->organization->getKey(),
             'is_billable' => $projectFake->is_billable,
-            'is_paid' => $projectFake->is_paid,
         ]);
     }
 
@@ -639,7 +625,6 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'name' => $projectFake->name,
             'color' => $projectFake->color,
             'is_billable' => $projectFake->is_billable,
-            'is_paid' => $projectFake->is_paid,
             'client_id' => $client->getKey(),
         ]);
 
@@ -649,7 +634,6 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'name' => $projectFake->name,
             'color' => $projectFake->color,
             'is_billable' => $projectFake->is_billable,
-            'is_paid' => $projectFake->is_paid,
             'organization_id' => $projectFake->organization_id,
             'client_id' => $client->getKey(),
         ]);
@@ -671,7 +655,6 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'color' => $projectFake->color,
             'client_id' => null,
             'is_billable' => true,
-            'is_paid' => $projectFake->is_paid,
             'billable_rate' => 10001,
         ]);
 
@@ -681,7 +664,6 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'name' => $projectFake->name,
             'color' => $projectFake->color,
             'is_billable' => true,
-            'is_paid' => $projectFake->is_paid,
             'billable_rate' => 10001,
             'organization_id' => $projectFake->organization_id,
         ]);
@@ -710,42 +692,70 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
         ]);
     }
 
-    public function test_store_and_update_persist_is_paid_false(): void
+    public function test_store_endpoint_rejects_is_paid_in_request_body(): void
     {
         $data = $this->createUserWithPermission([
             'projects:create',
-            'projects:update',
         ]);
         $projectFake = Project::factory()->forOrganization($data->organization)->make();
         Passport::actingAs($data->user);
 
-        $create = $this->postJson(route('api.v1.projects.store', [$data->organization->getKey()]), [
+        $response = $this->postJson(route('api.v1.projects.store', [$data->organization->getKey()]), [
             'name' => $projectFake->name,
             'color' => $projectFake->color,
             'client_id' => null,
             'is_billable' => $projectFake->is_billable,
             'is_paid' => false,
         ]);
-        $create->assertStatus(201);
-        $create->assertJsonPath('data.is_paid', false);
-        $projectId = $create->json('data.id');
-        $this->assertDatabaseHas(Project::class, [
-            'id' => $projectId,
-            'is_paid' => false,
-        ]);
 
-        $project = Project::query()->findOrFail($projectId);
-        $update = $this->putJson(route('api.v1.projects.update', [$data->organization->getKey(), $project->getKey()]), [
-            'name' => $project->name,
-            'color' => $project->color,
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors(['is_paid']);
+    }
+
+    public function test_fixed_project_is_paid_matches_full_contract_collection(): void
+    {
+        $data = $this->createUserWithPermission([
+            'projects:create',
+            'projects:update',
+        ]);
+        Passport::actingAs($data->user);
+
+        $partial = $this->postJson(route('api.v1.projects.store', [$data->organization->getKey()]), [
+            'name' => 'Partial Paid Fixed',
+            'color' => '#ff0000',
             'client_id' => null,
-            'is_billable' => $project->is_billable,
-            'is_paid' => true,
+            'is_billable' => true,
+            'billing_type' => ProjectBillingType::Fixed->value,
+            'fixed_price' => 10000,
+            'amount_received' => 9999,
+        ]);
+        $partial->assertStatus(201);
+        $partial->assertJsonPath('data.is_paid', false);
+
+        $full = $this->postJson(route('api.v1.projects.store', [$data->organization->getKey()]), [
+            'name' => 'Fully Paid Fixed',
+            'color' => '#00ff00',
+            'client_id' => null,
+            'is_billable' => true,
+            'billing_type' => ProjectBillingType::Fixed->value,
+            'fixed_price' => 10000,
+            'amount_received' => 10000,
+        ]);
+        $full->assertStatus(201);
+        $full->assertJsonPath('data.is_paid', true);
+
+        $projectId = $partial->json('data.id');
+        $update = $this->putJson(route('api.v1.projects.update', [$data->organization->getKey(), $projectId]), [
+            'name' => 'Partial Paid Fixed',
+            'color' => '#ff0000',
+            'client_id' => null,
+            'is_billable' => true,
+            'billing_type' => ProjectBillingType::Fixed->value,
+            'fixed_price' => 10000,
+            'amount_received' => 10000,
         ]);
         $update->assertStatus(200);
         $update->assertJsonPath('data.is_paid', true);
-        $project->refresh();
-        $this->assertTrue($project->is_paid);
     }
 
     public function test_update_endpoint_fails_if_user_is_not_part_of_project_organization(): void
@@ -766,7 +776,6 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'color' => $projectFake->color,
             'client_id' => null,
             'is_billable' => $projectFake->is_billable,
-            'is_paid' => $projectFake->is_paid,
         ]);
 
         // Assert
@@ -788,7 +797,6 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'color' => $projectFake->color,
             'client_id' => null,
             'is_billable' => $projectFake->is_billable,
-            'is_paid' => $projectFake->is_paid,
         ]);
 
         // Assert
@@ -817,7 +825,6 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'color' => $projectFake->color,
             'client_id' => $clientB->getKey(),
             'is_billable' => $projectFake->is_billable,
-            'is_paid' => $projectFake->is_paid,
         ]);
 
         // Assert
@@ -852,7 +859,6 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'color' => $projectFake->color,
             'client_id' => null,
             'is_billable' => $projectFake->is_billable,
-            'is_paid' => $projectFake->is_paid,
         ]);
 
         // Assert
@@ -883,7 +889,6 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'color' => $projectFake->color,
             'client_id' => $client->getKey(),
             'is_billable' => $projectFake->is_billable,
-            'is_paid' => $projectFake->is_paid,
         ]);
 
         // Assert
@@ -911,7 +916,6 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'name' => $projectFake->name,
             'color' => $projectFake->color,
             'is_billable' => $projectFake->is_billable,
-            'is_paid' => $projectFake->is_paid,
             'client_id' => $clientNew->getKey(),
         ]);
 
@@ -938,7 +942,6 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'name' => $projectFake->name,
             'color' => $projectFake->color,
             'is_billable' => $projectFake->is_billable,
-            'is_paid' => $projectFake->is_paid,
             'client_id' => null,
         ]);
 
@@ -965,7 +968,6 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'name' => $projectFake->name,
             'color' => $projectFake->color,
             'is_billable' => $projectFake->is_billable,
-            'is_paid' => $projectFake->is_paid,
             'client_id' => $clientNew->getKey(),
         ]);
 
@@ -998,7 +1000,6 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'color' => $projectFake->color,
             'client_id' => null,
             'is_billable' => $projectFake->is_billable,
-            'is_paid' => $projectFake->is_paid,
         ]);
 
         // Assert
@@ -1008,7 +1009,6 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'color' => $projectFake->color,
             'organization_id' => $data->organization->getKey(),
             'is_billable' => $projectFake->is_billable,
-            'is_paid' => $projectFake->is_paid,
         ]);
     }
 
@@ -1029,7 +1029,6 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'name' => $projectFake->name,
             'color' => $projectFake->color,
             'is_billable' => $projectFake->is_billable,
-            'is_paid' => $projectFake->is_paid,
             'client_id' => $client->getKey(),
         ]);
 
@@ -1064,7 +1063,6 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'color' => $projectFake->color,
             'client_id' => null,
             'is_billable' => $projectFake->is_billable,
-            'is_paid' => $projectFake->is_paid,
             'estimated_time' => 10000,
         ]);
 
@@ -1099,7 +1097,6 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'color' => $projectFake->color,
             'client_id' => null,
             'is_billable' => $projectFake->is_billable,
-            'is_paid' => $projectFake->is_paid,
             'estimated_time' => 10000,
         ]);
 
@@ -1134,7 +1131,6 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'color' => $projectFake->color,
             'client_id' => null,
             'is_billable' => $projectFake->is_billable,
-            'is_paid' => $projectFake->is_paid,
             'billable_rate' => $project->billable_rate,
         ]);
 
@@ -1168,7 +1164,6 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'color' => $projectFake->color,
             'client_id' => null,
             'is_billable' => $projectFake->is_billable,
-            'is_paid' => $projectFake->is_paid,
             'billable_rate' => 10003,
         ]);
 
@@ -1197,7 +1192,6 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'color' => $projectFake->color,
             'client_id' => null,
             'is_billable' => $projectFake->is_billable,
-            'is_paid' => $projectFake->is_paid,
             'is_archived' => true,
         ]);
 
@@ -1227,7 +1221,6 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
             'color' => $projectFake->color,
             'client_id' => null,
             'is_billable' => $projectFake->is_billable,
-            'is_paid' => $projectFake->is_paid,
             'is_archived' => false,
         ]);
 
@@ -1336,5 +1329,145 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
         $this->assertDatabaseMissing(ProjectMember::class, [
             'id' => $projectMember->getKey(),
         ]);
+    }
+
+    public function test_store_endpoint_fixed_project_with_amount_received_persists_and_returns_payment_received_percent(): void
+    {
+        $data = $this->createUserWithPermission([
+            'projects:create',
+        ]);
+        Passport::actingAs($data->user);
+
+        $fixedPrice = 10000;
+        $amountReceived = 7500;
+
+        $response = $this->postJson(route('api.v1.projects.store', [$data->organization->getKey()]), [
+            'name' => 'Fixed With Payments',
+            'color' => '#ff0000',
+            'client_id' => null,
+            'is_billable' => true,
+            'billing_type' => ProjectBillingType::Fixed->value,
+            'fixed_price' => $fixedPrice,
+            'amount_received' => $amountReceived,
+        ]);
+
+        $response->assertStatus(201);
+        $response->assertJsonPath('data.amount_received', $amountReceived);
+        $response->assertJsonPath('data.payment_received_percent', 75);
+        $response->assertJsonPath('data.fixed_price', $fixedPrice);
+        $response->assertJsonPath('data.is_paid', false);
+
+        $this->assertDatabaseHas(Project::class, [
+            'name' => 'Fixed With Payments',
+            'billing_type' => ProjectBillingType::Fixed->value,
+            'fixed_price' => $fixedPrice,
+            'amount_received' => $amountReceived,
+        ]);
+    }
+
+    public function test_store_endpoint_hourly_project_rejects_amount_received_field(): void
+    {
+        $data = $this->createUserWithPermission([
+            'projects:create',
+        ]);
+        Passport::actingAs($data->user);
+
+        $response = $this->postJson(route('api.v1.projects.store', [$data->organization->getKey()]), [
+            'name' => 'Hourly Project',
+            'color' => '#ff0000',
+            'client_id' => null,
+            'is_billable' => false,
+            'billing_type' => ProjectBillingType::Hourly->value,
+            'amount_received' => 100,
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors(['amount_received']);
+    }
+
+    public function test_update_endpoint_fixed_project_rejects_amount_received_above_fixed_price(): void
+    {
+        $data = $this->createUserWithPermission([
+            'projects:update',
+        ]);
+        $project = Project::factory()->forOrganization($data->organization)->create([
+            'is_billable' => true,
+            'billing_type' => ProjectBillingType::Fixed,
+            'fixed_price' => 5000,
+            'billable_rate' => null,
+            'amount_received' => 1000,
+        ]);
+        Passport::actingAs($data->user);
+
+        $response = $this->putJson(route('api.v1.projects.update', [$data->organization->getKey(), $project->getKey()]), [
+            'name' => $project->name,
+            'color' => $project->color,
+            'client_id' => null,
+            'is_billable' => true,
+            'billing_type' => ProjectBillingType::Fixed->value,
+            'fixed_price' => 5000,
+            'amount_received' => 6000,
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors(['amount_received']);
+    }
+
+    public function test_update_endpoint_switching_from_fixed_to_hourly_clears_amount_received(): void
+    {
+        $data = $this->createUserWithPermission([
+            'projects:update',
+        ]);
+        $project = Project::factory()->forOrganization($data->organization)->create([
+            'is_billable' => true,
+            'billing_type' => ProjectBillingType::Fixed,
+            'fixed_price' => 5000,
+            'billable_rate' => null,
+            'amount_received' => 2500,
+        ]);
+        Passport::actingAs($data->user);
+
+        $response = $this->putJson(route('api.v1.projects.update', [$data->organization->getKey(), $project->getKey()]), [
+            'name' => $project->name,
+            'color' => $project->color,
+            'client_id' => null,
+            'is_billable' => false,
+            'billing_type' => ProjectBillingType::Hourly->value,
+        ]);
+
+        $response->assertStatus(200);
+        $project->refresh();
+        $this->assertNull($project->amount_received);
+        $this->assertSame(ProjectBillingType::Hourly, $project->billing_type);
+    }
+
+    public function test_index_endpoint_sets_amount_received_and_payment_received_percent_to_null_when_employee_cannot_see_billable_rates(): void
+    {
+        $data = $this->createUserWithRole(Role::Employee);
+        $organization = $data->organization;
+        $organization->employees_can_see_billable_rates = false;
+        $organization->save();
+
+        Project::factory()->forOrganization($organization)->isPublic()->create([
+            'is_billable' => true,
+            'billing_type' => ProjectBillingType::Fixed,
+            'fixed_price' => 10000,
+            'billable_rate' => null,
+            'amount_received' => 5000,
+        ]);
+
+        Passport::actingAs($data->user);
+
+        $response = $this->getJson(route('api.v1.projects.index', [$organization->getKey()]));
+
+        $response->assertStatus(200);
+        $response->assertJson(fn (AssertableJson $json) => $json
+            ->has('data')
+            ->has('links')
+            ->has('meta')
+            ->where('data.0.fixed_price', null)
+            ->where('data.0.amount_received', null)
+            ->where('data.0.payment_received_percent', null)
+        );
     }
 }
