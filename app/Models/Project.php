@@ -29,8 +29,9 @@ use OwenIt\Auditing\Contracts\Auditable as AuditableContract;
  * @property int|null $billable_rate
  * @property ProjectBillingType $billing_type
  * @property int|null $fixed_price
+ * @property int|null $amount_received Cash collected toward fixed contract (minor units); null when not applicable (hourly)
  * @property bool $is_public
- * @property bool $is_paid
+ * @property bool $is_paid True when fixed contract is fully collected (amount_received >= fixed_price); otherwise true for non-fixed/unpriced projects
  * @property bool $is_billable
  * @property-read bool $is_archived
  * @property int|null $estimated_time
@@ -56,6 +57,31 @@ class Project extends Model implements AuditableContract
 
     use HasUuids;
 
+    protected static function booted(): void
+    {
+        static::saving(function (Project $project): void {
+            $project->syncIsPaidFromPaymentProgress();
+        });
+    }
+
+    /**
+     * Set is_paid from fixed-price payment progress (API clients cannot set this directly).
+     */
+    public function syncIsPaidFromPaymentProgress(): void
+    {
+        if ($this->billing_type === ProjectBillingType::Fixed
+            && $this->is_billable
+            && $this->fixed_price !== null
+            && $this->fixed_price > 0) {
+            $received = $this->amount_received ?? 0;
+            $this->is_paid = $received >= $this->fixed_price;
+
+            return;
+        }
+
+        $this->is_paid = true;
+    }
+
     /**
      * The attributes that should be cast.
      *
@@ -69,6 +95,7 @@ class Project extends Model implements AuditableContract
         'spent_time' => 'integer',
         'billing_type' => ProjectBillingType::class,
         'fixed_price' => 'integer',
+        'amount_received' => 'integer',
     ];
 
     /**
@@ -205,5 +232,18 @@ class Project extends Model implements AuditableContract
         return Attribute::make(
             get: fn (mixed $value, array $attributes) => isset($attributes['archived_at']),
         );
+    }
+
+    /**
+     * Payment progress toward a fixed contract as integer percent 0–100.
+     * Uses standard rounding (half away from zero via PHP round). Null when hourly or amounts unset.
+     */
+    public static function paymentReceivedPercent(?int $fixedPriceMinorUnits, ?int $amountReceivedMinorUnits): ?int
+    {
+        if ($fixedPriceMinorUnits === null || $fixedPriceMinorUnits <= 0 || $amountReceivedMinorUnits === null) {
+            return null;
+        }
+
+        return min(100, max(0, (int) round($amountReceivedMinorUnits / $fixedPriceMinorUnits * 100)));
     }
 }

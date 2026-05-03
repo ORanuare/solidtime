@@ -198,4 +198,14 @@ class ProjectModelTest extends ModelTestAbstract
         // Assert
         $this->assertSame($spentTime, $project->spent_time);
     }
+
+    public function test_payment_received_percent_is_rounded_and_bounded(): void
+    {
+        $this->assertSame(75, Project::paymentReceivedPercent(10000, 7500));
+        $this->assertSame(0, Project::paymentReceivedPercent(10000, 0));
+        $this->assertSame(100, Project::paymentReceivedPercent(10000, 10000));
+        $this->assertNull(Project::paymentReceivedPercent(null, 100));
+        $this->assertNull(Project::paymentReceivedPercent(10000, null));
+        $this->assertNull(Project::paymentReceivedPercent(0, 0));
+    }
 }
