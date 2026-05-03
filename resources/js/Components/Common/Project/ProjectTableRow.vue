@@ -12,7 +12,7 @@ import { useClientsQuery } from '@/utils/useClientsQuery';
 import { useTasksQuery } from '@/utils/useTasksQuery';
 import { useProjectsStore } from '@/utils/useProjects';
 import TableRow from '@/Components/TableRow.vue';
-import ProjectEditModal from '@/Components/Common/Project/ProjectEditModal.vue';
+import ProjectFixedPaymentQuickEdit from '@/Components/Common/Project/ProjectFixedPaymentQuickEdit.vue';
 import { formatCents } from '@/packages/ui/src/utils/money';
 import { getOrganizationCurrencyString } from '@/utils/money';
 import EstimatedTimeProgress from '@/packages/ui/src/EstimatedTimeProgress.vue';
@@ -54,10 +54,19 @@ function deleteProject() {
 }
 
 function archiveProject() {
-    useProjectsStore().updateProject(props.project.id, {
-        ...props.project,
-        is_archived: !props.project.is_archived,
-        billing_type: props.project.billing_type === 'fixed' ? 'fixed' : 'hourly',
+    const p = props.project;
+    useProjectsStore().updateProject(p.id, {
+        name: p.name,
+        color: p.color,
+        client_id: p.client_id,
+        is_billable: p.is_billable,
+        billing_type: p.billing_type === 'fixed' ? 'fixed' : 'hourly',
+        fixed_price: p.fixed_price ?? null,
+        billable_rate: p.billable_rate ?? null,
+        estimated_time: p.estimated_time ?? null,
+        is_archived: !p.is_archived,
+        is_public: p.is_public,
+        amount_received: p.amount_received ?? null,
     });
 }
 
@@ -103,6 +112,16 @@ const billableBillingDisplay = computed((): BillableBillingDisplay | null => {
 
 const showEditProjectModal = ref(false);
 
+/** Fixed contract + payment widget share one card (no duplicate amount above it). */
+const billingShowsUnifiedPaymentCard = computed(
+    () =>
+        props.showBillableRate &&
+        props.project.billing_type === 'fixed' &&
+        props.project.is_billable &&
+        props.project.fixed_price != null &&
+        props.project.fixed_price > 0
+);
+
 const projectBillableTotalFormatted = computed(() => {
     if (!props.showPerProjectBillableTotal || props.projectBillableTotalsPending) {
         return null;
@@ -123,9 +142,6 @@ const projectBillableTotalFormatted = computed(() => {
 </script>
 
 <template>
-    <ProjectEditModal
-        v-model:show="showEditProjectModal"
-        :original-project="project"></ProjectEditModal>
     <ContextMenu>
         <ContextMenuTrigger as-child>
             <TableRow :href="route('projects.show', { project: project.id })">
@@ -142,19 +158,25 @@ const projectBillableTotalFormatted = computed(() => {
                     </span>
                     <span class="text-text-secondary"> {{ projectTasksCount }} Tasks </span>
                 </div>
-                <div class="whitespace-nowrap min-w-0 px-3 py-4 text-sm text-text-primary">
-                    <div v-if="project.client_id" class="overflow-ellipsis overflow-hidden">
+                <div
+                    class="min-w-0 px-3 py-4 text-sm text-text-primary flex items-center whitespace-nowrap">
+                    <div v-if="project.client_id" class="overflow-ellipsis overflow-hidden min-w-0">
                         {{ client?.name }}
                     </div>
                     <div v-else class="text-text-tertiary">No client</div>
                 </div>
                 <div
-                    class="whitespace-nowrap px-3 py-4 text-sm text-text-primary font-medium"
-                    :title="project.is_paid ? 'Paid project' : 'Unpaid project'">
-                    <span v-if="project.is_paid">Paid</span>
-                    <span v-else class="text-text-secondary">Unpaid</span>
+                    class="min-w-0 px-3 py-4 text-sm text-text-primary font-medium flex items-center whitespace-nowrap"
+                    :title="
+                        project.client_id
+                            ? 'Has a linked client'
+                            : 'No client (internal / house project)'
+                    ">
+                    <span v-if="project.client_id">Client</span>
+                    <span v-else class="text-text-secondary">Internal</span>
                 </div>
-                <div class="whitespace-nowrap px-3 py-4 text-sm text-text-primary">
+                <div
+                    class="px-3 py-4 text-sm text-text-primary flex items-center whitespace-nowrap">
                     <div v-if="project.spent_time">
                         {{
                             formatHumanReadableDuration(
@@ -168,11 +190,12 @@ const projectBillableTotalFormatted = computed(() => {
                 </div>
                 <div
                     v-if="showPerProjectBillableTotal"
-                    class="whitespace-nowrap px-3 py-4 text-sm text-text-primary">
+                    class="px-3 py-4 text-sm text-text-primary flex items-center whitespace-nowrap">
                     <span v-if="projectBillableTotalFormatted">{{ projectBillableTotalFormatted }}</span>
                     <span v-else class="text-text-tertiary">—</span>
                 </div>
-                <div class="whitespace-nowrap px-3 flex items-center text-sm text-text-primary">
+                <div
+                    class="min-w-0 px-3 py-4 text-sm text-text-primary flex items-center whitespace-nowrap">
                     <UpgradeBadge v-if="!isAllowedToPerformPremiumAction()"></UpgradeBadge>
                     <EstimatedTimeProgress
                         v-else-if="project.estimated_time"
@@ -182,24 +205,32 @@ const projectBillableTotalFormatted = computed(() => {
                 </div>
                 <div
                     v-if="showBillableRate"
-                    class="whitespace-nowrap px-3 py-4 text-sm text-text-primary">
-                    <template v-if="billableBillingDisplay">
-                        <template v-if="billableBillingDisplay.kind === 'fixed_price'">
-                            {{ billableBillingDisplay.amount }}
-                        </template>
-                        <template v-else-if="billableBillingDisplay.kind === 'fixed_unpriced'">
-                            Fixed
-                        </template>
-                        <template v-else-if="billableBillingDisplay.kind === 'hourly_custom'">
-                            {{ billableBillingDisplay.amount
-                            }}<span class="text-text-secondary"> / h</span>
-                        </template>
-                        <template v-else-if="billableBillingDisplay.kind === 'hourly_default'">
-                            {{ billableBillingDisplay.amount
-                            }}<span class="text-text-secondary"> / h</span>
-                        </template>
-                    </template>
-                    <span v-else class="text-text-tertiary">--</span>
+                    class="min-w-0 px-3 py-4 text-sm text-text-primary flex items-center">
+                    <div class="flex flex-col gap-1 items-stretch min-w-0 w-full">
+                        <div v-if="!billingShowsUnifiedPaymentCard" class="whitespace-nowrap">
+                            <template v-if="billableBillingDisplay">
+                                <template v-if="billableBillingDisplay.kind === 'fixed_price'">
+                                    {{ billableBillingDisplay.amount }}
+                                </template>
+                                <template v-else-if="billableBillingDisplay.kind === 'fixed_unpriced'">
+                                    Fixed
+                                </template>
+                                <template v-else-if="billableBillingDisplay.kind === 'hourly_custom'">
+                                    {{ billableBillingDisplay.amount
+                                    }}<span class="text-text-secondary"> / h</span>
+                                </template>
+                                <template v-else-if="billableBillingDisplay.kind === 'hourly_default'">
+                                    {{ billableBillingDisplay.amount
+                                    }}<span class="text-text-secondary"> / h</span>
+                                </template>
+                            </template>
+                            <span v-else class="text-text-tertiary">--</span>
+                        </div>
+                        <ProjectFixedPaymentQuickEdit
+                            :project="project"
+                            :show-billable-rate="showBillableRate"
+                            variant="table" />
+                    </div>
                 </div>
                 <div
                     class="whitespace-nowrap px-3 py-4 text-sm text-text-primary flex space-x-1.5 items-center font-medium">
@@ -213,7 +244,10 @@ const projectBillableTotalFormatted = computed(() => {
                     </template>
                 </div>
                 <div
-                    class="relative whitespace-nowrap flex items-center pl-3 text-right text-sm font-medium pr-4 sm:pr-6 lg:pr-8 3xl:pr-12">
+                    class="relative whitespace-nowrap flex items-center py-4 pl-3 text-right text-sm font-medium pr-4 sm:pr-6 lg:pr-8 3xl:pr-12">
+                    <ProjectEditModal
+                        v-model:show="showEditProjectModal"
+                        :original-project="project"></ProjectEditModal>
                     <ProjectMoreOptionsDropdown
                         :project="project"
                         @edit="showEditProjectModal = true"

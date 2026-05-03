@@ -179,6 +179,8 @@ function updateFilteredResults() {
                     billable_rate: null,
                     billing_type: 'hourly',
                     fixed_price: null,
+                    amount_received: null,
+                    payment_received_percent: null,
                     is_archived: false,
                     is_billable: false,
                     is_paid: true,

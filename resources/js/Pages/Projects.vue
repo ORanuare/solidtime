@@ -4,7 +4,7 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import { FolderIcon, PlusIcon } from '@heroicons/vue/20/solid';
 import SecondaryButton from '@/packages/ui/src/Buttons/SecondaryButton.vue';
 import ProjectTable from '@/Components/Common/Project/ProjectTable.vue';
-import { computed } from 'vue';
+import { computed, watch } from 'vue';
 import { useProjectsQuery } from '@/utils/useProjectsQuery';
 import { useProjectsStore } from '@/utils/useProjects';
 import ProjectCreateModal from '@/packages/ui/src/Project/ProjectCreateModal.vue';
@@ -51,6 +51,17 @@ const tableState = useStorage<ProjectTableState>(
     },
     undefined,
     { mergeDefaults: true }
+);
+
+/** Legacy engagement column id before `is_paid` became derived */
+watch(
+    () => tableState.value.sortColumn,
+    (col) => {
+        if ((col as string) === 'is_paid') {
+            tableState.value.sortColumn = 'has_client';
+        }
+    },
+    { immediate: true }
 );
 
 function handleSort(column: SortColumn, direction: SortDirection) {

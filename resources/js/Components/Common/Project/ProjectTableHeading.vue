@@ -56,10 +56,10 @@ function isChevronUp(column: SortColumn): boolean {
         </div>
         <div
             class="px-3 py-1.5 text-left text-text-tertiary cursor-pointer hover:bg-secondary hover:text-text-primary transition-colors select-none flex items-center gap-1"
-            @click="handleSort('is_paid')">
-            Paid
-            <ChevronDownIcon v-if="isChevronDown('is_paid')" class="w-4 h-4" />
-            <ChevronUpIcon v-else-if="isChevronUp('is_paid')" class="w-4 h-4" />
+            @click="handleSort('has_client')">
+            Engagement
+            <ChevronDownIcon v-if="isChevronDown('has_client')" class="w-4 h-4" />
+            <ChevronUpIcon v-else-if="isChevronUp('has_client')" class="w-4 h-4" />
             <span v-else class="w-4 h-4"></span>
         </div>
         <div

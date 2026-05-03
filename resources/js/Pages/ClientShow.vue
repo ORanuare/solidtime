@@ -5,7 +5,7 @@ import { UserCircleIcon, ChevronRightIcon, FolderIcon } from '@heroicons/vue/20/
 import SecondaryButton from '@/packages/ui/src/Buttons/SecondaryButton.vue';
 import { ArrowRightIcon, PencilSquareIcon } from '@heroicons/vue/20/solid';
 import { Link, router } from '@inertiajs/vue3';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useStorage } from '@vueuse/core';
 import { useClientsQuery } from '@/utils/useClientsQuery';
 import { useProjectsQuery } from '@/utils/useProjectsQuery';
@@ -88,6 +88,16 @@ const projectTableSort = useStorage<ClientDetailProjectTableSort>(
     },
     undefined,
     { mergeDefaults: true }
+);
+
+watch(
+    () => projectTableSort.value.sortColumn,
+    (col) => {
+        if ((col as string) === 'is_paid') {
+            projectTableSort.value.sortColumn = 'has_client';
+        }
+    },
+    { immediate: true }
 );
 
 function handleProjectSort(column: SortColumn, direction: SortDirection) {

@@ -17,8 +17,7 @@ import { Button } from '@/packages/ui/src/Buttons';
 import { ChevronDown } from 'lucide-vue-next';
 import { UserCircleIcon } from '@heroicons/vue/20/solid';
 import EstimatedTimeSection from '@/packages/ui/src/EstimatedTimeSection.vue';
-import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/packages/ui/src/field';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/packages/ui/src';
+import { Field, FieldGroup, FieldLabel } from '@/packages/ui/src/field';
 import ProjectBillableRateModal from '@/packages/ui/src/Project/ProjectBillableRateModal.vue';
 import { getOrganizationCurrencyString } from '@/utils/money';
 import ProjectEditBillableSection from '@/packages/ui/src/Project/ProjectEditBillableSection.vue';
@@ -47,24 +46,15 @@ const project = ref<ProjectUpdateForm>({
     billable_rate: props.originalProject.billable_rate,
     billing_type: props.originalProject.billing_type === 'fixed' ? 'fixed' : 'hourly',
     fixed_price: props.originalProject.fixed_price ?? null,
+    amount_received: props.originalProject.amount_received ?? null,
     is_billable: props.originalProject.is_billable,
-    is_paid: props.originalProject.is_paid,
     estimated_time: props.originalProject.estimated_time,
 });
 
-const isPaidSelect = computed({
-    get() {
-        return project.value.is_paid ? 'paid' : 'unpaid';
-    },
-    set(value: string) {
-        project.value.is_paid = value === 'paid';
-    },
-});
-
 watch(
-    () => props.originalProject.is_paid,
+    () => props.originalProject.amount_received,
     (v) => {
-        project.value.is_paid = v;
+        project.value.amount_received = v ?? null;
     }
 );
 
@@ -138,26 +128,12 @@ async function submitBillableRate() {
                         </template>
                     </ClientDropdown>
                 </Field>
-                <Field>
-                    <FieldLabel for="isPaid">Paid project</FieldLabel>
-                    <Select v-model="isPaidSelect">
-                        <SelectTrigger id="isPaid">
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="paid">Paid project</SelectItem>
-                            <SelectItem value="unpaid">Unpaid</SelectItem>
-                        </SelectContent>
-                    </Select>
-                    <FieldDescription>
-                        Unpaid is for internal or pro bono work; billing rules are set separately below.
-                    </FieldDescription>
-                </Field>
                 <ProjectEditBillableSection
                     v-model:is-billable="project.is_billable"
                     v-model:billable-rate="project.billable_rate"
                     v-model:billing-type="project.billing_type"
                     v-model:fixed-price="project.fixed_price"
+                    v-model:amount-received="project.amount_received"
                     :currency="getOrganizationCurrencyString()"
                     :organization-billable-rate="organization?.billable_rate ?? null"
                     @submit="submit"></ProjectEditBillableSection>

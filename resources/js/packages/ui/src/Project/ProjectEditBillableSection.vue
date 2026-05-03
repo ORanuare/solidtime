@@ -25,6 +25,7 @@ const billableRate = defineModel<number | null>('billableRate');
 const isBillable = defineModel<boolean>('isBillable');
 const billingType = defineModel<'hourly' | 'fixed'>('billingType', { default: 'hourly' });
 const fixedPrice = defineModel<number | null>('fixedPrice');
+const amountReceived = defineModel<number | null>('amountReceived');
 
 onMounted(() => {
     if (isBillable.value === true) {
@@ -61,7 +62,19 @@ watch(billingType, () => {
         billableRate.value = null;
     } else {
         fixedPrice.value = null;
+        amountReceived.value = null;
     }
+});
+
+const paymentReceivedPercentHint = computed(() => {
+    const fp = fixedPrice.value;
+    const ar = amountReceived.value;
+    if (fp == null || fp <= 0 || ar == null) {
+        return null;
+    }
+    const pct = Math.min(100, Math.max(0, Math.round((ar / fp) * 100)));
+
+    return `${pct}% of contract received`;
 });
 
 const displayedRate = computed({
@@ -165,6 +178,22 @@ const emit = defineEmits(['submit']);
             <FieldDescription>
                 Billable time on this project splits this amount in reports (same currency minor units as hourly
                 rates).
+            </FieldDescription>
+        </Field>
+        <Field>
+            <FieldLabel for="amountReceived" :icon="BillableIcon">Amount received</FieldLabel>
+            <BillableRateInput
+                id="amountReceived"
+                v-model="amountReceived"
+                :currency="currency"
+                name="amountReceived"
+                @keydown.enter="emit('submit')" />
+            <FieldDescription v-if="paymentReceivedPercentHint">
+                {{ paymentReceivedPercentHint }}
+            </FieldDescription>
+            <FieldDescription v-else>
+                Total cash collected so far toward this fixed contract (same minor units as the contract
+                total).
             </FieldDescription>
         </Field>
     </template>
