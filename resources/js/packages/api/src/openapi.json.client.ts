@@ -26,6 +26,13 @@ const ApiTokenWithAccessTokenResource = z
     .passthrough();
 const project_id = z.union([z.string(), z.null()]).optional();
 const visibility = z.union([z.enum(['private', 'shared']), z.null()]).optional();
+const CalendarEventAssignmentResource = z
+    .object({
+        type: z.enum(['project', 'task']),
+        id: z.string(),
+        name: z.string(),
+    })
+    .passthrough();
 const CalendarEventResource = z
     .object({
         id: z.string(),
@@ -39,8 +46,7 @@ const CalendarEventResource = z
         user_name: z.string(),
         project_id: z.string(),
         task_id: z.string(),
-        eventable_type: z.union([z.string(), z.null()]),
-        eventable_id: z.union([z.string(), z.null()]),
+        assignments: z.array(CalendarEventAssignmentResource),
         eventable_label: z.union([z.string(), z.literal('Workspace')]),
         created_at: z.union([z.string(), z.null()]),
         updated_at: z.union([z.string(), z.null()]),
@@ -54,6 +60,16 @@ const CalendarEventStoreRequest = z
         ends_at: z.string().datetime({ offset: true }),
         all_day: z.boolean(),
         visibility: z.enum(['private', 'shared']),
+        assignments: z
+            .array(
+                z
+                    .object({
+                        type: z.enum(['project', 'task']),
+                        id: z.string(),
+                    })
+                    .passthrough()
+            )
+            .optional(),
         task_id: z.union([z.string(), z.null()]).optional(),
         project_id: z.union([z.string(), z.null()]).optional(),
     })
@@ -67,6 +83,16 @@ const CalendarEventUpdateRequest = z
         all_day: z.boolean(),
         visibility: z.enum(['private', 'shared']),
         reassign: z.boolean(),
+        assignments: z
+            .array(
+                z
+                    .object({
+                        type: z.enum(['project', 'task']),
+                        id: z.string(),
+                    })
+                    .passthrough()
+            )
+            .optional(),
         task_id: z.string(),
         project_id: z.string(),
     })
