@@ -29,6 +29,12 @@ class ProjectResource extends BaseResource
      */
     public function toArray(Request $request): array
     {
+        $fixedPrice = $this->showBillableRate ? $this->resource->fixed_price : null;
+        $amountReceived = $this->showBillableRate ? $this->resource->amount_received : null;
+        $paymentReceivedPercent = $this->showBillableRate
+            ? Project::paymentReceivedPercent($this->resource->fixed_price, $this->resource->amount_received)
+            : null;
+
         return [
             /** @var string $id ID of project */
             'id' => $this->resource->id,
@@ -45,10 +51,14 @@ class ProjectResource extends BaseResource
             /** @var int|null $billable_rate Billable rate in cents per hour */
             'billable_rate' => $this->showBillableRate ? $this->resource->billable_rate : null,
             /** @var int|null $fixed_price Fixed contract total in minor units when billing_type is fixed */
-            'fixed_price' => $this->showBillableRate ? $this->resource->fixed_price : null,
+            'fixed_price' => $fixedPrice,
+            /** @var int|null $amount_received Cash collected toward fixed contract (minor units); null when not applicable */
+            'amount_received' => $amountReceived,
+            /** @var int|null $payment_received_percent Rounded percent of fixed contract received (0–100); null when not applicable */
+            'payment_received_percent' => $paymentReceivedPercent,
             /** @var bool $is_billable Project time entries billable default */
             'is_billable' => $this->resource->is_billable,
-            /** @var bool $is_paid Whether the project is a paid project (vs unpaid/internal) */
+            /** @var bool $is_paid True when the fixed contract is fully collected (amount_received >= fixed_price); true for hourly/non-priced fixed projects */
             'is_paid' => $this->resource->is_paid,
             /** @var int|null $estimated_time Estimated time in seconds */
             'estimated_time' => $this->resource->estimated_time,

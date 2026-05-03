@@ -106,10 +106,10 @@ class ProjectController extends Controller
         $project->is_billable = (bool) $request->input('is_billable');
         $project->billing_type = $request->getBillingType();
         $project->fixed_price = $request->getFixedPrice();
+        $project->amount_received = $request->getAmountReceived();
         $project->billable_rate = $request->getBillableRate();
         $project->client_id = $request->input('client_id');
         $project->is_public = $request->getIsPublic();
-        $project->is_paid = $request->getIsPaid();
         if ($this->canAccessPremiumFeatures($organization) && $request->has('estimated_time')) {
             $project->estimated_time = $request->getEstimatedTime();
         }
@@ -132,7 +132,6 @@ class ProjectController extends Controller
         $project->name = $request->input('name');
         $project->color = $request->input('color');
         $project->is_billable = (bool) $request->input('is_billable');
-        $project->is_paid = (bool) $request->input('is_paid');
         if ($request->has('is_archived')) {
             $project->archived_at = $request->getIsArchived() ? Carbon::now() : null;
         }
@@ -147,6 +146,7 @@ class ProjectController extends Controller
         $clientIdChanged = false;
         $project->billing_type = $request->getBillingType();
         $project->fixed_price = $request->getFixedPrice();
+        $project->amount_received = $request->getAmountReceived();
         $project->billable_rate = $request->getBillableRate();
         if ($project->client_id !== $request->input('client_id')) {
             $project->client_id = $request->input('client_id');

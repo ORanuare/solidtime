@@ -26,13 +26,6 @@ const ApiTokenWithAccessTokenResource = z
     .passthrough();
 const project_id = z.union([z.string(), z.null()]).optional();
 const visibility = z.union([z.enum(['private', 'shared']), z.null()]).optional();
-const CalendarEventAssignmentResource = z
-    .object({
-        type: z.enum(['project', 'task']),
-        id: z.string(),
-        name: z.string(),
-    })
-    .passthrough();
 const CalendarEventResource = z
     .object({
         id: z.string(),
@@ -46,7 +39,7 @@ const CalendarEventResource = z
         user_name: z.string(),
         project_id: z.string(),
         task_id: z.string(),
-        assignments: z.array(CalendarEventAssignmentResource),
+        assignments: z.string(),
         eventable_label: z.union([z.string(), z.literal('Workspace')]),
         created_at: z.union([z.string(), z.null()]),
         updated_at: z.union([z.string(), z.null()]),
@@ -60,18 +53,16 @@ const CalendarEventStoreRequest = z
         ends_at: z.string().datetime({ offset: true }),
         all_day: z.boolean(),
         visibility: z.enum(['private', 'shared']),
+        task_id: z.union([z.string(), z.null()]).optional(),
+        project_id: z.union([z.string(), z.null()]).optional(),
         assignments: z
             .array(
                 z
-                    .object({
-                        type: z.enum(['project', 'task']),
-                        id: z.string(),
-                    })
+                    .object({ type: z.enum(['project', 'task']), id: z.string().uuid() })
+                    .partial()
                     .passthrough()
             )
             .optional(),
-        task_id: z.union([z.string(), z.null()]).optional(),
-        project_id: z.union([z.string(), z.null()]).optional(),
     })
     .passthrough();
 const CalendarEventUpdateRequest = z
@@ -83,18 +74,9 @@ const CalendarEventUpdateRequest = z
         all_day: z.boolean(),
         visibility: z.enum(['private', 'shared']),
         reassign: z.boolean(),
-        assignments: z
-            .array(
-                z
-                    .object({
-                        type: z.enum(['project', 'task']),
-                        id: z.string(),
-                    })
-                    .passthrough()
-            )
-            .optional(),
         task_id: z.string(),
         project_id: z.string(),
+        assignments: z.string(),
     })
     .partial()
     .passthrough();
@@ -305,6 +287,8 @@ const ProjectResource = z
         billing_type: z.string(),
         billable_rate: z.union([z.number(), z.null()]),
         fixed_price: z.union([z.number(), z.null()]),
+        amount_received: z.union([z.number(), z.null()]),
+        payment_received_percent: z.union([z.number(), z.null()]),
         is_billable: z.boolean(),
         is_paid: z.boolean(),
         estimated_time: z.union([z.number(), z.null()]),
@@ -319,11 +303,11 @@ const ProjectStoreRequest = z
         is_billable: z.boolean(),
         billing_type: z.union([z.enum(['hourly', 'fixed']), z.null()]).optional(),
         fixed_price: z.union([z.number(), z.null()]).optional(),
+        amount_received: z.union([z.number(), z.null()]).optional(),
         billable_rate: z.union([z.number(), z.null()]).optional(),
         client_id: z.union([z.string(), z.null()]).optional(),
         estimated_time: z.union([z.number(), z.null()]).optional(),
         is_public: z.boolean().optional(),
-        is_paid: z.boolean().optional(),
     })
     .passthrough();
 const ProjectUpdateRequest = z
@@ -331,12 +315,12 @@ const ProjectUpdateRequest = z
         name: z.string().max(255),
         color: z.string().max(255),
         is_billable: z.boolean(),
-        is_paid: z.boolean(),
         is_archived: z.boolean().optional(),
         is_public: z.boolean().optional(),
         client_id: z.union([z.string(), z.null()]).optional(),
         billing_type: z.union([z.enum(['hourly', 'fixed']), z.null()]).optional(),
         fixed_price: z.union([z.number(), z.null()]).optional(),
+        amount_received: z.union([z.number(), z.null()]).optional(),
         billable_rate: z.union([z.number(), z.null()]).optional(),
         estimated_time: z.union([z.number(), z.null()]).optional(),
     })

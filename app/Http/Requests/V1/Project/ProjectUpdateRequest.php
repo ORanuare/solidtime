@@ -58,8 +58,7 @@ class ProjectUpdateRequest extends BaseFormRequest
                 'boolean',
             ],
             'is_paid' => [
-                'required',
-                'boolean',
+                'prohibited',
             ],
             'is_archived' => [
                 'boolean',
@@ -80,6 +79,12 @@ class ProjectUpdateRequest extends BaseFormRequest
                 Rule::enum(ProjectBillingType::class),
             ],
             'fixed_price' => array_merge(
+                [
+                    'nullable',
+                ],
+                $this->moneyRules(true)
+            ),
+            'amount_received' => array_merge(
                 [
                     'nullable',
                 ],
@@ -111,10 +116,22 @@ class ProjectUpdateRequest extends BaseFormRequest
                 $fixed = $this->input('fixed_price');
                 if ($fixed === null || (int) $fixed <= 0) {
                     $validator->errors()->add('fixed_price', __('validation.min.numeric', ['attribute' => 'fixed price', 'min' => 1]));
+                } else {
+                    $fixedInt = (int) $fixed;
+                    $amountInput = $this->input('amount_received');
+                    if ($amountInput !== null && $amountInput !== '') {
+                        $amount = (int) $amountInput;
+                        if ($amount > $fixedInt) {
+                            $validator->errors()->add('amount_received', __('validation.max.numeric', ['attribute' => 'amount received', 'max' => $fixedInt]));
+                        }
+                    }
                 }
             } else {
                 if ($this->input('fixed_price') !== null && $this->input('fixed_price') !== '') {
                     $validator->errors()->add('fixed_price', __('validation.prohibited'));
+                }
+                if ($this->input('amount_received') !== null && $this->input('amount_received') !== '') {
+                    $validator->errors()->add('amount_received', __('validation.prohibited'));
                 }
             }
         });
@@ -138,6 +155,29 @@ class ProjectUpdateRequest extends BaseFormRequest
         $input = $this->input('fixed_price');
 
         return $input !== null && $input !== '' ? (int) $input : null;
+    }
+
+    public function getAmountReceived(): ?int
+    {
+        $existingProject = $this->project;
+        assert($existingProject instanceof Project);
+
+        if ($this->getBillingType() === ProjectBillingType::Hourly) {
+            return null;
+        }
+        $fixed = $this->getFixedPrice();
+        if ($fixed === null || $fixed <= 0) {
+            return null;
+        }
+        if (! $this->has('amount_received')) {
+            return $existingProject->amount_received;
+        }
+        $input = $this->input('amount_received');
+        if ($input === '' || $input === null) {
+            return null;
+        }
+
+        return (int) $input;
     }
 
     public function getIsArchived(): bool
