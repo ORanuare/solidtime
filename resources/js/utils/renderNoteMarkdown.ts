@@ -41,5 +41,9 @@ md.renderer.rules.link_open = function (tokens, idx, options, env, self) {
  */
 export function renderNoteMarkdownToHtml(source: string): string {
     const raw = md.render(source);
-    return DOMPurify.sanitize(raw, { USE_PROFILES: { html: true } });
+    // Default DOMPurify HTML profile allows `rel` on `<a>` but not `target`, so `_blank` was stripped.
+    return DOMPurify.sanitize(raw, {
+        USE_PROFILES: { html: true },
+        ADD_ATTR: ['target'],
+    });
 }
