@@ -26,6 +26,19 @@ const ApiTokenWithAccessTokenResource = z
     .passthrough();
 const project_id = z.union([z.string(), z.null()]).optional();
 const visibility = z.union([z.enum(['private', 'shared']), z.null()]).optional();
+/** Request body rows (calendar event store / update). */
+const CalendarEventAssignmentRequestRow = z
+    .object({ type: z.enum(['project', 'task']), id: z.string().uuid() })
+    .partial()
+    .passthrough();
+/** Assignment rows returned on calendar event API resources ({@see CalendarEventResource}). */
+const CalendarEventAssignmentResourceRow = z
+    .object({
+        type: z.string(),
+        id: z.string(),
+        name: z.string(),
+    })
+    .passthrough();
 const CalendarEventResource = z
     .object({
         id: z.string(),
@@ -39,7 +52,7 @@ const CalendarEventResource = z
         user_name: z.string(),
         project_id: z.string(),
         task_id: z.string(),
-        assignments: z.string(),
+        assignments: z.array(CalendarEventAssignmentResourceRow),
         eventable_label: z.union([z.string(), z.literal('Workspace')]),
         created_at: z.union([z.string(), z.null()]),
         updated_at: z.union([z.string(), z.null()]),
@@ -55,14 +68,7 @@ const CalendarEventStoreRequest = z
         visibility: z.enum(['private', 'shared']),
         task_id: z.union([z.string(), z.null()]).optional(),
         project_id: z.union([z.string(), z.null()]).optional(),
-        assignments: z
-            .array(
-                z
-                    .object({ type: z.enum(['project', 'task']), id: z.string().uuid() })
-                    .partial()
-                    .passthrough()
-            )
-            .optional(),
+        assignments: z.array(CalendarEventAssignmentRequestRow).optional(),
     })
     .passthrough();
 const CalendarEventUpdateRequest = z
@@ -76,7 +82,7 @@ const CalendarEventUpdateRequest = z
         reassign: z.boolean(),
         task_id: z.string(),
         project_id: z.string(),
-        assignments: z.string(),
+        assignments: z.array(CalendarEventAssignmentRequestRow).optional(),
     })
     .partial()
     .passthrough();

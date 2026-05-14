@@ -94,7 +94,7 @@ const aggregatedTableTimeEntries = computed(() => {
 
 const sharedReportMoneyPrefs = computed(() => ({
     currency_format: reportCurrencyFormat.value,
-    number_format: reportNumberFormat.value,
+    number_format: reportNumberFormat.value ?? 'point-comma',
 }));
 
 const sharedBillableTotalsByCurrency = computed(

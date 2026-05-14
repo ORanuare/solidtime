@@ -23,5 +23,5 @@ export function formatBillableMinorForIso(
         organization.currency_format,
         getOrganizationCurrencySymbol(isoCode),
         organization.number_format
-    );
+    ) ?? null;
 }

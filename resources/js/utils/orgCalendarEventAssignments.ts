@@ -43,7 +43,7 @@ export function orgCalendarEventAttachmentSummaryForList(
     if (rows.length === 1) {
         const a = rows[0]!;
         if (a.type === 'task') {
-            const taskName = primaryTask?.id === a.id ? primaryTask.name : a.name;
+            const taskName = primaryTask != null && primaryTask.id === a.id ? primaryTask.name : a.name;
             if (primaryProject?.name) {
                 return `${primaryProject.name} › ${taskName}`;
             }

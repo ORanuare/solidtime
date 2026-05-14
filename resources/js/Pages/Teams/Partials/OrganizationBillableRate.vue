@@ -55,7 +55,7 @@ function normalizePropagationSignature(currency: string, rows: WorkspaceDraftRow
 }
 
 const propagationSignature = computed(() =>
-    normalizePropagationSignature(organizationBody.value.currency, workspaceRows.value)
+    normalizePropagationSignature(organizationBody.value.currency ?? '', workspaceRows.value)
 );
 
 const employeesFingerprint = computed(() =>
@@ -113,7 +113,7 @@ watch(
 
 function syncLegacyBillableFromPrimaryRow(): void {
     const row = workspaceRows.value.find(
-        (r) => r.currency_code === organizationBody.value.currency && r.currency_code.trim().length > 0
+        (r) => r.currency_code === (organizationBody.value.currency ?? '') && r.currency_code.trim().length > 0
     );
     if (row) {
         organizationBody.value.billable_rate = row.default_billable_rate;
@@ -155,7 +155,7 @@ function addCurrencyRow(): void {
         return;
     }
     workspaceRows.value.push({ currency_code: nextCode, default_billable_rate: null });
-    if (!organizationBody.value.currency.trim()) {
+    if (!(organizationBody.value.currency ?? '').trim()) {
         organizationBody.value.currency = nextCode;
     }
 }
@@ -202,7 +202,7 @@ function propagationSummaryLines(): Array<{ currency: string; label: string }> {
                       organization.value?.currency_format,
                       getOrganizationCurrencySymbol(row.currency_code),
                       organization.value?.number_format
-                  )
+                  ) ?? 'None'
                 : 'None',
     }));
 }
@@ -239,9 +239,7 @@ async function persistEmployeesPreferenceOnly(): Promise<void> {
         await updateOrganization({
             employees_can_see_billable_rates: organizationBody.value.employees_can_see_billable_rates,
         });
-        await router.reload({
-            preserveScroll: true,
-        });
+        await router.reload();
     } finally {
         saving.value = false;
     }
@@ -264,7 +262,7 @@ async function persistWorkspaceBilling(opts: {
                 rowsToSend.some(
                     (a, i) => rowsToSend.findIndex((b) => b.currency_code === a.currency_code) !== i
                 ) ||
-                !rowsToSend.some((r) => r.currency_code === organizationBody.value.currency))
+                !rowsToSend.some((r) => r.currency_code === (organizationBody.value.currency ?? '')))
         ) {
             if (opts.closeModalAfter) {
                 showConfirmationModal.value = false;
@@ -287,9 +285,7 @@ async function persistWorkspaceBilling(opts: {
         if (opts.closeModalAfter) {
             showConfirmationModal.value = false;
         }
-        await router.reload({
-            preserveScroll: true,
-        });
+        await router.reload();
     } finally {
         saving.value = false;
     }
