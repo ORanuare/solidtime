@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Actions\Jetstream;
 
 use App\Models\Organization;
+use App\Service\OrganizationCurrencySyncService;
 use App\Models\User;
 use App\Rules\CurrencyRule;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -49,6 +50,8 @@ class UpdateOrganization implements UpdatesTeamNames
             'name' => $input['name'],
             'currency' => $input['currency'],
         ])->save();
+
+        app(OrganizationCurrencySyncService::class)->syncPrimaryRowFromOrganization($organization);
 
         if (isset($input['photo'])) {
             $organization->updateProfilePhoto($input['photo'], 'organization-photos');

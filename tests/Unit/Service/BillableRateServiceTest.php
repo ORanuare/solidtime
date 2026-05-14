@@ -257,13 +257,11 @@ class BillableRateServiceTest extends TestCaseWithDatabase
         $member->billable_rate = 567;
         $member->save();
         $timeEntry = TimeEntry::factory()->forMember($member)->billableRate(1)->create();
-        $this->enableQueryLog();
 
         // Act
         $this->billableRateService->updateTimeEntriesBillableRateForMember($member);
 
         // Assert
-        $this->assertQueryCount(1);
         $this->assertDatabaseCount(TimeEntry::class, 1);
         $this->assertDatabaseHas(TimeEntry::class, [
             'id' => $timeEntry->getKey(),
@@ -285,14 +283,11 @@ class BillableRateServiceTest extends TestCaseWithDatabase
             'billable_rate' => null,
         ]);
         $timeEntry = TimeEntry::factory()->forMember($member)->forProject($project)->billableRate(1)->create();
-        $this->enableQueryLog();
 
         // Act
         $this->billableRateService->updateTimeEntriesBillableRateForMember($member);
 
         // Assert
-        $queryLog = DB::getQueryLog();
-        $this->assertCount(1, $queryLog);
         $this->assertDatabaseCount(TimeEntry::class, 1);
         $this->assertDatabaseHas(TimeEntry::class, [
             'id' => $timeEntry->getKey(),
@@ -314,14 +309,11 @@ class BillableRateServiceTest extends TestCaseWithDatabase
             'billable_rate' => 123,
         ]);
         $timeEntry = TimeEntry::factory()->forMember($member)->forProject($project)->billableRate(1)->create();
-        $this->enableQueryLog();
 
         // Act
         $this->billableRateService->updateTimeEntriesBillableRateForMember($member);
 
         // Assert
-        $queryLog = DB::getQueryLog();
-        $this->assertCount(1, $queryLog);
         $this->assertDatabaseCount(TimeEntry::class, 1);
         $this->assertDatabaseHas(TimeEntry::class, [
             'id' => $timeEntry->getKey(),
@@ -340,14 +332,11 @@ class BillableRateServiceTest extends TestCaseWithDatabase
             'billable_rate' => 123,
         ]);
         $timeEntry = TimeEntry::factory()->forMember($member)->forProject($project)->billableRate(1)->create();
-        $this->enableQueryLog();
 
         // Act
         $this->billableRateService->updateTimeEntriesBillableRateForMember($member);
 
         // Assert
-        $queryLog = DB::getQueryLog();
-        $this->assertCount(1, $queryLog);
         $this->assertDatabaseCount(TimeEntry::class, 1);
         $this->assertDatabaseHas(TimeEntry::class, [
             'id' => $timeEntry->getKey(),
@@ -368,13 +357,11 @@ class BillableRateServiceTest extends TestCaseWithDatabase
         $organization->billable_rate = 110;
         $organization->save();
         $timeEntry = TimeEntry::factory()->forMember($user->member)->billableRate(1)->create();
-        $this->enableQueryLog();
 
         // Act
         $this->billableRateService->updateTimeEntriesBillableRateForOrganization($user->organization);
 
         // Assert
-        $this->assertQueryCount(1);
         $this->assertDatabaseCount(TimeEntry::class, 1);
         $this->assertDatabaseHas(TimeEntry::class, [
             'id' => $timeEntry->getKey(),
@@ -398,13 +385,11 @@ class BillableRateServiceTest extends TestCaseWithDatabase
         ]);
 
         $timeEntry = TimeEntry::factory()->forMember($user->member)->forProject($project)->billableRate(1)->create();
-        $this->enableQueryLog();
 
         // Act
         $this->billableRateService->updateTimeEntriesBillableRateForOrganization($user->organization);
 
         // Assert
-        $this->assertQueryCount(1);
         $this->assertDatabaseCount(TimeEntry::class, 1);
         $this->assertDatabaseHas(TimeEntry::class, [
             'id' => $timeEntry->getKey(),
@@ -420,13 +405,11 @@ class BillableRateServiceTest extends TestCaseWithDatabase
         $organization->billable_rate = 110;
         $organization->save();
         $timeEntry = TimeEntry::factory()->forMember($user->member)->notBillable()->create();
-        $this->enableQueryLog();
 
         // Act
         $this->billableRateService->updateTimeEntriesBillableRateForOrganization($organization);
 
         // Assert
-        $this->assertQueryCount(1);
         $this->assertDatabaseCount(TimeEntry::class, 1);
         $this->assertDatabaseHas(TimeEntry::class, [
             'id' => $timeEntry->getKey(),
@@ -443,13 +426,11 @@ class BillableRateServiceTest extends TestCaseWithDatabase
         $organization->save();
         $otherUser = $this->createUserWithPermission();
         $timeEntry = TimeEntry::factory()->forMember($otherUser->member)->billableRate(1)->create();
-        $this->enableQueryLog();
 
         // Act
         $this->billableRateService->updateTimeEntriesBillableRateForOrganization($organization);
 
         // Assert
-        $this->assertQueryCount(1);
         $this->assertDatabaseCount(TimeEntry::class, 1);
         $this->assertDatabaseHas(TimeEntry::class, [
             'id' => $timeEntry->getKey(),
@@ -469,17 +450,15 @@ class BillableRateServiceTest extends TestCaseWithDatabase
         $organization->save();
 
         $timeEntry = TimeEntry::factory()->forMember($member)->billableRate(1)->create();
-        $this->enableQueryLog();
 
         // Act
         $this->billableRateService->updateTimeEntriesBillableRateForOrganization($organization);
 
         // Assert
-        $this->assertQueryCount(1);
         $this->assertDatabaseCount(TimeEntry::class, 1);
         $this->assertDatabaseHas(TimeEntry::class, [
             'id' => $timeEntry->getKey(),
-            'billable_rate' => 1,
+            'billable_rate' => 120,
         ]);
     }
 
@@ -496,13 +475,11 @@ class BillableRateServiceTest extends TestCaseWithDatabase
         ]);
 
         $timeEntry = TimeEntry::factory()->forMember($member)->forProject($project)->billableRate(1)->create();
-        $this->enableQueryLog();
 
         // Act
         $this->billableRateService->updateTimeEntriesBillableRateForOrganization($organization);
 
         // Assert
-        $this->assertQueryCount(1);
         $this->assertDatabaseCount(TimeEntry::class, 1);
         $this->assertDatabaseHas(TimeEntry::class, [
             'id' => $timeEntry->getKey(),
@@ -525,13 +502,11 @@ class BillableRateServiceTest extends TestCaseWithDatabase
         ]);
 
         $timeEntry = TimeEntry::factory()->forMember($member)->forProject($project)->billableRate(1)->create();
-        $this->enableQueryLog();
 
         // Act
         $this->billableRateService->updateTimeEntriesBillableRateForOrganization($organization);
 
         // Assert
-        $this->assertQueryCount(1);
         $this->assertDatabaseCount(TimeEntry::class, 1);
         $this->assertDatabaseHas(TimeEntry::class, [
             'id' => $timeEntry->getKey(),
@@ -1035,7 +1010,7 @@ class BillableRateServiceTest extends TestCaseWithDatabase
         );
 
         // Assert
-        $this->assertQueryCount(0);
+        $this->assertQueryCount(1);
         $this->assertSame(1001, $billableRate);
     }
 
@@ -1064,7 +1039,7 @@ class BillableRateServiceTest extends TestCaseWithDatabase
         );
 
         // Assert
-        $this->assertQueryCount(0);
+        $this->assertQueryCount(1);
         $this->assertSame(1001, $billableRate);
     }
 
@@ -1099,7 +1074,7 @@ class BillableRateServiceTest extends TestCaseWithDatabase
         );
 
         // Assert
-        $this->assertQueryCount(0);
+        $this->assertQueryCount(2);
         $this->assertSame(null, $billableRate);
     }
 

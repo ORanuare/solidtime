@@ -6,6 +6,7 @@ import {
     getDayJsInstance,
     getLocalizedDayJs,
 } from '@/packages/ui/src/utils/time';
+import { formatBillableMinorForIso } from '@/utils/formatBillableDisplay';
 import { formatCents } from '@/packages/ui/src/utils/money';
 import { getOrganizationCurrencyString } from '@/utils/money';
 import { type GroupingOption, useReportingStore } from '@/utils/useReporting';
@@ -101,21 +102,38 @@ const aggregatedTableTimeEntries = computed<AggregatedTimeEntries | null>(() => 
     return (reportingResponse.value?.data as AggregatedTimeEntries | undefined) ?? null;
 });
 
+const weekBillableTotalsByCurrency = computed(
+    () => aggregatedTableTimeEntries.value?.billable_totals_by_currency
+);
+
+const weekBillableTotalLines = computed(() => {
+    const rows = weekBillableTotalsByCurrency.value;
+    const org = organization?.value;
+    if (!rows?.length || !org) {
+        return [];
+    }
+    return rows.map((r) => formatBillableMinorForIso(r.minor_units, r.currency_code, org)).filter(Boolean) as string[];
+});
+
 const tableData = computed(() => {
     return (
         aggregatedTableTimeEntries.value?.grouped_data?.map((entry) => {
+            const typedEntry = entry as { currency_code?: string };
             return {
                 seconds: entry.seconds,
                 cost: entry.cost,
+                currency_code: typedEntry.currency_code,
                 description: getNameForReportingRowEntry(
                     entry.key,
                     aggregatedTableTimeEntries.value?.grouped_type ?? null
                 ),
                 grouped_data:
                     entry.grouped_data?.map((el) => {
+                        const typedSub = el as { currency_code?: string };
                         return {
                             seconds: el.seconds,
                             cost: el.cost,
+                            currency_code: typedSub.currency_code ?? typedEntry.currency_code,
                             description: getNameForReportingRowEntry(
                                 el.key,
                                 entry.grouped_type ?? null
@@ -153,7 +171,7 @@ const isTableRefetching = computed(() => isFetching.value && !isLoading.value);
         </div>
 
         <div
-            class="grid items-center relative transition-opacity duration-200"
+            class="grid items-stretch relative transition-opacity duration-200"
             :class="isTableRefetching ? 'opacity-60' : 'opacity-100'"
             :style="`grid-template-columns: 1fr 100px ${showBillableRate ? '150px' : ''}`">
             <div
@@ -180,7 +198,7 @@ const isTableRefetching = computed(() => isFetching.value && !isLoading.value);
             <template
                 v-else-if="
                     aggregatedTableTimeEntries?.grouped_data &&
-                    aggregatedTableTimeEntries.grouped_data?.length > 0
+                    aggregatedTableTimeEntries.grouped_data.length > 0
                 ">
                 <ReportingRow
                     v-for="entry in tableData"
@@ -188,7 +206,7 @@ const isTableRefetching = computed(() => isFetching.value && !isLoading.value);
                     :currency="getOrganizationCurrencyString()"
                     :show-cost="showBillableRate"
                     :entry="entry"></ReportingRow>
-                <div class="contents [&>*]:transition text-text-tertiary [&>*]:h-[50px]">
+                <div class="contents [&>*]:transition text-text-tertiary [&>*]:min-h-[50px] [&>*]:py-2 box-border">
                     <div class="flex items-center pl-6 font-medium">
                         <span>Total</span>
                     </div>
@@ -205,18 +223,22 @@ const isTableRefetching = computed(() => isFetching.value && !isLoading.value);
                     </div>
                     <div
                         v-if="showBillableRate"
-                        class="justify-end pr-6 flex items-center font-medium">
-                        {{
-                            aggregatedTableTimeEntries.cost
-                                ? formatCents(
-                                      aggregatedTableTimeEntries.cost,
-                                      getOrganizationCurrencyString(),
-                                      organization?.currency_format,
-                                      organization?.currency_symbol,
-                                      organization?.number_format
-                                  )
-                                : '--'
-                        }}
+                        class="justify-end pr-6 flex flex-col items-end gap-1 font-medium">
+                        <template v-if="weekBillableTotalLines.length">
+                            <span v-for="(line, i) in weekBillableTotalLines" :key="i">{{ line }}</span>
+                        </template>
+                        <template v-else-if="aggregatedTableTimeEntries.cost">
+                            {{
+                                formatCents(
+                                    aggregatedTableTimeEntries.cost,
+                                    getOrganizationCurrencyString(),
+                                    organization?.currency_format,
+                                    organization?.currency_symbol,
+                                    organization?.number_format
+                                )
+                            }}
+                        </template>
+                        <template v-else>--</template>
                     </div>
                 </div>
             </template>

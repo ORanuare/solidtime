@@ -39,6 +39,23 @@ class ProjectFactory extends Factory
         ];
     }
 
+    public function configure(): static
+    {
+        return $this->afterMaking(function (Project $project): void {
+            if ($project->getAttribute('currency') !== null) {
+                return;
+            }
+            $orgId = $project->organization_id;
+            if ($orgId instanceof Organization) {
+                $project->setAttribute('currency', $orgId->currency);
+
+                return;
+            }
+            $currency = Organization::query()->whereKey($orgId)->value('currency');
+            $project->setAttribute('currency', $currency ?? config('app.localization.default_currency'));
+        });
+    }
+
     public function withEstimatedTime(): self
     {
         return $this->state(function (array $attributes): array {

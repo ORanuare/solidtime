@@ -45,6 +45,7 @@ use OwenIt\Auditing\Contracts\Auditable as AuditableContract;
  * @property Collection<int, User> $users
  * @property Collection<int, User> $realUsers
  * @property-read Collection<int, OrganizationInvitation> $teamInvitations
+ * @property-read Collection<int, OrganizationCurrency> $organizationCurrencies
  * @property Member $membership
  * @property NumberFormat $number_format
  * @property CurrencyFormat $currency_format
@@ -128,6 +129,14 @@ class Organization extends JetstreamTeam implements AuditableContract
         return $this->allRealUsers()->contains(function (User $user) use ($email): bool {
             return $user->email === $email;
         });
+    }
+
+    /**
+     * @return HasMany<OrganizationCurrency, $this>
+     */
+    public function organizationCurrencies(): HasMany
+    {
+        return $this->hasMany(OrganizationCurrency::class, 'organization_id');
     }
 
     /**

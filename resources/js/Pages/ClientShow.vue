@@ -27,8 +27,8 @@ import ClientMoreOptionsDropdown from '@/Components/Common/Client/ClientMoreOpti
 import { useClientsStore } from '@/utils/useClients';
 import { api } from '@/packages/api/src';
 import { useQuery } from '@tanstack/vue-query';
-import { formatCents } from '@/packages/ui/src/utils/money';
-import { getOrganizationCurrencyString } from '@/utils/money';
+import { formatCents, getOrganizationCurrencySymbol } from '@/packages/ui/src/utils/money';
+import { formatBillableMinorForIso } from '@/utils/formatBillableDisplay';
 import { formatHumanReadableDuration } from '@/packages/ui/src/utils/time';
 import { ArchiveBoxIcon, CheckCircleIcon } from '@heroicons/vue/24/outline';
 import { LoadingSpinner } from '@/packages/ui/src';
@@ -210,10 +210,47 @@ const perProjectBillableCentsById = computed(() => {
     return map;
 });
 
+const perProjectBillableCurrencyCodeById = computed(() => {
+    if (!showBillableCost.value) {
+        return null;
+    }
+    if (projectBillableTotalsPending.value) {
+        return null;
+    }
+    const groups = projectBillableByProjectResult.value?.data?.grouped_data;
+    if (!groups) {
+        return {};
+    }
+    const map: Record<string, string> = {};
+    for (const row of groups) {
+        const iso = (row as { currency_code?: string }).currency_code;
+        if (row.key && iso) {
+            map[row.key] = iso;
+        }
+    }
+    return map;
+});
+
 const totalCostCents = computed(() => aggregateResult.value?.data?.cost);
 const totalSeconds = computed(() => aggregateResult.value?.data?.seconds ?? 0);
 
-const costFormatted = computed(() => {
+const clientBillableTotalsByCurrency = computed(
+    () => aggregateResult.value?.data?.billable_totals_by_currency
+);
+
+const clientBillableTotalLines = computed(() => {
+    const rows = clientBillableTotalsByCurrency.value;
+    const org = orgForFormat.value;
+    if (!rows?.length || !org) {
+        return [];
+    }
+    return rows
+        .map((r) => formatBillableMinorForIso(r.minor_units, r.currency_code, org))
+        .filter(Boolean) as string[];
+});
+
+/** Fallback when hourly breakdown is not returned: single merged cost line in workspace default currency. */
+const clientMergedCostFormatted = computed(() => {
     if (!showBillableCost.value) {
         return null;
     }
@@ -221,14 +258,14 @@ const costFormatted = computed(() => {
         return null;
     }
     const o = orgForFormat.value;
-    if (!o) {
+    if (!o?.currency) {
         return null;
     }
     return formatCents(
         totalCostCents.value,
-        getOrganizationCurrencyString(),
+        o.currency,
         o.currency_format,
-        o.currency_symbol,
+        getOrganizationCurrencySymbol(o.currency),
         o.number_format
     );
 });
@@ -376,9 +413,19 @@ function archiveClient() {
                             reporting.
                         </p>
                     </div>
-                    <div class="mt-3 sm:mt-0 text-right sm:text-left">
-                        <p v-if="showBillableCost && costFormatted" class="text-lg font-semibold text-text-primary">
-                            {{ costFormatted }}
+                    <div class="mt-3 sm:mt-0 text-right sm:text-left flex flex-col items-end gap-1">
+                        <template v-if="showBillableCost && clientBillableTotalLines.length">
+                            <p
+                                v-for="(line, i) in clientBillableTotalLines"
+                                :key="i"
+                                class="text-lg font-semibold text-text-primary">
+                                {{ line }}
+                            </p>
+                        </template>
+                        <p
+                            v-else-if="showBillableCost && clientMergedCostFormatted"
+                            class="text-lg font-semibold text-text-primary">
+                            {{ clientMergedCostFormatted }}
                         </p>
                         <p v-else-if="!showBillableCost" class="text-sm text-text-tertiary">—</p>
                         <p v-else class="text-sm text-text-tertiary">—</p>
@@ -420,6 +467,7 @@ function archiveClient() {
                         :show-billable-rate="showBillableRate"
                         :show-per-project-billable-total="showBillableCost"
                         :per-project-billable-cents-by-id="perProjectBillableCentsById"
+                        :per-project-billable-currency-code-by-id="perProjectBillableCurrencyCodeById"
                         :sort-column="projectTableSort.sortColumn"
                         :sort-direction="projectTableSort.sortDirection"
                         @sort="handleProjectSort" />

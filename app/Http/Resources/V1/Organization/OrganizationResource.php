@@ -11,6 +11,7 @@ use App\Enums\NumberFormat;
 use App\Enums\TimeFormat;
 use App\Http\Resources\V1\BaseResource;
 use App\Models\Organization;
+use App\Models\OrganizationCurrency;
 use App\Service\CurrencyService;
 use Illuminate\Http\Request;
 
@@ -63,6 +64,18 @@ class OrganizationResource extends BaseResource
             'currency' => $this->resource->currency,
             /** @var string $currency_symbol Currency symbol */
             'currency_symbol' => $currencyService->getCurrencySymbol($this->resource->currency),
+            /** @var array<int, array{currency_code: string, currency_symbol: string, default_billable_rate: int|null, is_primary: bool}> $currencies Enabled workspace currencies */
+            'currencies' => $this->resource->relationLoaded('organizationCurrencies')
+                ? $this->resource->organizationCurrencies
+                    ->sortBy(fn (OrganizationCurrency $c): int => $c->sort_order ?? 0)
+                    ->values()
+                    ->map(fn (OrganizationCurrency $c): array => [
+                        'currency_code' => $c->currency_code,
+                        'currency_symbol' => $currencyService->getCurrencySymbol($c->currency_code),
+                        'default_billable_rate' => $this->showBillableRate ? $c->default_billable_rate : null,
+                        'is_primary' => $c->currency_code === $this->resource->currency,
+                    ])->all()
+                : [],
             /** @var NumberFormat $number_format Number format */
             'number_format' => $this->resource->number_format->value,
             /** @var CurrencyFormat $currency_format Currency format */

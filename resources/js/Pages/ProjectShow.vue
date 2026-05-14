@@ -37,8 +37,7 @@ import { useTasksQuery } from '@/utils/useTasksQuery';
 import ProjectEditModal from '@/Components/Common/Project/ProjectEditModal.vue';
 import ProjectFixedPaymentQuickEdit from '@/Components/Common/Project/ProjectFixedPaymentQuickEdit.vue';
 import { Badge } from '@/packages/ui/src';
-import { formatCents } from '../packages/ui/src/utils/money';
-import { getOrganizationCurrencyString } from '../utils/money';
+import { formatCents, getOrganizationCurrencySymbol } from '../packages/ui/src/utils/money';
 import { useOrganizationQuery } from '@/utils/useOrganizationQuery';
 import { getCurrentOrganizationId, getCurrentRole } from '@/utils/useUser';
 import type { Task } from '@/packages/api/src';
@@ -103,42 +102,58 @@ function clearNotesTaskFilter() {
 }
 
 const billableRateFormatted = computed(() => {
-    if (project.value?.billable_rate) {
-        return formatCents(
-            project.value.billable_rate,
-            getOrganizationCurrencyString(),
-            organization.value?.currency_format,
-            organization.value?.currency_symbol,
-            organization.value?.number_format
-        );
+    const p = project.value;
+    const org = organization.value;
+    if (p?.billable_rate == null || !org?.currency_format || !org?.number_format) {
+        return null;
     }
-    return null;
+
+    const iso = p.currency;
+    return formatCents(
+        p.billable_rate,
+        iso,
+        org.currency_format,
+        getOrganizationCurrencySymbol(iso),
+        org.number_format
+    );
 });
 
 const organizationDefaultBillableRateFormatted = computed(() => {
-    if (organization.value?.billable_rate == null) {
+    const org = organization.value;
+    if (org?.billable_rate == null || !org.currency_format || !org.number_format) {
         return null;
     }
+
+    const iso = org.currency;
     return formatCents(
-        organization.value.billable_rate,
-        getOrganizationCurrencyString(),
-        organization.value?.currency_format,
-        organization.value?.currency_symbol,
-        organization.value?.number_format
+        org.billable_rate,
+        iso,
+        org.currency_format,
+        getOrganizationCurrencySymbol(iso),
+        org.number_format
     );
 });
 
 const fixedPriceFormatted = computed(() => {
-    if (project.value?.billing_type === 'fixed' && project.value.fixed_price != null) {
-        return formatCents(
-            project.value.fixed_price,
-            getOrganizationCurrencyString(),
-            organization.value?.currency_format,
-            organization.value?.currency_symbol,
-            organization.value?.number_format
-        );
+    const p = project.value;
+    const org = organization.value;
+    if (
+        p?.billing_type !== 'fixed' ||
+        p.fixed_price == null ||
+        !org?.currency_format ||
+        !org?.number_format
+    ) {
+        return null;
     }
-    return null;
+
+    const iso = p.currency;
+    return formatCents(
+        p.fixed_price,
+        iso,
+        org.currency_format,
+        getOrganizationCurrencySymbol(iso),
+        org.number_format
+    );
 });
 
 const shownTasks = computed(() => {

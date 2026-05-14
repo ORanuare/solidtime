@@ -25,6 +25,7 @@ use OwenIt\Auditing\Contracts\Auditable as AuditableContract;
  * @property string $name
  * @property string $color
  * @property string $organization_id
+ * @property string $currency ISO 4217; must exist in organization_currencies
  * @property string $client_id
  * @property int|null $billable_rate
  * @property ProjectBillingType $billing_type
@@ -96,6 +97,7 @@ class Project extends Model implements AuditableContract
         'billing_type' => ProjectBillingType::class,
         'fixed_price' => 'integer',
         'amount_received' => 'integer',
+        'currency' => 'string',
     ];
 
     /**

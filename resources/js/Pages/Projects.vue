@@ -142,6 +142,7 @@ const showBillableRate = computed(() => {
                 :enable-estimated-time="isAllowedToPerformPremiumAction()"
                 :create-client
                 :currency="getOrganizationCurrencyString()"
+                :workspace-currencies="organization?.currencies ?? []"
                 :organization-billable-rate="organization?.billable_rate ?? null"
                 :clients="clients"
                 @submit="createProject"></ProjectCreateModal>

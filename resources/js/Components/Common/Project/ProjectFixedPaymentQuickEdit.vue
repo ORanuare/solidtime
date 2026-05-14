@@ -9,8 +9,7 @@ import SecondaryButton from '@/packages/ui/src/Buttons/SecondaryButton.vue';
 import { Field, FieldDescription, FieldLabel } from '@/packages/ui/src/field';
 import { useProjectsStore } from '@/utils/useProjects';
 import { canUpdateProjects } from '@/utils/permissions';
-import { formatCents } from '@/packages/ui/src/utils/money';
-import { getOrganizationCurrencyString } from '@/utils/money';
+import { formatCents, getOrganizationCurrencySymbol } from '@/packages/ui/src/utils/money';
 
 const props = defineProps<{
     project: Project;
@@ -114,12 +113,14 @@ function fmt(cents: number | null): string {
         return '—';
     }
 
+    const iso = props.project.currency;
+
     return (
         formatCents(
             cents,
-            getOrganizationCurrencyString(),
+            iso,
             org.currency_format,
-            org.currency_symbol,
+            getOrganizationCurrencySymbol(iso),
             org.number_format
         ) ?? '—'
     );
@@ -229,7 +230,7 @@ const readonlyOuterClass = computed(() =>
                         <FieldLabel>Amount received</FieldLabel>
                         <BillableRateInput
                             v-model="amountDraft"
-                            :currency="getOrganizationCurrencyString()"
+                            :currency="project.currency"
                             name="quickPaymentAmount" />
                     </Field>
                     <div class="flex justify-end gap-2 pt-1">

@@ -112,7 +112,9 @@ class DashboardService
             $first = $value1;
         }
 
-        return $builder->whereBetween('start', [
+        $table = $builder->getModel()->getTable();
+
+        return $builder->whereBetween($table.'.start', [
             $first->startOfDay()->utc(),
             $last->endOfDay()->utc(),
         ]);
@@ -128,7 +130,9 @@ class DashboardService
             ->startOfWeek($startOfWeek->carbonWeekDay())
             ->addWeeks($weekOffset);
 
-        return $builder->whereBetween('start', [
+        $table = $builder->getModel()->getTable();
+
+        return $builder->whereBetween($table.'.start', [
             $weekStart->copy()->utc(),
             $weekStart->copy()->endOfWeek($startOfWeek->toEndOfWeek()->carbonWeekDay())->utc(),
         ]);
@@ -256,34 +260,45 @@ class DashboardService
     }
 
     /**
-     * @return array{value: int, currency: string}
+     * @return array{value: int, currency: string, amounts_by_currency: list<array{currency: string, value: int}>}
      */
     public function totalWeeklyBillableAmount(User $user, Organization $organization, int $weekOffset = 0): array
     {
         $timezone = $this->timezoneService->getTimezoneFromUser($user);
         $possibleDays = $this->daysOfWeek($timezone, $user->week_start, $weekOffset);
 
+        /** @var array<string, int> $byCurrency */
+        $byCurrency = [];
+
         $hourlyQuery = TimeEntry::query()
-            ->select(DB::raw('
-               round(
-                    sum(
-                        extract(epoch from (coalesce("end", now()) - start)) * (billable_rate::float/60/60)
-                    )
-               ) as aggregate'))
-            ->where('billable', '=', true)
-            ->whereNotNull('billable_rate')
-            ->where('user_id', '=', $user->getKey())
-            ->where('organization_id', '=', $organization->getKey());
+            ->join('organizations', 'time_entries.organization_id', '=', 'organizations.id')
+            ->leftJoin('projects', 'time_entries.project_id', '=', 'projects.id')
+            ->where('time_entries.billable', '=', true)
+            ->whereNotNull('time_entries.billable_rate')
+            ->where('time_entries.user_id', '=', $user->getKey())
+            ->where('time_entries.organization_id', '=', $organization->getKey());
 
         $hourlyQuery = $this->constrainDateByPossibleDates($hourlyQuery, $possibleDays, $timezone);
-        /** @var Collection<int, object{aggregate: int}> $hourlyResult */
-        $hourlyResult = $hourlyQuery->get();
-        $hourlyValue = (int) $hourlyResult->get(0)->aggregate;
+
+        /** @var Collection<int, object{bill_currency: string, aggregate: float|string}> $hourlyGrouped */
+        $hourlyGrouped = (clone $hourlyQuery)
+            ->select(DB::raw(
+                'COALESCE(projects.currency, organizations.currency) as bill_currency, '
+                .'round(sum(extract(epoch from (coalesce(time_entries."end", now()) - time_entries.start)) * (time_entries.billable_rate::float/60/60))) as aggregate'
+            ))
+            ->groupBy(DB::raw('COALESCE(projects.currency, organizations.currency)'))
+            ->get();
+
+        foreach ($hourlyGrouped as $row) {
+            $code = (string) $row->bill_currency;
+            $byCurrency[$code] = ($byCurrency[$code] ?? 0) + (int) $row->aggregate;
+        }
 
         $orgWindow = TimeEntry::query()
             ->where('organization_id', '=', $organization->getKey())
             ->where('billable', '=', true)
             ->whereNotNull('project_id');
+
         $orgWindow = $this->constrainDateByPossibleDates($orgWindow, $possibleDays, $timezone);
 
         /** @var Collection<int, object{project_id: string, aggregate: int|string}> $orgByProject */
@@ -302,14 +317,14 @@ class DashboardService
         $orgSecondsMap = $orgByProject->keyBy('project_id');
         $userSecondsMap = $userByProject->keyBy('project_id');
 
-        $fixedValue = 0;
         if ($orgByProject->isNotEmpty()) {
+            /** @var \Illuminate\Support\Collection<string, Project> $fixedProjects */
             $fixedProjects = Project::query()
                 ->whereBelongsTo($organization, 'organization')
                 ->where('billing_type', '=', ProjectBillingType::Fixed)
                 ->whereNotNull('fixed_price')
                 ->whereIn('id', $orgByProject->pluck('project_id')->all())
-                ->get(['id', 'fixed_price'])
+                ->get(['id', 'fixed_price', 'currency'])
                 ->keyBy('id');
 
             foreach ($fixedProjects as $projectId => $proj) {
@@ -321,13 +336,23 @@ class DashboardService
                 if ($sUser <= 0) {
                     continue;
                 }
-                $fixedValue += (int) round((int) $proj->fixed_price * $sUser / $tP);
+                $share = (int) round((int) $proj->fixed_price * $sUser / $tP);
+                $curr = $proj->currency;
+                $byCurrency[$curr] = ($byCurrency[$curr] ?? 0) + $share;
             }
         }
 
+        $primaryCurrency = $organization->currency;
+        ksort($byCurrency);
+        $amountsList = [];
+        foreach ($byCurrency as $curr => $amount) {
+            $amountsList[] = ['currency' => $curr, 'value' => $amount];
+        }
+
         return [
-            'value' => $hourlyValue + $fixedValue,
-            'currency' => $organization->currency,
+            'value' => $byCurrency[$primaryCurrency] ?? 0,
+            'currency' => $primaryCurrency,
+            'amounts_by_currency' => $amountsList,
         ];
     }
 

@@ -12,8 +12,9 @@ import { useClientsQuery } from '@/utils/useClientsQuery';
 import { useTasksQuery } from '@/utils/useTasksQuery';
 import { useProjectsStore } from '@/utils/useProjects';
 import TableRow from '@/Components/TableRow.vue';
+import ProjectEditModal from '@/Components/Common/Project/ProjectEditModal.vue';
 import ProjectFixedPaymentQuickEdit from '@/Components/Common/Project/ProjectFixedPaymentQuickEdit.vue';
-import { formatCents } from '@/packages/ui/src/utils/money';
+import { formatCents, getOrganizationCurrencySymbol } from '@/packages/ui/src/utils/money';
 import { getOrganizationCurrencyString } from '@/utils/money';
 import EstimatedTimeProgress from '@/packages/ui/src/EstimatedTimeProgress.vue';
 import UpgradeBadge from '@/Components/Common/UpgradeBadge.vue';
@@ -38,6 +39,8 @@ const props = defineProps<{
     showPerProjectBillableTotal?: boolean;
     /** Resolved cents for this project when totals are loaded. */
     projectBillableTotalCents?: number | null;
+    /** ISO currency for billable total when known (fallback: project.currency). */
+    projectBillableTotalCurrencyCode?: string | null | undefined;
     projectBillableTotalsPending?: boolean;
 }>();
 
@@ -72,6 +75,38 @@ function archiveProject() {
 
 const organization = inject<ComputedRef<Organization>>('organization');
 
+const billIso = computed(() => props.project.currency || getOrganizationCurrencyString());
+
+function formatProjectMinor(minorUnits: number): string {
+    const org = organization?.value;
+    if (!org) {
+        return '—';
+    }
+    const iso = billIso.value;
+    return (
+        formatCents(
+            minorUnits,
+            iso,
+            org.currency_format,
+            getOrganizationCurrencySymbol(iso),
+            org.number_format
+        ) ?? '—'
+    );
+}
+
+const workspaceDefaultHourlyMinor = computed((): number | null => {
+    const org = organization?.value;
+    if (!org) {
+        return null;
+    }
+    const code = props.project.currency;
+    const hit = org.currencies?.find((c) => c.currency_code === code);
+    if (hit !== undefined && 'default_billable_rate' in hit) {
+        return hit.default_billable_rate ?? null;
+    }
+    return org.billable_rate ?? null;
+});
+
 type BillableBillingDisplay =
     | { kind: 'fixed_price'; amount: string }
     | { kind: 'fixed_unpriced' }
@@ -82,31 +117,22 @@ const billableBillingDisplay = computed((): BillableBillingDisplay | null => {
     if (!props.project.is_billable) {
         return null;
     }
-    const org = organization?.value;
-    if (!org) {
+    if (!organization?.value) {
         return null;
     }
-    const fmt = (cents: number) =>
-        formatCents(
-            cents,
-            getOrganizationCurrencyString(),
-            org.currency_format,
-            org.currency_symbol,
-            org.number_format
-        );
     if (props.project.billing_type === 'fixed') {
         if (props.project.fixed_price != null) {
-            return { kind: 'fixed_price', amount: fmt(props.project.fixed_price) ?? '—' };
+            return { kind: 'fixed_price', amount: formatProjectMinor(props.project.fixed_price) };
         }
         return { kind: 'fixed_unpriced' };
     }
     if (props.project.billable_rate) {
-        return { kind: 'hourly_custom', amount: fmt(props.project.billable_rate) ?? '—' };
+        return { kind: 'hourly_custom', amount: formatProjectMinor(props.project.billable_rate) };
     }
-    const defaultCents = org.billable_rate;
+    const defaultCents = workspaceDefaultHourlyMinor.value;
     return {
         kind: 'hourly_default',
-        amount: defaultCents != null ? (fmt(defaultCents) ?? '—') : '—',
+        amount: defaultCents != null ? formatProjectMinor(defaultCents) : '—',
     };
 });
 
@@ -122,6 +148,10 @@ const billingShowsUnifiedPaymentCard = computed(
         props.project.fixed_price > 0
 );
 
+const billableTotalIso = computed(
+    () => props.projectBillableTotalCurrencyCode || props.project.currency || getOrganizationCurrencyString()
+);
+
 const projectBillableTotalFormatted = computed(() => {
     if (!props.showPerProjectBillableTotal || props.projectBillableTotalsPending) {
         return null;
@@ -131,12 +161,15 @@ const projectBillableTotalFormatted = computed(() => {
         return null;
     }
     const cents = props.projectBillableTotalCents ?? 0;
-    return formatCents(
-        cents,
-        getOrganizationCurrencyString(),
-        org.currency_format,
-        org.currency_symbol,
-        org.number_format
+    const iso = billableTotalIso.value;
+    return (
+        formatCents(
+            cents,
+            iso,
+            org.currency_format,
+            getOrganizationCurrencySymbol(iso),
+            org.number_format
+        ) ?? null
     );
 });
 </script>

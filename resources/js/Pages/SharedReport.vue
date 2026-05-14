@@ -7,6 +7,7 @@ import { formatReportingDuration } from '@/packages/ui/src/utils/time';
 import ReportingRow from '@/Components/Common/Reporting/ReportingRow.vue';
 import ReportingPieChart from '@/Components/Common/Reporting/ReportingPieChart.vue';
 import { formatCents } from '@/packages/ui/src/utils/money';
+import { formatBillableMinorForIso } from '@/utils/formatBillableDisplay';
 import type { CurrencyFormat } from '@/packages/ui/src/utils/money';
 import { computed, onMounted, provide, ref } from 'vue';
 import { useQuery } from '@tanstack/vue-query';
@@ -90,6 +91,40 @@ const aggregatedTableTimeEntries = computed(() => {
         cost: 0,
     };
 });
+
+const sharedReportMoneyPrefs = computed(() => ({
+    currency_format: reportCurrencyFormat.value,
+    number_format: reportNumberFormat.value,
+}));
+
+const sharedBillableTotalsByCurrency = computed(
+    () =>
+        aggregatedTableTimeEntries.value &&
+        typeof aggregatedTableTimeEntries.value === 'object' &&
+        'billable_totals_by_currency' in aggregatedTableTimeEntries.value
+            ? (
+                  aggregatedTableTimeEntries.value as {
+                      billable_totals_by_currency?: Array<{
+                          currency_code: string;
+                          minor_units: number;
+                      }>;
+                  }
+              ).billable_totals_by_currency
+            : undefined
+);
+
+const sharedBillableTotalLines = computed(() => {
+    const rows = sharedBillableTotalsByCurrency.value;
+    const prefs = sharedReportMoneyPrefs.value;
+    if (!rows?.length) {
+        return [];
+    }
+
+    return rows
+        .map((r) => formatBillableMinorForIso(r.minor_units, r.currency_code, prefs))
+        .filter(Boolean) as string[];
+});
+
 const aggregatedGraphTimeEntries = computed(() => {
     if (sharedReportResponseData.value) {
         return sharedReportResponseData.value?.history_data;
@@ -142,18 +177,22 @@ const groupedPieChartData = computed(() => {
 
 const tableData = computed(() => {
     return aggregatedTableTimeEntries.value?.grouped_data?.map((entry) => {
+        const typedEntry = entry as { currency_code?: string };
         return {
             seconds: entry.seconds,
             cost: entry.cost,
+            currency_code: typedEntry.currency_code,
             description:
                 entry.description ??
                 emptyPlaceholder[aggregatedTableTimeEntries.value?.grouped_type ?? 'project'] ??
                 '',
             grouped_data:
                 entry.grouped_data?.map((el) => {
+                    const typedSub = el as { currency_code?: string };
                     return {
                         seconds: el.seconds,
                         cost: el.cost,
+                        currency_code: typedSub.currency_code ?? typedEntry.currency_code,
                         description:
                             el.description ??
                             emptyPlaceholder[entry.grouped_type ?? 'project'] ??
@@ -205,7 +244,7 @@ onMounted(async () => {
                         and
                         <strong class="px-2">{{ getGroupLabel(subGroup) }}</strong>
                     </div>
-                    <div class="grid items-center" style="grid-template-columns: 1fr 100px 150px">
+                    <div class="grid items-stretch" style="grid-template-columns: 1fr 100px 150px">
                         <div
                             class="contents [&>*]:border-card-background-separator [&>*]:border-b [&>*]:bg-tertiary [&>*]:pb-1.5 [&>*]:pt-1 text-text-secondary text-sm">
                             <div class="pl-6">Name</div>
@@ -221,11 +260,10 @@ onMounted(async () => {
                                 v-for="entry in tableData"
                                 :key="entry.description ?? 'none'"
                                 :currency="reportCurrency"
-                                :currency-format="reportCurrencyFormat"
                                 :show-cost="true"
                                 :entry="entry"></ReportingRow>
                             <div
-                                class="contents [&>*]:transition text-text-tertiary [&>*]:h-[50px]">
+                                class="contents [&>*]:transition text-text-tertiary [&>*]:min-h-[50px] [&>*]:py-2 box-border">
                                 <div class="flex items-center pl-6 font-medium">
                                     <span>Total</span>
                                 </div>
@@ -238,18 +276,25 @@ onMounted(async () => {
                                         )
                                     }}
                                 </div>
-                                <div class="justify-end pr-6 flex items-center font-medium">
-                                    {{
-                                        aggregatedTableTimeEntries.cost
-                                            ? formatCents(
-                                                  aggregatedTableTimeEntries.cost,
-                                                  reportCurrency,
-                                                  reportCurrencyFormat,
-                                                  reportCurrencySymbol,
-                                                  reportNumberFormat
-                                              )
-                                            : '--'
-                                    }}
+                                <div
+                                    class="justify-end pr-6 flex flex-col items-end gap-1 font-medium">
+                                    <template v-if="sharedBillableTotalLines.length">
+                                        <span v-for="(line, i) in sharedBillableTotalLines" :key="i">{{
+                                            line
+                                        }}</span>
+                                    </template>
+                                    <template v-else-if="aggregatedTableTimeEntries.cost">
+                                        {{
+                                            formatCents(
+                                                aggregatedTableTimeEntries.cost,
+                                                reportCurrency,
+                                                reportCurrencyFormat,
+                                                reportCurrencySymbol,
+                                                reportNumberFormat
+                                            )
+                                        }}
+                                    </template>
+                                    <template v-else>--</template>
                                 </div>
                             </div>
                         </template>

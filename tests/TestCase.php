@@ -88,6 +88,7 @@ abstract class TestCase extends BaseTestCase
             $mock->shouldNotReceive('updateTimeEntriesBillableRateForProject');
             $mock->shouldNotReceive('updateTimeEntriesBillableRateForMember');
             $mock->shouldNotReceive('updateTimeEntriesBillableRateForOrganization');
+            $mock->shouldNotReceive('refreshBillableRatesForAllProjectTimeEntries');
         });
     }
 

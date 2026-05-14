@@ -117,7 +117,13 @@ class OrganizationEndpointTest extends ApiEndpointTestAbstract
         $data = $this->createUserWithPermission([
             'organizations:update',
         ]);
-        $this->assertBillableRateServiceIsUnused();
+        $this->mock(BillableRateService::class, function (MockInterface $mock) use ($data): void {
+            $mock->shouldReceive('updateTimeEntriesBillableRateForOrganization')
+                ->once()
+                ->withArgs(function (Organization $organization, ?array $onlyCurrencies) use ($data): bool {
+                    return $organization->is($data->organization) && $onlyCurrencies === null;
+                });
+        });
         Passport::actingAs($data->user);
         $data->organization->currency = 'EUR';
         $data->organization->save();
@@ -268,7 +274,11 @@ class OrganizationEndpointTest extends ApiEndpointTestAbstract
         $this->mock(BillableRateService::class, function (MockInterface $mock) use ($data, $billableRate): void {
             $mock->shouldReceive('updateTimeEntriesBillableRateForOrganization')
                 ->once()
-                ->withArgs(fn (Organization $organization) => $organization->is($data->organization) && $organization->billable_rate === $billableRate);
+                ->withArgs(function (Organization $organization, ?array $onlyCurrencies) use ($data, $billableRate): bool {
+                    return $organization->is($data->organization)
+                        && $organization->billable_rate === $billableRate
+                        && $onlyCurrencies === [$organization->currency];
+                });
         });
         Passport::actingAs($data->user);
 

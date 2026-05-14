@@ -24,6 +24,7 @@ use App\Http\Requests\V1\Member\MemberUpdateRequest;
 use App\Http\Resources\V1\Member\MemberCollection;
 use App\Http\Resources\V1\Member\MemberResource;
 use App\Models\Member;
+use App\Models\MemberCurrencyRate;
 use App\Models\Organization;
 use App\Service\BillableRateService;
 use App\Service\InvitationService;
@@ -59,7 +60,7 @@ class MemberController extends Controller
 
         $members = Member::query()
             ->whereBelongsTo($organization, 'organization')
-            ->with(['user'])
+            ->with(['user', 'currencyRates'])
             ->orderBy('created_at', 'desc')
             ->paginate(config('app.pagination_per_page_default'));
 
@@ -81,17 +82,54 @@ class MemberController extends Controller
     {
         $this->checkPermission($organization, 'members:update', $member);
 
-        if ($request->has('billable_rate') && $member->billable_rate !== $request->getBillableRate()) {
-            $member->billable_rate = $request->getBillableRate();
+        $ratePropagationCurrencies = [];
 
-            $billableRateService->updateTimeEntriesBillableRateForMember($member);
+        if ($request->getBillableRates() !== null) {
+            MemberCurrencyRate::query()
+                ->where('member_id', '=', $member->getKey())
+                ->delete();
+            foreach ($request->getBillableRates() as $row) {
+                MemberCurrencyRate::query()->create([
+                    'member_id' => $member->getKey(),
+                    'currency_code' => $row['currency_code'],
+                    'billable_rate' => $row['billable_rate'] ?? null,
+                ]);
+                $ratePropagationCurrencies[] = $row['currency_code'];
+            }
         }
+
+        if ($request->has('billable_rate')) {
+            $rate = $request->getBillableRate();
+            if ($member->billable_rate !== $rate) {
+                $member->billable_rate = $rate;
+                MemberCurrencyRate::query()->updateOrCreate(
+                    [
+                        'member_id' => $member->getKey(),
+                        'currency_code' => $organization->currency,
+                    ],
+                    [
+                        'billable_rate' => $rate,
+                    ]
+                );
+                $ratePropagationCurrencies[] = $organization->currency;
+            }
+        }
+
         if ($request->has('role') && $member->role !== $request->getRole()->value) {
             $newRole = $request->getRole();
             $allowOwnerChange = $this->hasPermission($organization, 'members:change-ownership');
             $memberService->changeRole($member, $organization, $newRole, $allowOwnerChange);
         }
         $member->save();
+
+        if ($ratePropagationCurrencies !== []) {
+            $billableRateService->updateTimeEntriesBillableRateForMember(
+                $member,
+                array_values(array_unique($ratePropagationCurrencies))
+            );
+        }
+
+        $member->load('currencyRates');
 
         return new MemberResource($member);
     }

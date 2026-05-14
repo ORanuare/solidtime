@@ -6,7 +6,9 @@ namespace App\Service;
 
 use App\Enums\ProjectBillingType;
 use App\Models\Member;
+use App\Models\MemberCurrencyRate;
 use App\Models\Organization;
+use App\Models\OrganizationCurrency;
 use App\Models\Project;
 use App\Models\ProjectMember;
 use App\Models\TimeEntry;
@@ -58,9 +60,12 @@ class BillableRateService
             ->update(['billable_rate' => $project->billable_rate]);
     }
 
-    public function updateTimeEntriesBillableRateForMember(Member $member): void
+    /**
+     * @param  list<string>|null  $onlyCurrencies  When set, only refresh entries whose billable context uses one of these ISO codes
+     */
+    public function updateTimeEntriesBillableRateForMember(Member $member, ?array $onlyCurrencies = null): void
     {
-        TimeEntry::query()
+        $query = TimeEntry::query()
             ->where('billable', '=', true)
             ->where('organization_id', '=', $member->organization_id)
             ->where('member_id', '=', $member->getKey())
@@ -75,19 +80,45 @@ class BillableRateService
                         $builder->whereNotNull('billable_rate')
                             ->where('member_id', '=', $member->getKey());
                     });
-            })
-            ->update(['billable_rate' => $member->billable_rate]);
+            });
+
+        if ($onlyCurrencies !== null && $onlyCurrencies !== []) {
+            $organization = Organization::query()->find($member->organization_id);
+            $primaryCurrency = $organization?->currency ?? '';
+            $query->where(function (Builder $outer) use ($onlyCurrencies, $primaryCurrency): void {
+                foreach ($onlyCurrencies as $code) {
+                    $outer->orWhere(function (Builder $w) use ($code, $primaryCurrency): void {
+                        $w->where(function (Builder $inner) use ($code, $primaryCurrency): void {
+                            $inner->whereHas('project', function (Builder $p) use ($code): void {
+                                $p->where('currency', '=', $code);
+                            });
+                            if ($primaryCurrency === $code) {
+                                $inner->orWhereNull('project_id');
+                            }
+                        });
+                    });
+                }
+            });
+        }
+
+        $query->chunkById(200, function ($entries) use ($member): void {
+            /** @var \Illuminate\Support\Collection<int, TimeEntry> $entries */
+            foreach ($entries as $timeEntry) {
+                /** @var TimeEntry $timeEntry */
+                $rate = $this->getBillableRateForTimeEntry($timeEntry);
+                TimeEntry::query()->whereKey($timeEntry->getKey())->update(['billable_rate' => $rate]);
+            }
+        });
     }
 
-    public function updateTimeEntriesBillableRateForOrganization(Organization $organization): void
+    /**
+     * @param  list<string>|null  $onlyCurrencies
+     */
+    public function updateTimeEntriesBillableRateForOrganization(Organization $organization, ?array $onlyCurrencies = null): void
     {
-        TimeEntry::query()
+        $query = TimeEntry::query()
             ->where('billable', '=', true)
             ->where('organization_id', '=', $organization->getKey())
-            ->whereDoesntHave('member', function (Builder $builder): void {
-                /** @var Builder<Member> $builder */
-                $builder->whereNotNull('billable_rate');
-            })
             ->whereDoesntHave('project', function (Builder $builder): void {
                 $builder->where('billing_type', '=', ProjectBillingType::Fixed->value);
             })
@@ -99,8 +130,33 @@ class BillableRateService
                         $builder->whereNotNull('billable_rate')
                             ->whereRaw('member_id = time_entries.member_id');
                     });
-            })
-            ->update(['billable_rate' => $organization->billable_rate]);
+            });
+
+        if ($onlyCurrencies !== null && $onlyCurrencies !== []) {
+            $primaryCurrency = $organization->currency;
+            $query->where(function (Builder $outer) use ($onlyCurrencies, $primaryCurrency): void {
+                foreach ($onlyCurrencies as $code) {
+                    $outer->orWhere(function (Builder $w) use ($code, $primaryCurrency): void {
+                        $w->where(function (Builder $inner) use ($code, $primaryCurrency): void {
+                            $inner->whereHas('project', function (Builder $p) use ($code): void {
+                                $p->where('currency', '=', $code);
+                            });
+                            if ($primaryCurrency === $code) {
+                                $inner->orWhereNull('project_id');
+                            }
+                        });
+                    });
+                }
+            });
+        }
+
+        $query->chunkById(200, function ($entries): void {
+            foreach ($entries as $timeEntry) {
+                /** @var TimeEntry $timeEntry */
+                $rate = $this->getBillableRateForTimeEntry($timeEntry);
+                TimeEntry::query()->whereKey($timeEntry->getKey())->update(['billable_rate' => $rate]);
+            }
+        });
     }
 
     public function getBillableRateForTimeEntryWithGivenRelations(TimeEntry $timeEntry, ?ProjectMember $projectMember, ?Project $project, ?Member $member, ?Organization $organization): ?int
@@ -111,17 +167,24 @@ class BillableRateService
         if ($project !== null && $project->billing_type === ProjectBillingType::Fixed) {
             return null;
         }
+        $currency = $this->resolveCurrencyForTimeEntry($project, $organization);
         if ($projectMember !== null && $projectMember->billable_rate !== null) {
             return $projectMember->billable_rate;
         }
         if ($project !== null && $project->billable_rate !== null) {
             return $project->billable_rate;
         }
-        if ($member !== null && $member->billable_rate !== null) {
-            return $member->billable_rate;
+        if ($member !== null) {
+            $memberRate = $this->getMemberBillableRateForCurrency($member, $currency, $organization);
+            if ($memberRate !== null) {
+                return $memberRate;
+            }
         }
-        if ($organization !== null && $organization->billable_rate !== null) {
-            return $organization->billable_rate;
+        if ($organization !== null) {
+            $orgRate = $this->getOrganizationDefaultBillableRateForCurrency($organization, $currency);
+            if ($orgRate !== null) {
+                return $orgRate;
+            }
         }
 
         return null;
@@ -138,40 +201,105 @@ class BillableRateService
             if ($project !== null && $project->billing_type === ProjectBillingType::Fixed) {
                 return null;
             }
-            // Project member rate
             /** @var ProjectMember|null $projectMember */
             $projectMember = ProjectMember::query()
                 ->where('user_id', '=', $timeEntry->user_id)
                 ->where('project_id', '=', $timeEntry->project_id)
                 ->first();
-            if ($projectMember !== null && $projectMember->billable_rate !== null) {
-                return $projectMember->billable_rate;
-            }
 
-            // Project rate
-            if ($project !== null && $project->billable_rate !== null) {
-                return $project->billable_rate;
-            }
+            /** @var Member|null $member */
+            $member = Member::query()
+                ->where('user_id', '=', $timeEntry->user_id)
+                ->where('organization_id', '=', $timeEntry->organization_id)
+                ->first();
+            /** @var Organization|null $organization */
+            $organization = Organization::query()
+                ->where('id', '=', $timeEntry->organization_id)
+                ->first();
+
+            return $this->getBillableRateForTimeEntryWithGivenRelations($timeEntry, $projectMember, $project, $member, $organization);
         }
-        // Member rate
+
         /** @var Member|null $member */
         $member = Member::query()
             ->where('user_id', '=', $timeEntry->user_id)
             ->where('organization_id', '=', $timeEntry->organization_id)
             ->first();
-        if ($member !== null && $member->billable_rate !== null) {
-            return $member->billable_rate;
-        }
-
-        // Organization rate
         /** @var Organization|null $organization */
         $organization = Organization::query()
             ->where('id', '=', $timeEntry->organization_id)
             ->first();
-        if ($organization !== null && $organization->billable_rate !== null) {
-            return $organization->billable_rate;
+
+        return $this->getBillableRateForTimeEntryWithGivenRelations($timeEntry, null, null, $member, $organization);
+    }
+
+    public function resolveCurrencyForTimeEntry(?Project $project, ?Organization $organization): string
+    {
+        if ($project !== null) {
+            return $project->currency;
+        }
+        if ($organization !== null) {
+            return $organization->currency;
+        }
+
+        return config('app.localization.default_currency');
+    }
+
+    public function getMemberBillableRateForCurrency(Member $member, string $currencyCode, ?Organization $organizationContext = null): ?int
+    {
+        $organization = $organizationContext;
+        if ($organization === null && $member->relationLoaded('organization')) {
+            $organization = $member->getRelation('organization');
+        }
+        if ($organization === null) {
+            $organization = Organization::query()->find($member->organization_id);
+        }
+
+        if ($organization !== null
+            && $organization->currency === $currencyCode
+            && $member->billable_rate !== null) {
+            return $member->billable_rate;
+        }
+
+        $row = MemberCurrencyRate::query()
+            ->where('member_id', '=', $member->getKey())
+            ->where('currency_code', '=', $currencyCode)
+            ->first();
+        if ($row !== null && $row->billable_rate !== null) {
+            return $row->billable_rate;
         }
 
         return null;
+    }
+
+    public function getOrganizationDefaultBillableRateForCurrency(Organization $organization, string $currencyCode): ?int
+    {
+        if ($organization->currency === $currencyCode && $organization->billable_rate !== null) {
+            return $organization->billable_rate;
+        }
+
+        $row = OrganizationCurrency::query()
+            ->where('organization_id', '=', $organization->getKey())
+            ->where('currency_code', '=', $currencyCode)
+            ->first();
+        if ($row !== null && $row->default_billable_rate !== null) {
+            return $row->default_billable_rate;
+        }
+
+        return null;
+    }
+
+    public function refreshBillableRatesForAllProjectTimeEntries(Project $project): void
+    {
+        TimeEntry::query()
+            ->where('billable', '=', true)
+            ->whereBelongsTo($project, 'project')
+            ->chunkById(200, function ($entries): void {
+                foreach ($entries as $timeEntry) {
+                    /** @var TimeEntry $timeEntry */
+                    $rate = $this->getBillableRateForTimeEntry($timeEntry);
+                    TimeEntry::query()->whereKey($timeEntry->getKey())->update(['billable_rate' => $rate]);
+                }
+            });
     }
 }

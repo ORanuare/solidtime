@@ -154,7 +154,11 @@ const emit = defineEmits(['submit']);
                                     name="billableRate" />
                             </div>
                         </TooltipTrigger>
-                        <TooltipContent> Uses the default rate of the organization </TooltipContent>
+                        <TooltipContent>
+                            Workspace default hourly rate for this project’s currency ({{
+                                currency
+                            }})
+                        </TooltipContent>
                     </Tooltip>
                 </TooltipProvider>
                 <BillableRateInput

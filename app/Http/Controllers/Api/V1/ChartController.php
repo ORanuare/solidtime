@@ -153,7 +153,7 @@ class ChartController extends Controller
      *
      * @operationId totalWeeklyBillableAmount
      *
-     * @response array{value: int, currency: string}
+     * @response array{value: int, currency: string, amounts_by_currency: list<array{currency: string, value: int}>}
      */
     public function totalWeeklyBillableAmount(Organization $organization, WeekOffsetQueryRequest $request, DashboardService $dashboardService): JsonResponse
     {

@@ -12,6 +12,7 @@ import {
     getDayJsInstance,
     getLocalizedDayJs,
 } from '@/packages/ui/src/utils/time';
+import { formatBillableMinorForIso } from '@/utils/formatBillableDisplay';
 import { formatCents } from '@/packages/ui/src/utils/money';
 import ReportingTabNavbar from '@/Components/Common/Reporting/ReportingTabNavbar.vue';
 import ReportingRow from '@/Components/Common/Reporting/ReportingRow.vue';
@@ -229,6 +230,19 @@ function onSaveReportClick() {
     }
 }
 
+const dashboardBillableTotalsByCurrency = computed(
+    () => aggregatedTableTimeEntries.value?.billable_totals_by_currency
+);
+
+const dashboardBillableTotalLines = computed(() => {
+    const rows = dashboardBillableTotalsByCurrency.value;
+    const org = organization?.value;
+    if (!rows?.length || !org) {
+        return [];
+    }
+    return rows.map((r) => formatBillableMinorForIso(r.minor_units, r.currency_code, org)).filter(Boolean) as string[];
+});
+
 const groupedPieChartData = computed(() => {
     return (
         aggregatedTableTimeEntries.value?.grouped_data?.map((entry) => {
@@ -262,18 +276,22 @@ const groupedPieChartData = computed(() => {
 
 const tableData = computed(() => {
     return aggregatedTableTimeEntries.value?.grouped_data?.map((entry) => {
+        const typedEntry = entry as { currency_code?: string };
         return {
             seconds: entry.seconds,
             cost: entry.cost,
+            currency_code: typedEntry.currency_code,
             description: getNameForReportingRowEntry(
                 entry.key,
                 aggregatedTableTimeEntries.value?.grouped_type ?? null
             ),
             grouped_data:
                 entry.grouped_data?.map((el) => {
+                    const typedSub = el as { currency_code?: string };
                     return {
                         seconds: el.seconds,
                         cost: el.cost,
+                        currency_code: typedSub.currency_code ?? typedEntry.currency_code,
                         description: getNameForReportingRowEntry(el.key, entry.grouped_type),
                     };
                 }) ?? [],
@@ -396,7 +414,7 @@ const tableData = computed(() => {
                         "></ReportingGroupBySelect>
                 </div>
                 <div
-                    class="grid items-center"
+                    class="grid items-stretch"
                     :style="`grid-template-columns: 1fr 100px ${showBillableRate ? '150px' : ''}`">
                     <div
                         class="contents [&>*]:border-card-background-separator [&>*]:border-b [&>*]:bg-secondary [&>*]:pb-1.5 [&>*]:pt-1 text-text-tertiary text-sm">
@@ -418,7 +436,7 @@ const tableData = computed(() => {
                             :type="aggregatedTableTimeEntries.grouped_type"
                             :show-cost="showBillableRate"
                             :entry="entry"></ReportingRow>
-                        <div class="contents [&>*]:transition text-text-tertiary [&>*]:h-[50px]">
+                        <div class="contents [&>*]:transition text-text-tertiary [&>*]:min-h-[50px] [&>*]:py-2 box-border">
                             <div class="flex items-center pl-6 font-medium">
                                 <span>Total</span>
                             </div>
@@ -435,18 +453,24 @@ const tableData = computed(() => {
                             </div>
                             <div
                                 v-if="showBillableRate"
-                                class="justify-end pr-6 flex items-center font-medium">
-                                {{
-                                    aggregatedTableTimeEntries.cost
-                                        ? formatCents(
-                                              aggregatedTableTimeEntries.cost,
-                                              getOrganizationCurrencyString(),
-                                              organization?.currency_format,
-                                              organization?.currency_symbol,
-                                              organization?.number_format
-                                          )
-                                        : '--'
-                                }}
+                                class="justify-end pr-6 flex flex-col items-end gap-1 font-medium">
+                                <template v-if="dashboardBillableTotalLines.length">
+                                    <span v-for="(line, i) in dashboardBillableTotalLines" :key="i">{{
+                                        line
+                                    }}</span>
+                                </template>
+                                <template v-else-if="aggregatedTableTimeEntries.cost">
+                                    {{
+                                        formatCents(
+                                            aggregatedTableTimeEntries.cost,
+                                            getOrganizationCurrencyString(),
+                                            organization?.currency_format,
+                                            organization?.currency_symbol,
+                                            organization?.number_format
+                                        )
+                                    }}
+                                </template>
+                                <template v-else>--</template>
                             </div>
                         </div>
                     </template>

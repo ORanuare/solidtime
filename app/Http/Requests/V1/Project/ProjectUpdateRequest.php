@@ -10,6 +10,7 @@ use App\Models\Client;
 use App\Models\Organization;
 use App\Models\Project;
 use App\Rules\ColorRule;
+use App\Rules\CurrencyRule;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Str;
@@ -95,6 +96,12 @@ class ProjectUpdateRequest extends BaseFormRequest
             ],
                 $this->moneyRules()
             ),
+            'currency' => [
+                'nullable',
+                'string',
+                new CurrencyRule,
+                Rule::exists('organization_currencies', 'currency_code')->where('organization_id', $this->organization->id),
+            ],
             // Estimated time in seconds
             'estimated_time' => [
                 'nullable',
@@ -195,6 +202,16 @@ class ProjectUpdateRequest extends BaseFormRequest
         $input = $this->input('billable_rate');
 
         return $input !== null && $input !== 0 ? (int) $this->input('billable_rate') : null;
+    }
+
+    public function getCurrency(): ?string
+    {
+        if (! $this->has('currency')) {
+            return null;
+        }
+        $raw = $this->input('currency');
+
+        return is_string($raw) && $raw !== '' ? $raw : null;
     }
 
     public function getEstimatedTime(): ?int

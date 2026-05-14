@@ -19,7 +19,6 @@ import { UserCircleIcon } from '@heroicons/vue/20/solid';
 import EstimatedTimeSection from '@/packages/ui/src/EstimatedTimeSection.vue';
 import { Field, FieldGroup, FieldLabel } from '@/packages/ui/src/field';
 import ProjectBillableRateModal from '@/packages/ui/src/Project/ProjectBillableRateModal.vue';
-import { getOrganizationCurrencyString } from '@/utils/money';
 import ProjectEditBillableSection from '@/packages/ui/src/Project/ProjectEditBillableSection.vue';
 import { isAllowedToPerformPremiumAction } from '@/utils/billing';
 import { useOrganizationQuery } from '@/utils/useOrganizationQuery';
@@ -57,6 +56,19 @@ watch(
         project.value.amount_received = v ?? null;
     }
 );
+
+const projectCurrency = computed(() => props.originalProject.currency);
+
+/** Workspace default hourly rate in minor units for this project's ISO code. */
+const organizationBillableRateForProject = computed(() => {
+    const code = props.originalProject.currency;
+    const currencies = organization.value?.currencies;
+    const hit = currencies?.find((c) => c.currency_code === code);
+    if (hit !== undefined && 'default_billable_rate' in hit) {
+        return hit.default_billable_rate ?? null;
+    }
+    return organization.value?.billable_rate ?? null;
+});
 
 async function submit() {
     if (props.originalProject.billable_rate !== project.value.billable_rate) {
@@ -134,8 +146,8 @@ async function submitBillableRate() {
                     v-model:billing-type="project.billing_type"
                     v-model:fixed-price="project.fixed_price"
                     v-model:amount-received="project.amount_received"
-                    :currency="getOrganizationCurrencyString()"
-                    :organization-billable-rate="organization?.billable_rate ?? null"
+                    :currency="projectCurrency"
+                    :organization-billable-rate="organizationBillableRateForProject"
                     @submit="submit"></ProjectEditBillableSection>
                 <EstimatedTimeSection
                     v-if="isAllowedToPerformPremiumAction()"
@@ -157,7 +169,7 @@ async function submitBillableRate() {
     </DialogModal>
     <ProjectBillableRateModal
         v-model:show="showBillableRateModal"
-        :currency="getOrganizationCurrencyString()"
+        :currency="projectCurrency"
         :new-billable-rate="project.billable_rate"
         :project-name="project.name"
         @submit="submitBillableRate"></ProjectBillableRateModal>

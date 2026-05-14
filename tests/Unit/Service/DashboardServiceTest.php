@@ -275,6 +275,9 @@ class DashboardServiceTest extends TestCase
         $this->assertSame([
             'value' => 5000,
             'currency' => $currency,
+            'amounts_by_currency' => [
+                ['currency' => $currency, 'value' => 5000],
+            ],
         ], $result);
     }
 
@@ -307,6 +310,9 @@ class DashboardServiceTest extends TestCase
         $this->assertSame([
             'value' => 10_000,
             'currency' => $currency,
+            'amounts_by_currency' => [
+                ['currency' => $currency, 'value' => 10_000],
+            ],
         ], $result);
     }
 

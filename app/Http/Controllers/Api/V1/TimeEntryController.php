@@ -382,6 +382,7 @@ class TimeEntryController extends Controller
         $group1Type = $request->getGroup();
         $group2Type = $request->getSubGroup();
         $timeEntriesAggregateQuery = $this->getTimeEntriesAggregateQuery($organization, $request, $member);
+        $baseQueryCloneForCurrency = clone $timeEntriesAggregateQuery;
         $roundingType = $canAccessPremiumFeatures ? $request->getRoundingType() : null;
         $roundingMinutes = $canAccessPremiumFeatures ? $request->getRoundingMinutes() : null;
 
@@ -397,6 +398,14 @@ class TimeEntryController extends Controller
             $showBillableRate,
             $roundingType,
             $roundingMinutes
+        );
+
+        $timeEntryAggregationService->augmentAggregateResultWithBillableCurrencyMetadata(
+            $aggregatedData,
+            $baseQueryCloneForCurrency,
+            $showBillableRate,
+            $roundingType,
+            $roundingMinutes,
         );
 
         return [

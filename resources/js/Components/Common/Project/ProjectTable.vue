@@ -42,8 +42,10 @@ const props = defineProps<{
     sortDirection: SortDirection;
     /** When set, show a per-row billable total column (e.g. client detail). */
     showPerProjectBillableTotal?: boolean;
-    /** Cents per project id; null while loading. Ignored unless showPerProjectBillableTotal. */
+    /** Billable totals in minor units keyed by project id (null while loading). */
     perProjectBillableCentsById?: Readonly<Record<string, number>> | null;
+    /** ISO code for each project's billable total when known (e.g. client aggregate). */
+    perProjectBillableCurrencyCodeById?: Readonly<Record<string, string>> | null;
 }>();
 
 const emit = defineEmits<{
@@ -208,6 +210,7 @@ const gridTemplate = computed(() => {
         :create-project
         :create-client
         :currency="getOrganizationCurrencyString()"
+        :workspace-currencies="organization?.currencies ?? []"
         :organization-billable-rate="organization?.billable_rate ?? null"
         :clients="clients"
         :enable-estimated-time="isAllowedToPerformPremiumAction()"></ProjectCreateModal>
@@ -252,6 +255,9 @@ const gridTemplate = computed(() => {
                             props.showPerProjectBillableTotal && props.perProjectBillableCentsById
                                 ? (props.perProjectBillableCentsById[project.id] ?? 0)
                                 : null
+                        "
+                        :project-billable-total-currency-code="
+                            props.perProjectBillableCurrencyCodeById?.[project.id]
                         "
                         :project-billable-totals-pending="
                             !!(

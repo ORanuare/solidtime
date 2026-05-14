@@ -159,6 +159,7 @@ function updateValue(project: Project) {
         :create-client="handleCreateClient"
         :clients="activeClients"
         :currency="getOrganizationCurrencyString()"
+        :workspace-currencies="organization?.currencies ?? []"
         :organization-billable-rate="organization?.billable_rate ?? null"
         :enable-estimated-time="isAllowedToPerformPremiumAction()" />
 </template>

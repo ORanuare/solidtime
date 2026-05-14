@@ -11,6 +11,9 @@ defineProps<{
         <dd class="text-xl text-text-primary pt-1 font-medium">
             {{ value ?? '--' }}
         </dd>
+        <div v-if="$slots.extra" class="pt-2">
+            <slot name="extra" />
+        </div>
     </div>
 </template>
 

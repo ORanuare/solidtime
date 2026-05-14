@@ -9,6 +9,7 @@ use App\Http\Requests\V1\Organization\OrganizationUpdateRequest;
 use App\Http\Resources\V1\Organization\OrganizationResource;
 use App\Models\Organization;
 use App\Service\BillableRateService;
+use App\Service\OrganizationCurrencySyncService;
 use Illuminate\Auth\Access\AuthorizationException;
 
 class OrganizationController extends Controller
@@ -26,6 +27,8 @@ class OrganizationController extends Controller
 
         $showBillableRate = $this->member($organization)->role !== Role::Employee->value || $organization->employees_can_see_billable_rates;
 
+        $organization->load(['organizationCurrencies']);
+
         return new OrganizationResource($organization, $showBillableRate);
     }
 
@@ -36,15 +39,23 @@ class OrganizationController extends Controller
      *
      * @throws AuthorizationException
      */
-    public function update(Organization $organization, OrganizationUpdateRequest $request, BillableRateService $billableRateService): OrganizationResource
+    public function update(Organization $organization, OrganizationUpdateRequest $request, BillableRateService $billableRateService, OrganizationCurrencySyncService $organizationCurrencySyncService): OrganizationResource
     {
         $this->checkPermission($organization, 'organizations:update');
 
-        if ($request->getName() !== null) {
-            $organization->name = $request->getName();
-        }
+        $previousPrimaryCurrency = $organization->currency;
+        $touchedWorkspaceCurrencies = [];
+
         if ($request->getCurrency() !== null) {
             $organization->currency = $request->getCurrency();
+        }
+
+        if ($request->getCurrencies() !== null) {
+            $touchedWorkspaceCurrencies = $organizationCurrencySyncService->syncCurrencies($organization, $request->getCurrencies());
+        }
+
+        if ($request->getName() !== null) {
+            $organization->name = $request->getName();
         }
         if ($request->getEmployeesCanSeeBillableRates() !== null) {
             $organization->employees_can_see_billable_rates = $request->getEmployeesCanSeeBillableRates();
@@ -71,15 +82,29 @@ class OrganizationController extends Controller
             $organization->prevent_overlapping_time_entries = $request->getPreventOverlappingTimeEntries();
         }
         $hasBillableRate = $request->has('billable_rate');
+        $oldBillableRate = $organization->billable_rate;
         if ($hasBillableRate) {
-            $oldBillableRate = $organization->billable_rate;
             $organization->billable_rate = $request->getBillableRate();
         }
         $organization->save();
 
-        if ($hasBillableRate && $oldBillableRate !== $request->getBillableRate()) {
-            $billableRateService->updateTimeEntriesBillableRateForOrganization($organization);
+        $organizationCurrencySyncService->syncPrimaryRowFromOrganization($organization);
+
+        $primaryChanged = $request->getCurrency() !== null && $organization->currency !== $previousPrimaryCurrency;
+        $billableRateAtPrimaryChanged = $hasBillableRate && $oldBillableRate !== $organization->billable_rate;
+
+        if ($primaryChanged) {
+            $billableRateService->updateTimeEntriesBillableRateForOrganization($organization, null);
+        } elseif ($request->getCurrencies() !== null || $billableRateAtPrimaryChanged) {
+            $codes = $touchedWorkspaceCurrencies;
+            if ($billableRateAtPrimaryChanged) {
+                $codes[] = $organization->currency;
+            }
+            $codes = array_values(array_unique($codes));
+            $billableRateService->updateTimeEntriesBillableRateForOrganization($organization, $codes);
         }
+
+        $organization->load(['organizationCurrencies']);
 
         return new OrganizationResource($organization, true);
     }

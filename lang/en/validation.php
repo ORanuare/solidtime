@@ -209,6 +209,8 @@ return [
     'task_name_already_exists' => 'A task with the same name already exists in the project.',
     'invitation_already_exists' => 'The email has already been invited to the organization. Please wait for the user to accept the invitation or resend the invitation email.',
 
+    'workspace_currency_still_in_use' => 'Projects still use :currency. Keep that currency in the list or change those projects first.',
+
     'entities' => [
         'organization' => 'organization',
         'project' => 'project',

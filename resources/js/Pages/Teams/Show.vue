@@ -45,7 +45,7 @@ onMounted(async () => {
                     <UpdateTeamNameForm :team="team" :permissions="permissions" />
 
                     <SectionBorder />
-                    <OrganizationBillableRate v-if="permissions.canUpdateTeam" :team="team" />
+                    <OrganizationBillableRate v-if="permissions.canUpdateTeam" />
                     <SectionBorder />
 
                     <OrganizationFormatSettings v-if="permissions.canUpdateTeam" :team="team" />

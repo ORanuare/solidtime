@@ -21,7 +21,7 @@ import { formatReportingDuration, getDayJsInstance, getLocalizedDayJs } from '@/
 import { formatCents } from '@/packages/ui/src/utils/money';
 import { getWeekStart } from '@/packages/ui/src/utils/settings';
 import { useCssVariable } from '@/packages/ui/src';
-import { getOrganizationCurrencyString } from '@/utils/money';
+import { getOrganizationCurrencySymbol } from '@/packages/ui/src/utils/money';
 import { useDashboardWeekOffset } from '@/utils/useDashboardWeekOffset';
 import { useQuery } from '@tanstack/vue-query';
 import { getCurrentOrganizationId } from '@/utils/useUser';
@@ -137,6 +137,19 @@ const { data: totalWeeklyBillableAmount, isFetching: isFetchingBillableAmount } 
     enabled: computed(() => !!organizationId.value),
     staleTime: 1000 * 30, // 30 seconds
     placeholderData: (previousData) => previousData,
+});
+
+/** Non-primary billable totals for this week (no FX; headline stays primary workspace currency). */
+const weeklyBillableNonPrimaryLines = computed(() => {
+    const payload = totalWeeklyBillableAmount.value;
+    if (!payload?.amounts_by_currency?.length) {
+        return [];
+    }
+    const primary = payload.currency;
+    return payload.amounts_by_currency
+        .filter((row) => row.currency !== primary && row.value !== 0)
+        .slice()
+        .sort((a, b) => a.currency.localeCompare(b.currency));
 });
 
 const { data: weeklyHistory, isFetching: isFetchingWeeklyHistory } = useQuery({
@@ -358,13 +371,32 @@ const option = computed(() => {
                     totalWeeklyBillableAmount
                         ? formatCents(
                               totalWeeklyBillableAmount.value,
-                              getOrganizationCurrencyString(),
+                              totalWeeklyBillableAmount.currency,
                               organization?.currency_format,
-                              organization?.currency_symbol,
+                              getOrganizationCurrencySymbol(totalWeeklyBillableAmount.currency),
                               organization?.number_format
                           )
                         : '--'
-                " />
+                ">
+                <template v-if="weeklyBillableNonPrimaryLines.length > 0" #extra>
+                    <ul class="space-y-1 text-xl leading-snug font-medium text-text-primary">
+                        <li
+                            v-for="row in weeklyBillableNonPrimaryLines"
+                            :key="row.currency"
+                            class="tabular-nums">
+                            {{
+                                formatCents(
+                                    row.value,
+                                    row.currency,
+                                    organization?.currency_format,
+                                    getOrganizationCurrencySymbol(row.currency),
+                                    organization?.number_format
+                                )
+                            }}
+                        </li>
+                    </ul>
+                </template>
+            </StatCard>
             <ProjectsChartCard
                 v-if="weeklyProjectOverview"
                 :weekly-project-overview="weeklyProjectOverview"></ProjectsChartCard>

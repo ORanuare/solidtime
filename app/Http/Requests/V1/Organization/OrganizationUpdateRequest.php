@@ -66,6 +66,20 @@ class OrganizationUpdateRequest extends BaseFormRequest
             'time_format' => [
                 Rule::enum(TimeFormat::class),
             ],
+            'currencies' => [
+                'sometimes',
+                'array',
+                'min:1',
+            ],
+            'currencies.*.currency_code' => [
+                'required',
+                'string',
+                new CurrencyRule,
+            ],
+            'currencies.*.default_billable_rate' => array_merge(
+                ['nullable'],
+                $this->moneyRules()
+            ),
         ];
     }
 
@@ -124,5 +138,35 @@ class OrganizationUpdateRequest extends BaseFormRequest
     public function getPreventOverlappingTimeEntries(): ?bool
     {
         return $this->has('prevent_overlapping_time_entries') ? $this->boolean('prevent_overlapping_time_entries') : null;
+    }
+
+    /**
+     * @return list<array{currency_code: string, default_billable_rate?: int|null}>|null
+     */
+    public function getCurrencies(): ?array
+    {
+        if (! $this->has('currencies')) {
+            return null;
+        }
+        /** @var mixed $raw */
+        $raw = $this->input('currencies');
+        if (! is_array($raw)) {
+            return [];
+        }
+        $result = [];
+        foreach ($raw as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            $code = isset($row['currency_code']) && is_string($row['currency_code']) ? $row['currency_code'] : '';
+            $item = ['currency_code' => $code];
+            if (array_key_exists('default_billable_rate', $row)) {
+                $br = $row['default_billable_rate'];
+                $item['default_billable_rate'] = $br !== null && $br !== 0 && $br !== '' ? (int) $br : null;
+            }
+            $result[] = $item;
+        }
+
+        return $result;
     }
 }

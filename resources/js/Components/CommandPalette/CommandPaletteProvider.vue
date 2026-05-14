@@ -166,6 +166,7 @@ const firstProjectId = computed(() => projects.value[0]?.id ?? '');
         :create-client="createClient"
         :clients="activeClients"
         :currency="getOrganizationCurrencyString()"
+        :workspace-currencies="organization?.currencies ?? []"
         :organization-billable-rate="organization?.billable_rate ?? null"
         :enable-estimated-time="isAllowedToPerformPremiumAction()" />
 

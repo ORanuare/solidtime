@@ -11,6 +11,7 @@ use App\Enums\NumberFormat;
 use App\Enums\Role;
 use App\Enums\TimeFormat;
 use App\Models\Organization;
+use App\Models\OrganizationCurrency;
 use App\Models\User;
 
 class OrganizationService
@@ -56,6 +57,17 @@ class OrganizationService
         $organization->time_format = $timeFormat;
         $organization->owner()->associate($owner);
         $organization->save();
+
+        OrganizationCurrency::query()->firstOrCreate(
+            [
+                'organization_id' => $organization->getKey(),
+                'currency_code' => $organization->currency,
+            ],
+            [
+                'default_billable_rate' => $organization->billable_rate,
+                'sort_order' => 0,
+            ],
+        );
 
         $organization->users()->attach(
             $owner, [

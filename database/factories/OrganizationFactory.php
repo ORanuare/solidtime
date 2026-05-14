@@ -10,6 +10,7 @@ use App\Enums\IntervalFormat;
 use App\Enums\NumberFormat;
 use App\Enums\TimeFormat;
 use App\Models\Organization;
+use App\Models\OrganizationCurrency;
 use App\Models\User;
 use App\Service\CurrencyService;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -67,5 +68,21 @@ class OrganizationFactory extends Factory
         return $this->state(fn (array $attributes) => [
             'id' => $this->faker->uuid(),
         ]);
+    }
+
+    public function configure(): static
+    {
+        return $this->afterCreating(function (Organization $organization): void {
+            OrganizationCurrency::query()->firstOrCreate(
+                [
+                    'organization_id' => $organization->getKey(),
+                    'currency_code' => $organization->currency,
+                ],
+                [
+                    'default_billable_rate' => $organization->billable_rate,
+                    'sort_order' => 0,
+                ],
+            );
+        });
     }
 }

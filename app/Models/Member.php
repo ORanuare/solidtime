@@ -26,6 +26,7 @@ use OwenIt\Auditing\Contracts\Auditable as AuditableContract;
  * @property-read Organization $organization
  * @property-read User $user
  * @property-read Collection<int, ProjectMember> $projectMembers
+ * @property-read Collection<int, MemberCurrencyRate> $currencyRates
  * @property-read Collection<int, TimeEntry> $timeEntries
  *
  * @method static MemberFactory factory()
@@ -60,6 +61,14 @@ class Member extends JetstreamMembership implements AuditableContract
     public function organization(): BelongsTo
     {
         return $this->belongsTo(Organization::class, 'organization_id');
+    }
+
+    /**
+     * @return HasMany<MemberCurrencyRate, $this>
+     */
+    public function currencyRates(): HasMany
+    {
+        return $this->hasMany(MemberCurrencyRate::class, 'member_id');
     }
 
     /**

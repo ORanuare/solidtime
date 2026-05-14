@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { formatReportingDuration } from '@/packages/ui/src/utils/time';
-import { formatCents } from '@/packages/ui/src/utils/money';
+import { formatCents, getOrganizationCurrencySymbol } from '@/packages/ui/src/utils/money';
 import GroupedItemsCountButton from '@/packages/ui/src/GroupedItemsCountButton.vue';
-import { ref, inject, type ComputedRef } from 'vue';
+import { ref, inject, computed, type ComputedRef } from 'vue';
 import { twMerge } from 'tailwind-merge';
 import type { Organization } from '@/packages/api/src';
 
@@ -14,6 +14,7 @@ type GroupedData = {
     seconds: number;
     cost: number | null;
     description: string | null | undefined;
+    currency_code?: string;
 };
 
 const props = defineProps<{
@@ -26,11 +27,15 @@ const props = defineProps<{
 const expanded = ref(false);
 
 const organization = inject<ComputedRef<Organization>>('organization');
+
+const billCurrencyIso = computed(
+    () => props.entry.currency_code?.trim() || props.currency || 'EUR'
+);
 </script>
 
 <template>
     <div
-        class="contents text-text-primary [&>*]:transition [&>*]:border-card-background-separator [&>*]:border-b [&>*]:h-[50px]">
+        class="contents text-text-primary [&>*]:transition [&>*]:border-card-background-separator [&>*]:border-b [&>*]:min-h-[50px] [&>*]:py-2 box-border">
         <div :class="twMerge('pl-6 flex items-center space-x-3', props.indent ? 'pl-16' : '')">
             <GroupedItemsCountButton
                 v-if="entry.grouped_data && entry.grouped_data?.length > 0"
@@ -56,9 +61,9 @@ const organization = inject<ComputedRef<Organization>>('organization');
                 entry.cost
                     ? formatCents(
                           entry.cost,
-                          props.currency,
+                          billCurrencyIso,
                           organization?.currency_format,
-                          organization?.currency_symbol,
+                          getOrganizationCurrencySymbol(billCurrencyIso),
                           organization?.number_format
                       )
                     : '--'

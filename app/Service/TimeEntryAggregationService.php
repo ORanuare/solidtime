@@ -18,12 +18,14 @@ use Carbon\CarbonTimeZone;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class TimeEntryAggregationService
 {
     public function __construct(
         private FixedProjectCostAllocationService $fixedProjectCostAllocationService,
+        private TimeEntryService $timeEntryService,
     ) {}
 
     /**
@@ -66,8 +68,8 @@ class TimeEntryAggregationService
             }
         }
 
-        $startRawSelect = app(TimeEntryService::class)->getStartSelectRawForRounding($roundingType, $roundingMinutes);
-        $endRawSelect = app(TimeEntryService::class)->getEndSelectRawForRounding($roundingType, $roundingMinutes);
+        $startRawSelect = $this->timeEntryService->getStartSelectRawForRounding($roundingType, $roundingMinutes);
+        $endRawSelect = $this->timeEntryService->getEndSelectRawForRounding($roundingType, $roundingMinutes);
 
         $timeEntriesQuery->selectRaw(
             ($group1Select !== null ? $group1Select.' as group_1,' : '').
@@ -636,5 +638,132 @@ class TimeEntryAggregationService
         }
 
         return $slots;
+    }
+
+    /**
+     * Hourly billable amounts only (entries with billable_rate), summed per billing currency for the filtered set.
+     * Does not include fixed-contract allocations merged into aggregated row {@see mergeFixedProjectCostsIntoAggregatedResult}.
+     *
+     * @param  Builder<TimeEntry>  $filteredTimeEntriesQuery
+     * @return list<array{currency_code: string, minor_units: int}>
+     */
+    public function hourlyBillableMinorUnitsByBillCurrencyForFilter(
+        Builder $filteredTimeEntriesQuery,
+        ?TimeEntryRoundingType $roundingType,
+        ?int $roundingMinutes,
+    ): array {
+        $table = $filteredTimeEntriesQuery->getModel()->getTable();
+        $startRaw = $this->timeEntryService->getStartSelectRawForRounding($roundingType, $roundingMinutes);
+        $endRaw = $this->timeEntryService->getEndSelectRawForRounding($roundingType, $roundingMinutes);
+
+        /** @var Collection<int, object{bill_currency: string, aggregate_amount: float|int|string}> $rows */
+        $rows = $filteredTimeEntriesQuery->clone()
+            ->join('organizations', "{$table}.organization_id", '=', 'organizations.id')
+            ->leftJoin('projects', "{$table}.project_id", '=', 'projects.id')
+            ->where("{$table}.billable", '=', true)
+            ->whereNotNull("{$table}.billable_rate")
+            ->selectRaw(
+                'COALESCE(projects.currency, organizations.currency) as bill_currency, '
+                .'round(sum(extract(epoch from ('.$endRaw.' - '.$startRaw.')) * ('.$table.'.billable_rate::float/60/60))) as aggregate_amount'
+            )
+            ->groupBy(DB::raw('COALESCE(projects.currency, organizations.currency)'))
+            ->get();
+
+        $byCurrency = [];
+        foreach ($rows as $row) {
+            $code = (string) $row->bill_currency;
+            $byCurrency[$code] = ($byCurrency[$code] ?? 0) + (int) $row->aggregate_amount;
+        }
+        ksort($byCurrency);
+
+        /** @var list<array{currency_code: string, minor_units: int}> $out */
+        $out = array_values(array_map(
+            static fn (string $c, int $v): array => ['currency_code' => $c, 'minor_units' => $v],
+            array_keys($byCurrency),
+            array_values($byCurrency),
+        ));
+
+        return $out;
+    }
+
+    /**
+     * Adds per-currency hourly billable totals and `currency_code` on rows when the primary group is project.
+     *
+     * @param  array<string, mixed>  $aggregatedPayload
+     */
+    public function augmentAggregateResultWithBillableCurrencyMetadata(
+        array &$aggregatedPayload,
+        ?Builder $filteredTimeEntriesQueryWithoutTagExpansion,
+        bool $showBillableRate,
+        ?TimeEntryRoundingType $roundingType,
+        ?int $roundingMinutes,
+    ): void {
+        if ($showBillableRate && $filteredTimeEntriesQueryWithoutTagExpansion !== null) {
+            $aggregatedPayload['billable_totals_by_currency'] = $this->hourlyBillableMinorUnitsByBillCurrencyForFilter(
+                $filteredTimeEntriesQueryWithoutTagExpansion,
+                $roundingType,
+                $roundingMinutes,
+            );
+        } else {
+            $aggregatedPayload['billable_totals_by_currency'] = null;
+        }
+        $this->attachCurrencyCodeToProjectGroupedRows($aggregatedPayload);
+    }
+
+    /**
+     * @param  array<string, mixed>  $aggregatedPayload
+     */
+    private function attachCurrencyCodeToProjectGroupedRows(array &$aggregatedPayload): void
+    {
+        if (($aggregatedPayload['grouped_type'] ?? null) !== TimeEntryAggregationType::Project->value) {
+            return;
+        }
+        /** @var mixed $gdRaw */
+        $gdRaw = $aggregatedPayload['grouped_data'] ?? null;
+        if (! is_array($gdRaw)) {
+            return;
+        }
+        $ids = [];
+        foreach ($gdRaw as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            $k = $row['key'] ?? null;
+            if (is_string($k) && $k !== '') {
+                $ids[] = $k;
+            }
+        }
+        $ids = array_values(array_unique($ids));
+        if ($ids === []) {
+            return;
+        }
+
+        /** @var array<string, string> $map */
+        $map = Project::query()->whereIn('id', $ids)->pluck('currency', 'id')->all();
+
+        foreach ($gdRaw as $i => $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            $k = $row['key'] ?? null;
+            if (! is_string($k) || $k === '' || ! isset($map[$k])) {
+                continue;
+            }
+            $code = $map[$k];
+            /** @var array<string, mixed> $mutable */
+            $mutable = $aggregatedPayload['grouped_data'][$i];
+            $mutable['currency_code'] = $code;
+            $sub = $mutable['grouped_data'] ?? null;
+            if (is_array($sub)) {
+                foreach ($sub as $j => $subRow) {
+                    if (! is_array($subRow)) {
+                        continue;
+                    }
+                    $subRow['currency_code'] = $code;
+                    $mutable['grouped_data'][$j] = $subRow;
+                }
+            }
+            $aggregatedPayload['grouped_data'][$i] = $mutable;
+        }
     }
 }

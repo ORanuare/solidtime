@@ -141,12 +141,32 @@ const MemberResource = z
         role: z.string(),
         is_placeholder: z.boolean(),
         billable_rate: z.union([z.number(), z.null()]),
+        billable_rates: z
+            .array(
+                z
+                    .object({
+                        currency_code: z.string(),
+                        billable_rate: z.union([z.number(), z.null()]),
+                    })
+                    .passthrough()
+            )
+            .optional(),
     })
     .passthrough();
 const MemberUpdateRequest = z
     .object({
         role: z.enum(['owner', 'admin', 'manager', 'employee', 'placeholder']),
         billable_rate: z.union([z.number(), z.null()]),
+        billable_rates: z
+            .array(
+                z
+                    .object({
+                        currency_code: z.string(),
+                        billable_rate: z.union([z.number(), z.null()]).optional(),
+                    })
+                    .passthrough()
+            )
+            .optional(),
     })
     .partial()
     .passthrough();
@@ -217,6 +237,14 @@ const IntervalFormat = z.enum([
     'hours-minutes-seconds-colon-separated',
 ]);
 const TimeFormat = z.enum(['12-hours', '24-hours']);
+const WorkspaceCurrencyResource = z
+    .object({
+        currency_code: z.string(),
+        currency_symbol: z.string(),
+        default_billable_rate: z.union([z.number(), z.null()]),
+        is_primary: z.boolean(),
+    })
+    .passthrough();
 const OrganizationResource = z
     .object({
         id: z.string(),
@@ -229,6 +257,7 @@ const OrganizationResource = z
         prevent_overlapping_time_entries: z.boolean(),
         currency: z.string(),
         currency_symbol: z.string(),
+        currencies: z.array(WorkspaceCurrencyResource).optional(),
         number_format: NumberFormat,
         currency_format: CurrencyFormat,
         date_format: DateFormat,
@@ -274,6 +303,16 @@ const OrganizationUpdateRequest = z
             'hours-minutes-seconds-colon-separated',
         ]),
         time_format: z.enum(['12-hours', '24-hours']),
+        currencies: z
+            .array(
+                z
+                    .object({
+                        currency_code: z.string(),
+                        default_billable_rate: z.union([z.number(), z.null()]).optional(),
+                    })
+                    .passthrough()
+            )
+            .optional(),
     })
     .partial()
     .passthrough();
@@ -285,6 +324,8 @@ const ProjectResource = z
         client_id: z.union([z.string(), z.null()]),
         is_archived: z.boolean(),
         billing_type: z.string(),
+        currency: z.string(),
+        currency_symbol: z.union([z.string(), z.null()]).optional(),
         billable_rate: z.union([z.number(), z.null()]),
         fixed_price: z.union([z.number(), z.null()]),
         amount_received: z.union([z.number(), z.null()]),
@@ -305,6 +346,7 @@ const ProjectStoreRequest = z
         fixed_price: z.union([z.number(), z.null()]).optional(),
         amount_received: z.union([z.number(), z.null()]).optional(),
         billable_rate: z.union([z.number(), z.null()]).optional(),
+        currency: z.string().optional(),
         client_id: z.union([z.string(), z.null()]).optional(),
         estimated_time: z.union([z.number(), z.null()]).optional(),
         is_public: z.boolean().optional(),
@@ -322,6 +364,7 @@ const ProjectUpdateRequest = z
         fixed_price: z.union([z.number(), z.null()]).optional(),
         amount_received: z.union([z.number(), z.null()]).optional(),
         billable_rate: z.union([z.number(), z.null()]).optional(),
+        currency: z.string().optional(),
         estimated_time: z.union([z.number(), z.null()]).optional(),
     })
     .passthrough();
@@ -1235,7 +1278,20 @@ const endpoints = makeApi([
                 schema: week_offset,
             },
         ],
-        response: z.object({ value: z.number().int(), currency: z.string() }).passthrough(),
+        response: z
+            .object({
+                value: z.number().int(),
+                currency: z.string(),
+                amounts_by_currency: z.array(
+                    z
+                        .object({
+                            currency: z.string(),
+                            value: z.number().int(),
+                        })
+                        .passthrough()
+                ),
+            })
+            .passthrough(),
         errors: [
             {
                 status: 401,
@@ -4155,6 +4211,19 @@ If the group parameters are all set to &#x60;null&#x60; or are all missing, the 
                         ]),
                         seconds: z.number().int(),
                         cost: z.union([z.number(), z.null()]),
+                        billable_totals_by_currency: z
+                            .union([
+                                z.array(
+                                    z
+                                        .object({
+                                            currency_code: z.string(),
+                                            minor_units: z.number().int(),
+                                        })
+                                        .passthrough()
+                                ),
+                                z.null(),
+                            ])
+                            .optional(),
                     })
                     .passthrough(),
             })

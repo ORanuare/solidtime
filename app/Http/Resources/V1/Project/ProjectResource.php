@@ -6,6 +6,7 @@ namespace App\Http\Resources\V1\Project;
 
 use App\Http\Resources\V1\BaseResource;
 use App\Models\Project;
+use App\Service\CurrencyService;
 use Illuminate\Http\Request;
 
 /**
@@ -29,6 +30,8 @@ class ProjectResource extends BaseResource
      */
     public function toArray(Request $request): array
     {
+        $currencyService = app(CurrencyService::class);
+
         $fixedPrice = $this->showBillableRate ? $this->resource->fixed_price : null;
         $amountReceived = $this->showBillableRate ? $this->resource->amount_received : null;
         $paymentReceivedPercent = $this->showBillableRate
@@ -48,6 +51,10 @@ class ProjectResource extends BaseResource
             'is_archived' => $this->resource->is_archived,
             /** @var string $billing_type hourly or fixed */
             'billing_type' => $this->resource->billing_type->value,
+            /** @var string $currency Project currency ISO 4217 */
+            'currency' => $this->resource->currency,
+            /** @var string|null $currency_symbol Symbol for project currency when billable amounts are visible */
+            'currency_symbol' => $this->showBillableRate ? $currencyService->getCurrencySymbol($this->resource->currency) : null,
             /** @var int|null $billable_rate Billable rate in cents per hour */
             'billable_rate' => $this->showBillableRate ? $this->resource->billable_rate : null,
             /** @var int|null $fixed_price Fixed contract total in minor units when billing_type is fixed */

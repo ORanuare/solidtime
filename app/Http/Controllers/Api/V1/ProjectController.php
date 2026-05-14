@@ -110,6 +110,7 @@ class ProjectController extends Controller
         $project->billable_rate = $request->getBillableRate();
         $project->client_id = $request->input('client_id');
         $project->is_public = $request->getIsPublic();
+        $project->currency = $request->getCurrency() ?? $organization->currency;
         if ($this->canAccessPremiumFeatures($organization) && $request->has('estimated_time')) {
             $project->estimated_time = $request->getEstimatedTime();
         }
@@ -143,11 +144,15 @@ class ProjectController extends Controller
         }
         $oldBillingType = $project->billing_type;
         $oldBillableRate = $project->billable_rate;
+        $oldCurrency = $project->currency;
         $clientIdChanged = false;
         $project->billing_type = $request->getBillingType();
         $project->fixed_price = $request->getFixedPrice();
         $project->amount_received = $request->getAmountReceived();
         $project->billable_rate = $request->getBillableRate();
+        if ($request->has('currency')) {
+            $project->currency = $request->getCurrency() ?? $organization->currency;
+        }
         if ($project->client_id !== $request->input('client_id')) {
             $project->client_id = $request->input('client_id');
             $clientIdChanged = true;
@@ -162,6 +167,8 @@ class ProjectController extends Controller
                     ->where('billable', '=', true)
                     ->update(['billable_rate' => null]);
             }
+        } elseif ($oldCurrency !== $project->currency) {
+            $billableRateService->refreshBillableRatesForAllProjectTimeEntries($project);
         } elseif ($oldBillingType === ProjectBillingType::Fixed || $oldBillableRate !== $project->billable_rate) {
             $billableRateService->updateTimeEntriesBillableRateForProject($project);
         }

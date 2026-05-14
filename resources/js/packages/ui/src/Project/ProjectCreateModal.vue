@@ -2,7 +2,7 @@
 import TextInput from '@/packages/ui/src/Input/TextInput.vue';
 import SecondaryButton from '@/packages/ui/src/Buttons/SecondaryButton.vue';
 import DialogModal from '@/packages/ui/src/DialogModal.vue';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import type { CreateClientBody, CreateProjectBody, Project } from '@/packages/api/src';
 
 type ProjectCreateForm = CreateProjectBody & { billing_type: 'hourly' | 'fixed' };
@@ -27,6 +27,13 @@ const props = defineProps<{
     createProject: (project: CreateProjectBody) => Promise<Project | undefined>;
     createClient: (client: CreateClientBody) => Promise<Client | undefined>;
     currency: string;
+    /** Workspace currency options from API (includes default hourly rate minor units per currency). */
+    workspaceCurrencies?: Array<{
+        currency_code: string;
+        currency_symbol?: string;
+        is_primary?: boolean;
+        default_billable_rate?: number | null;
+    }>;
     enableEstimatedTime: boolean;
     organizationBillableRate: number | null;
     initialProjectName?: string;
@@ -40,6 +47,7 @@ const project = ref<ProjectCreateForm>({
     name: props.initialProjectName ?? '',
     color: getRandomColor(),
     client_id: null,
+    currency: props.currency,
     billable_rate: null,
     billing_type: 'hourly',
     fixed_price: null,
@@ -55,6 +63,7 @@ async function submit() {
         name: '',
         color: getRandomColor(),
         client_id: null,
+        currency: props.currency,
         billable_rate: null,
         billing_type: 'hourly',
         fixed_price: null,
@@ -67,6 +76,27 @@ async function submit() {
 const projectNameInput = ref<HTMLInputElement | null>(null);
 
 useFocus(projectNameInput, { initialValue: true });
+
+const billableCurrency = computed(() => project.value.currency ?? props.currency);
+
+/** Minor units matching project currency row; legacy prop is primary-currency-only. */
+const organizationBillableRateForProjectCurrency = computed(() => {
+    const code = billableCurrency.value;
+    const hit = props.workspaceCurrencies?.find((c) => c.currency_code === code);
+    if (hit !== undefined && 'default_billable_rate' in hit) {
+        return hit.default_billable_rate ?? null;
+    }
+    return props.organizationBillableRate ?? null;
+});
+
+watch(show, (open) => {
+    if (!open) {
+        return;
+    }
+    const primary =
+        props.workspaceCurrencies?.find((c) => c.is_primary)?.currency_code ?? props.currency;
+    project.value.currency = primary;
+});
 
 const currentClientName = computed(() => {
     if (project.value.client_id) {
@@ -120,16 +150,29 @@ const currentClientName = computed(() => {
                         </template>
                     </ClientDropdown>
                 </Field>
+                <Field v-if="(workspaceCurrencies?.length ?? 0) > 0">
+                    <FieldLabel for="projectCurrency">Currency</FieldLabel>
+                    <select
+                        id="projectCurrency"
+                        v-model="project.currency"
+                        class="block w-full rounded-md border-0 bg-input-background py-2 px-3 text-default-text shadow-input ring-default-border-sm focus:ring-2 focus:ring-brand-primary sm:text-sm">
+                        <option
+                            v-for="c in workspaceCurrencies ?? []"
+                            :key="c.currency_code"
+                            :value="c.currency_code">
+                            {{ c.currency_code }}
+                            {{ c.currency_symbol ? `(${c.currency_symbol})` : '' }}
+                        </option>
+                    </select>
+                </Field>
                 <ProjectEditBillableSection
                     v-model:is-billable="project.is_billable"
                     v-model:billable-rate="project.billable_rate"
                     v-model:billing-type="project.billing_type"
                     v-model:fixed-price="project.fixed_price"
                     v-model:amount-received="project.amount_received"
-                    :currency="currency"
-                    :organization-billable-rate="
-                        organizationBillableRate
-                    "></ProjectEditBillableSection>
+                    :currency="billableCurrency"
+                    :organization-billable-rate="organizationBillableRateForProjectCurrency" />
                 <EstimatedTimeSection
                     v-if="enableEstimatedTime"
                     v-model="project.estimated_time"
