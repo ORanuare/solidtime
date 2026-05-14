@@ -42,17 +42,30 @@ const task = computed(() => {
             ref="projectDropdownTrigger"
             :color="project?.color"
             :name="project?.name"
-            class="shrink min-w-0 max-w-[50%]">
-            <div v-if="project" class="flex items-center lg:space-x-1 min-w-0">
-                <span class="text-xs whitespace-nowrap shrink-0">
+            class="min-w-0 max-w-[min(36rem,min(94%,calc(100%-6rem)))] shrink">
+            <div
+                v-if="project"
+                class="flex min-w-0 items-center gap-1 text-xs font-medium text-text-primary sm:text-sm lg:gap-1.5">
+                <span
+                    :class="[
+                        'min-w-0 truncate',
+                        task
+                            ? 'max-w-[min(14rem,45vw)] shrink-0 sm:max-w-[16rem]'
+                            : 'max-w-full',
+                    ]">
                     {{ project?.name }}
                 </span>
                 <ChevronRightIcon
                     v-if="task"
-                    class="w-4 lg:w-5 text-text-secondary shrink-0"></ChevronRightIcon>
-                <div v-if="task" class="min-w-0 text-xs truncate">
+                    class="h-4 w-4 shrink-0 text-text-secondary lg:h-5 lg:w-5"></ChevronRightIcon>
+                <span
+                    v-if="task"
+                    :class="[
+                        'min-w-0 truncate',
+                        project ? 'flex-1 basis-0' : 'max-w-full',
+                    ]">
                     {{ task.name }}
-                </div>
+                </span>
             </div>
             <div v-else>No Project</div>
         </ProjectBadge>

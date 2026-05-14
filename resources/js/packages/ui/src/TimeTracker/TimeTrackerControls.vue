@@ -645,7 +645,7 @@ function onOpenTimerFocusClick(e: MouseEvent) {
             </div>
         </div>
         <div
-            class="mx-auto flex w-full max-w-xl flex-col rounded-lg border border-card-border bg-card-background shadow-card transition overflow-visible">
+            class="mx-auto flex w-full max-w-2xl flex-col rounded-lg border border-card-border bg-card-background shadow-card transition overflow-visible">
             <div class="flex flex-1 flex-col relative min-w-0 overflow-visible">
                 <input
                     ref="currentTimeEntryDescriptionInput"
@@ -765,22 +765,27 @@ function onOpenTimerFocusClick(e: MouseEvent) {
                                                 type="button"
                                                 :class="
                                                     twMerge(
-                                                        'shrink-0 max-w-[min(10rem,100%)] rounded-md border border-transparent py-0.5 text-left ring-0 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                                                        'w-max shrink-0 max-w-[min(36rem,min(94vw,calc(100vw-6rem)))] rounded-md border border-transparent py-0.5 text-left ring-0 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                                                         focusQuickPickRowMatchesCurrent(row) &&
                                                             'border-accent-300/50 bg-accent-50 shadow-sm dark:border-accent-400/60 dark:bg-accent-300/25 dark:shadow-[0_0_0_1px_rgba(var(--color-accent-400),0.22)]'
                                                     )
                                                 "
                                                 @click="applyFocusQuickPickRow(row)">
                                                 <ProjectBadge
-                                                    class="min-w-0 max-w-full py-0.5 px-1.5 text-[11px] leading-snug"
+                                                    class="min-w-0 max-w-full py-0.5 px-1.5 text-xs font-medium leading-snug text-text-primary sm:text-sm"
                                                     size="base"
                                                     :name="row.project?.name"
                                                     :color="row.project?.color">
                                                     <div
                                                         v-if="row.project"
-                                                        class="flex min-w-0 items-center space-x-0.5 lg:space-x-1">
+                                                        class="inline-flex min-w-0 max-w-full items-center gap-1.5">
                                                         <span
-                                                            class="shrink-0 text-xs font-medium text-text-primary">
+                                                            :class="[
+                                                                'min-w-0 truncate',
+                                                                row.task
+                                                                    ? 'max-w-[min(14rem,45vw)] shrink-0 sm:max-w-[16rem]'
+                                                                    : 'max-w-full',
+                                                            ]">
                                                             {{ row.project.name }}
                                                         </span>
                                                         <ChevronRightIcon
@@ -788,13 +793,13 @@ function onOpenTimerFocusClick(e: MouseEvent) {
                                                             class="h-4 w-4 shrink-0 text-text-secondary"></ChevronRightIcon>
                                                         <span
                                                             v-if="row.task"
-                                                            class="min-w-0 truncate text-xs font-medium text-text-primary">
+                                                            class="min-w-0 flex-1 basis-0 truncate">
                                                             {{ row.task.name }}
                                                         </span>
                                                     </div>
                                                     <div
                                                         v-else-if="row.entry"
-                                                        class="min-w-0 truncate text-xs font-medium text-text-primary">
+                                                        class="min-w-0 truncate font-medium">
                                                         {{ recentChipLabel(row.entry) }}
                                                     </div>
                                                 </ProjectBadge>
