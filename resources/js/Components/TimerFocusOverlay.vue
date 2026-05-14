@@ -292,7 +292,7 @@ const showEventsFloating = computed(() => canViewCalendarEvents() || canCreateCa
 
                         <TimerFocusEventsPanel v-if="showEventsFloating && isLgFocusLayout" />
 
-                        <div class="flex min-h-0 flex-1 items-center justify-center overflow-hidden">
+                        <div class="flex min-h-0 w-full min-w-0 flex-1 items-center justify-center overflow-hidden px-2 sm:px-4">
                             <TimeTracker variant="focus" />
                         </div>
                     </div>

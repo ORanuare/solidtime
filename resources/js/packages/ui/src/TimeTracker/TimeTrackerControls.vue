@@ -82,6 +82,11 @@ const props = withDefaults(
         createClient: (client: CreateClientBody) => Promise<Client | undefined>;
         isActive: boolean;
         currency: string;
+        workspaceCurrencies?: Array<{
+            currency_code: string;
+            currency_symbol?: string;
+            is_primary?: boolean;
+        }>;
         organizationBillableRate: number | null;
         enableEstimatedTime: boolean;
         canCreateProject: boolean;
@@ -562,36 +567,56 @@ function onOpenTimerFocusClick(e: MouseEvent) {
         v-if="layout === 'focus'"
         class="flex flex-col w-full relative gap-6 @container"
         data-testid="dashboard_timer">
-        <div class="flex flex-col items-center justify-center gap-4 px-1">
-            <TimeTrackerRangeSelector
-                v-model:current-time-entry="currentTimeEntry"
-                v-model:live-timer="liveTimer"
-                timer-variant="focus"
-                @start-live-timer="emit('startLiveTimer')"
-                @stop-live-timer="emit('stopLiveTimer')"
-                @update-timer="emit('updateTimeEntry')"
-                @start-timer="emit('startTimer')"
-                @create-time-entry="emit('createTimeEntry')"
-                @keydown.enter="startTimerIfNotActive"></TimeTrackerRangeSelector>
+        <div
+            class="mx-auto flex w-full min-w-0 flex-col justify-center gap-4 px-2 sm:px-6">
+            <div class="flex justify-center">
+                <TimeTrackerRangeSelector
+                    v-model:current-time-entry="currentTimeEntry"
+                    v-model:live-timer="liveTimer"
+                    timer-variant="focus"
+                    @start-live-timer="emit('startLiveTimer')"
+                    @stop-live-timer="emit('stopLiveTimer')"
+                    @update-timer="emit('updateTimeEntry')"
+                    @start-timer="emit('startTimer')"
+                    @create-time-entry="emit('createTimeEntry')"
+                    @keydown.enter="startTimerIfNotActive"></TimeTrackerRangeSelector>
+            </div>
             <div
-                class="flex max-w-[min(260px,calc(100vw-2rem))] min-w-[160px] flex-col items-center gap-1 px-2 text-center"
+                class="flex w-full min-w-0 flex-col items-center gap-1 text-center"
                 data-testid="timer_focus_context">
                 <div
                     v-if="timerProject || timerTask"
-                    class="flex max-w-full items-center justify-center gap-1.5 text-xs font-medium text-text-primary sm:text-sm">
-                    <span
-                        v-if="timerProjectForContext"
-                        class="h-2.5 w-2.5 shrink-0 rounded-full ring-1 ring-black/10 dark:ring-white/15"
-                        :style="{
-                            backgroundColor:
-                                timerProjectForContext.color ?? 'var(--theme-color-icon-default)',
-                        }"
-                        aria-hidden="true" />
-                    <span v-if="timerProject" class="min-w-0 truncate">{{ timerProject.name }}</span>
-                    <ChevronRightIcon
-                        v-if="timerProject && timerTask"
-                        class="h-4 w-4 shrink-0 text-text-secondary" />
-                    <span v-if="timerTask" class="min-w-0 truncate">{{ timerTask.name }}</span>
+                    class="w-full min-w-0 text-center text-xs font-medium text-text-primary sm:text-sm">
+                    <div
+                        class="inline-flex max-w-full min-w-0 items-center gap-1.5 text-left">
+                        <span
+                            v-if="timerProjectForContext"
+                            class="h-2.5 w-2.5 shrink-0 rounded-full ring-1 ring-black/10 dark:ring-white/15"
+                            :style="{
+                                backgroundColor:
+                                    timerProjectForContext.color ?? 'var(--theme-color-icon-default)',
+                            }"
+                            aria-hidden="true" />
+                        <span
+                            v-if="timerProject"
+                            :class="[
+                                'min-w-0 truncate',
+                                timerTask ? 'max-w-[min(14rem,45vw)] shrink-0 sm:max-w-[16rem]' : 'max-w-full',
+                            ]">
+                            {{ timerProject.name }}
+                        </span>
+                        <ChevronRightIcon
+                            v-if="timerProject && timerTask"
+                            class="h-4 w-4 shrink-0 text-text-secondary" />
+                        <span
+                            v-if="timerTask"
+                            :class="[
+                                'min-w-0 truncate',
+                                timerProject ? 'flex-1 basis-0' : 'max-w-full',
+                            ]">
+                            {{ timerTask.name }}
+                        </span>
+                    </div>
                 </div>
                 <p v-else class="text-sm text-text-tertiary">Add a project or task</p>
                 <p
@@ -1050,6 +1075,7 @@ function onOpenTimerFocusClick(e: MouseEvent) {
         :enable-estimated-time="enableEstimatedTime"
         :organization-billable-rate="organizationBillableRate"
         :currency="currency"
+        :workspace-currencies="workspaceCurrencies"
         :clients="clients"
         :create-project="quickCreateProject"></ProjectCreateModal>
     <TaskCreateModal

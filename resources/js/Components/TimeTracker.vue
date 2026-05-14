@@ -209,7 +209,7 @@ const noteContextTaskName = computed(() => {
     <div
         :class="[
             'relative',
-            variant === 'default' ? 'pt-1.5' : 'w-full max-w-3xl mx-auto pt-0',
+            variant === 'default' ? 'pt-1.5' : 'w-full max-w-5xl mx-auto pt-0',
         ]">
         <TimeTrackerRunningInDifferentOrganizationOverlay
             v-if="isRunningInDifferentOrganization"
@@ -234,6 +234,7 @@ const noteContextTaskName = computed(() => {
                         :can-create-project="canCreateProjects()"
                         :can-create-task="canCreateTasks()"
                         :can-add-note="canAccessTimerNotes && variant !== 'focus'"
+                        :workspace-currencies="organization?.currencies ?? []"
                         :organization-billable-rate="organization?.billable_rate ?? null"
                         :create-client
                         :clients
